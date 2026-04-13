@@ -15,14 +15,20 @@ export function Navbar() {
   const currentSymbol = useAppStore((s) => s.currentSymbol)
 
   return (
-    <header className="h-12 bg-gray-900/95 backdrop-blur border-b border-gray-800 flex items-center px-4 gap-4 shrink-0 z-10">
+    <header className="h-12 bg-gray-950/90 backdrop-blur-md border-b border-gray-800/80 flex items-center px-4 gap-4 shrink-0 z-10">
       {/* Logo */}
       <Link
         href="/"
-        className="flex items-center gap-2 text-gray-100 font-bold text-sm whitespace-nowrap shrink-0 hover:text-blue-400 transition-colors"
+        className="flex items-center gap-2 shrink-0 group"
       >
-        <span className="text-blue-400 text-base leading-none">▶</span>
-        <span>复盘助手</span>
+        <span className="flex items-center justify-center w-6 h-6 rounded bg-blue-600/20 border border-blue-500/30 group-hover:bg-blue-600/30 group-hover:border-blue-500/50 transition-all">
+          <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        </span>
+        <span className="text-sm font-semibold text-gray-200 group-hover:text-gray-100 transition-colors whitespace-nowrap">
+          复盘助手
+        </span>
       </Link>
 
       <div className="w-px h-5 bg-gray-800 shrink-0" />
@@ -34,29 +40,35 @@ export function Navbar() {
 
       {/* 当前标的快捷跳转 */}
       {currentSymbol && (
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="text-xs text-gray-600 mr-1 hidden sm:block">{currentSymbol}</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-xs text-gray-600 mr-0.5 hidden sm:block font-mono">{currentSymbol}</span>
           <Link
             href={`/chart/${encodeURIComponent(currentSymbol)}`}
             className={clsx(
-              'text-xs px-2.5 py-1 rounded transition-colors',
+              'relative text-xs px-2.5 py-1 rounded transition-all',
               pathname.startsWith('/chart')
-                ? 'bg-gray-700 text-gray-100'
-                : 'text-gray-400 hover:text-gray-100 bg-gray-800 hover:bg-gray-700'
+                ? 'text-gray-100 bg-gray-800 border border-gray-700'
+                : 'text-gray-500 hover:text-gray-200 hover:bg-gray-800/60 border border-transparent'
             )}
           >
             图表
+            {pathname.startsWith('/chart') && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-px bg-gray-400 rounded-full" />
+            )}
           </Link>
           <Link
             href={`/replay/${encodeURIComponent(currentSymbol)}`}
             className={clsx(
-              'text-xs px-2.5 py-1 rounded transition-colors',
+              'relative text-xs px-2.5 py-1 rounded transition-all',
               pathname.startsWith('/replay')
-                ? 'bg-blue-600 text-white'
-                : 'text-blue-400 hover:text-blue-300 bg-blue-900/30 hover:bg-blue-900/50'
+                ? 'bg-blue-600/90 text-white border border-blue-500/50'
+                : 'text-blue-400 hover:text-blue-300 border border-blue-800/50 hover:border-blue-600/50 hover:bg-blue-900/20'
             )}
           >
             复盘
+            {pathname.startsWith('/replay') && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-px bg-blue-300 rounded-full" />
+            )}
           </Link>
         </div>
       )}
@@ -68,10 +80,10 @@ export function Navbar() {
             key={link.href}
             href={link.href}
             className={clsx(
-              'text-sm px-3 py-1.5 rounded transition-colors',
+              'text-xs px-3 py-1.5 rounded transition-all border',
               pathname === link.href
-                ? 'text-gray-100 bg-gray-800'
-                : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
+                ? 'text-gray-200 bg-gray-800/80 border-gray-700'
+                : 'text-gray-500 hover:text-gray-200 hover:bg-gray-800/50 border-transparent'
             )}
           >
             {link.label}

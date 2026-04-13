@@ -47,7 +47,6 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
     loadingMoreRef.current = false
   }, [symbol, timeframe])
 
-  // ── 初始 K线 ────────────────────────────────────────────────────────────────
   const {
     data: initialData,
     isLoading: candlesLoading,
@@ -66,7 +65,6 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
     }
   }, [initialData])
 
-  // ── 报价 ─────────────────────────────────────────────────────────────────────
   const { data: quote } = useQuery({
     queryKey: ['quote', symbol],
     queryFn: () => getQuote(symbol),
@@ -74,7 +72,6 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
     retry: 1,
   })
 
-  // ── 自选 ─────────────────────────────────────────────────────────────────────
   const { data: watchlistData } = useQuery<{ items: WatchlistItem[] }>({
     queryKey: ['watchlist'],
     queryFn: () => getWatchlist(),
@@ -99,13 +96,11 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
     },
   })
 
-  // ── 指标 ─────────────────────────────────────────────────────────────────────
   const indicators: Indicators = useMemo(
     () => (allCandles.length ? calculateIndicators(allCandles) : EMPTY_IND),
     [allCandles]
   )
 
-  // ── 动态加载更早历史 ──────────────────────────────────────────────────────────
   const loadMoreCandles = useCallback(async () => {
     if (loadingMoreRef.current || !hasMore || !allCandles.length) return
     loadingMoreRef.current = true
@@ -147,11 +142,10 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
 
   return (
     <div className="flex flex-col h-full gap-3">
-      {/* ── 顶部信息栏 ──────────────────────────────────────────────────────────── */}
+      {/* 顶部信息栏 */}
       <div className="flex items-center flex-wrap gap-x-3 gap-y-2 shrink-0">
-        {/* 标的信息 */}
         <div className="min-w-0">
-          <h1 className="text-base font-bold font-mono text-gray-100 leading-none">{symbol}</h1>
+          <h1 className="text-base font-bold font-mono text-gray-100 leading-none tracking-wide">{symbol}</h1>
           {quote?.name && <p className="text-xs text-gray-600 mt-0.5 truncate">{quote.name}</p>}
         </div>
 
@@ -160,16 +154,16 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
         <div className="flex-1" />
 
         {/* 周期切换 */}
-        <div className="flex items-center gap-0.5 bg-gray-900 border border-gray-800 rounded-md p-0.5">
+        <div className="flex items-center gap-0.5 bg-gray-900/80 border border-gray-800/80 rounded-lg p-0.5">
           {TIMEFRAMES.map(tf => (
             <button
               key={tf.value}
               onClick={() => setTimeframe(tf.value)}
               className={clsx(
-                'px-2.5 py-1 text-xs rounded transition-colors',
+                'px-2.5 py-1 text-xs rounded-md transition-all',
                 timeframe === tf.value
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-500 hover:text-gray-200 hover:bg-gray-800'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-200 hover:bg-gray-800'
               )}
             >
               {tf.label}
@@ -182,10 +176,10 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
           onClick={() => setLogScale(v => !v)}
           title="切换对数坐标"
           className={clsx(
-            'text-xs px-2 py-1 rounded border transition-colors',
+            'text-xs px-2 py-1 rounded-md border transition-all',
             logScale
-              ? 'border-blue-500 text-blue-400 bg-blue-500/10'
-              : 'border-gray-700 text-gray-600 hover:text-gray-300 hover:border-gray-600'
+              ? 'border-blue-500/50 text-blue-400 bg-blue-500/8'
+              : 'border-gray-700/60 text-gray-600 hover:text-gray-300 hover:border-gray-600'
           )}
         >
           Log
@@ -198,10 +192,10 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
           onClick={() => addMutation.mutate()}
           disabled={isInWatchlist || addMutation.isPending}
           className={clsx(
-            'text-xs px-2.5 py-1 rounded border transition-colors',
+            'text-xs px-2.5 py-1 rounded-md border transition-all',
             isInWatchlist
               ? 'border-gray-800 text-gray-600 cursor-default'
-              : 'border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600 hover:bg-gray-800'
+              : 'border-gray-700/60 text-gray-500 hover:text-gray-200 hover:border-gray-600 hover:bg-gray-800/60'
           )}
         >
           {addedMsg || (isInWatchlist ? '✓ 已自选' : '+ 自选')}
@@ -210,24 +204,24 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
         {/* 跳转复盘 */}
         <Link
           href={`/replay/${encodeURIComponent(symbol)}`}
-          className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded transition-colors"
+          className="text-xs bg-blue-600/90 hover:bg-blue-500 text-white px-3 py-1 rounded-md transition-all border border-blue-500/30"
         >
           复盘模式 →
         </Link>
       </div>
 
-      {/* ── 图表区 ──────────────────────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+      {/* 图表区 */}
+      <div className="flex-1 min-h-0 bg-gray-900/60 border border-gray-800/80 rounded-lg overflow-hidden">
         {candlesLoading && (
-          <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-500">
-            <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm">加载 {symbol} · {timeframe}...</span>
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-600">
+            <div className="w-7 h-7 border-2 border-blue-500/60 border-t-blue-400 rounded-full animate-spin" />
+            <span className="text-xs font-mono">加载 {symbol} · {timeframe}...</span>
           </div>
         )}
 
         {errMsg && (
-          <div className="h-full flex flex-col items-center justify-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-red-400/10 flex items-center justify-center mb-1">
+          <div className="h-full flex flex-col items-center justify-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-400/8 border border-red-900/30 flex items-center justify-center">
               <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                   d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />

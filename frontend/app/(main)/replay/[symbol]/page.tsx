@@ -174,27 +174,27 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
   return (
     <div className="flex flex-col h-full gap-3">
       {/* ── 顶部栏 ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4 shrink-0 flex-wrap">
+      <div className="flex items-center gap-3 shrink-0 flex-wrap">
         <div>
-          <h1 className="text-lg font-bold font-mono text-gray-100 leading-none">
+          <h1 className="text-base font-bold font-mono text-gray-100 leading-none tracking-wide">
             {symbol}
           </h1>
-          <p className="text-xs text-blue-400 mt-0.5">复盘模式</p>
+          <p className="text-xs text-blue-400/80 mt-0.5 font-medium">复盘模式</p>
         </div>
 
         <div className="flex-1" />
 
         {/* 周期选择 */}
-        <div className="flex items-center gap-0.5 bg-gray-900 border border-gray-800 rounded-md p-1">
+        <div className="flex items-center gap-0.5 bg-gray-900/80 border border-gray-800/80 rounded-lg p-0.5">
           {TIMEFRAMES.map(tf => (
             <button
               key={tf.value}
               onClick={() => setTimeframe(tf.value)}
               className={clsx(
-                'px-2.5 py-1 text-xs rounded transition-colors',
+                'px-2.5 py-1 text-xs rounded-md transition-all',
                 timeframe === tf.value
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-200 hover:bg-gray-800'
               )}
             >
               {tf.label}
@@ -206,10 +206,10 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
         <button
           onClick={() => setLogScale(v => !v)}
           className={clsx(
-            'text-xs px-2.5 py-1.5 rounded border transition-colors',
+            'text-xs px-2 py-1 rounded-md border transition-all',
             logScale
-              ? 'border-blue-500 text-blue-400 bg-blue-900/20'
-              : 'border-gray-700 text-gray-500 hover:text-gray-300'
+              ? 'border-blue-500/50 text-blue-400 bg-blue-500/8'
+              : 'border-gray-700/60 text-gray-600 hover:text-gray-300 hover:border-gray-600'
           )}
         >
           Log
@@ -218,7 +218,7 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
         {/* 跳回图表 */}
         <Link
           href={`/chart/${encodeURIComponent(symbol)}`}
-          className="text-xs text-gray-400 hover:text-gray-200 bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded transition-colors"
+          className="text-xs text-gray-500 hover:text-gray-200 bg-gray-800/60 hover:bg-gray-700 px-3 py-1 rounded-md transition-all border border-gray-700/40"
         >
           ← 图表
         </Link>
@@ -228,7 +228,7 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
       <div className="flex flex-1 min-h-0 gap-3">
 
         {/* 左侧：图表 + 控制栏 */}
-        <div className="flex flex-col flex-1 min-w-0 bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+        <div className="flex flex-col flex-1 min-w-0 bg-gray-900/60 border border-gray-800/80 rounded-lg overflow-hidden">
           {/* 图表区 */}
           <div className="flex-1 min-h-0">
             {isLoading && (
@@ -285,7 +285,7 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
         </div>
 
         {/* 右侧：复盘笔记 */}
-        <div className="w-72 shrink-0 rounded-lg overflow-hidden border border-gray-800">
+        <div className="w-72 shrink-0 rounded-lg overflow-hidden border border-gray-800/80">
           <ReplayNoteForm
             symbol={symbol}
             timeframe={timeframe}
