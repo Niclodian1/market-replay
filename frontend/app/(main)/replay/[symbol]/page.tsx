@@ -61,6 +61,8 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const setCurrentSymbol = useAppStore(s => s.setCurrentSymbol)
+  const maPeriods    = useAppStore(s => s.maPeriods)
+  const setMaPeriods = useAppStore(s => s.setMaPeriods)
 
   useEffect(() => {
     setCurrentSymbol(symbol)
@@ -97,8 +99,8 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
   }, [allCandles, isReplaying, cursorIndex])
 
   const indicators: Indicators = useMemo(
-    () => (visibleCandles.length ? calculateIndicators(visibleCandles) : EMPTY_IND),
-    [visibleCandles]
+    () => (visibleCandles.length ? calculateIndicators(visibleCandles, maPeriods[0], maPeriods[1]) : EMPTY_IND),
+    [visibleCandles, maPeriods]
   )
 
   const currentCandle = isReplaying ? allCandles[cursorIndex] ?? null : null
@@ -255,6 +257,8 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
                 candles={visibleCandles}
                 indicators={indicators}
                 logScale={logScale}
+                maPeriods={maPeriods}
+                onMaPeriodsChange={setMaPeriods}
                 replayMode={true}
                 fitTrigger={fitTrigger}
               />

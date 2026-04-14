@@ -95,14 +95,14 @@ function r5(v: number) {
   return Math.round(v * 100000) / 100000
 }
 
-export function calculateIndicators(candles: Candle[]): Indicators {
+export function calculateIndicators(candles: Candle[], period1 = 30, period2 = 60): Indicators {
   if (!candles.length) return { ma20: [], ma60: [], rsi: [], macd: [] }
 
   const closes = candles.map(c => c.close)
   const times  = candles.map(c => c.time)
 
-  const ma20Vals = sma(closes, 20)
-  const ma60Vals = sma(closes, 60)
+  const ma20Vals = sma(closes, period1)
+  const ma60Vals = sma(closes, period2)
   const rsiVals  = rsi(closes, 14)
   const { macdLine, signalLine, histogram } = macd(closes)
 

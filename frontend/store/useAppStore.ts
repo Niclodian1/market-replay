@@ -22,6 +22,15 @@ interface AppState {
   setReplayActive: (active: boolean) => void
   replayCursorIndex: number
   setReplayCursorIndex: (idx: number) => void
+
+  // 均线周期（两条可自定义）
+  maPeriods: [number, number]
+  setMaPeriods: (periods: [number, number]) => void
+
+  // 首页自选个股
+  homepageStocks: string[]
+  addHomepageStock: (symbol: string) => void
+  removeHomepageStock: (symbol: string) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -50,13 +59,29 @@ export const useAppStore = create<AppState>()(
       setReplayActive: (active) => set({ replayActive: active }),
       replayCursorIndex: 0,
       setReplayCursorIndex: (idx) => set({ replayCursorIndex: idx }),
+
+      maPeriods: [30, 60],
+      setMaPeriods: (periods) => set({ maPeriods: periods }),
+
+      homepageStocks: ['GOOGL', 'NVDA', 'CRCL'],
+      addHomepageStock: (symbol) =>
+        set((state) => ({
+          homepageStocks: state.homepageStocks.includes(symbol)
+            ? state.homepageStocks
+            : [...state.homepageStocks, symbol],
+        })),
+      removeHomepageStock: (symbol) =>
+        set((state) => ({
+          homepageStocks: state.homepageStocks.filter((s) => s !== symbol),
+        })),
     }),
     {
       name: 'market-replay-store',
-      // 只持久化自选列表和周期偏好
       partialize: (state) => ({
         watchlist: state.watchlist,
         currentTimeframe: state.currentTimeframe,
+        maPeriods: state.maPeriods,
+        homepageStocks: state.homepageStocks,
       }),
     }
   )

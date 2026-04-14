@@ -59,7 +59,7 @@ const PRESET_COLORS = [
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type SeriesStore = {
-  main:   IChartApi | null; vol:  IChartApi | null
+  main:   IChartApi | null
   rsi:    IChartApi | null; macd: IChartApi | null
   candle: ISeriesApi<'Candlestick'> | null
   ma20:   ISeriesApi<'Line'> | null; ma60:    ISeriesApi<'Line'> | null
@@ -72,6 +72,8 @@ interface Props {
   candles: Candle[]
   indicators: Indicators
   logScale: boolean
+  maPeriods?: [number, number]
+  onMaPeriodsChange?: (p: [number, number]) => void
   isLoadingMore?: boolean
   onScrollToLeft?: () => void
   replayMode?: boolean
@@ -117,18 +119,24 @@ function lighten(hex: string): string {
 
 export function CandlestickChart({
   candles, indicators, logScale,
+  maPeriods = [30, 60], onMaPeriodsChange,
   isLoadingMore, onScrollToLeft,
   replayMode, fitTrigger,
 }: Props) {
   // DOM refs
   const mainWrapRef = useRef<HTMLDivElement>(null)
   const mainRef     = useRef<HTMLDivElement>(null)
-  const volRef      = useRef<HTMLDivElement>(null)
   const rsiRef      = useRef<HTMLDivElement>(null)
   const macdRef     = useRef<HTMLDivElement>(null)
 
+  // MA period local editing state
+  const [localP1, setLocalP1] = useState(maPeriods[0])
+  const [localP2, setLocalP2] = useState(maPeriods[1])
+  // sync local state when prop changes externally
+  useEffect(() => { setLocalP1(maPeriods[0]); setLocalP2(maPeriods[1]) }, [maPeriods[0], maPeriods[1]])
+
   const s = useRef<SeriesStore>({
-    main: null, vol: null, rsi: null, macd: null,
+    main: null, rsi: null, macd: null,
     candle: null, ma20: null, ma60: null,
     volume: null, rsiL: null, hist: null, macdL: null, sigL: null,
   })
@@ -321,13 +329,12 @@ export function CandlestickChart({
 
   // ── 图表初始化（只运行一次） ──────────────────────────────────────────────
   useEffect(() => {
-    if (!mainRef.current || !volRef.current || !rsiRef.current || !macdRef.current) return
+    if (!mainRef.current || !rsiRef.current || !macdRef.current) return
 
     const make = (el: HTMLDivElement, showTS: boolean) =>
       createChart(el, { ...THEME, width: el.clientWidth, height: el.clientHeight, timeScale: showTS ? TS_SHOW : TS_HIDE })
 
     const main  = make(mainRef.current, false)
-    const vol   = make(volRef.current,  false)
     const rsiC  = make(rsiRef.current,  false)
     const macdC = make(macdRef.current, true)
 
@@ -338,8 +345,9 @@ export function CandlestickChart({
     })
     const ma20s = main.addLineSeries({ color: '#60a5fa', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false })
     const ma60s = main.addLineSeries({ color: '#f97316', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false })
-    const volumeS = vol.addHistogramSeries({ priceScaleId: 'vol', priceFormat: { type: 'volume' } })
-    vol.priceScale('vol').applyOptions({ scaleMargins: { top: 0.1, bottom: 0 } })
+    // 成交量叠加在主图底部（独立价格轴，不显示刻度）
+    const volumeS = main.addHistogramSeries({ priceScaleId: 'vol', priceFormat: { type: 'volume' } })
+    main.priceScale('vol').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 }, visible: false })
     const rsiL = rsiC.addLineSeries({ color: '#a78bfa', lineWidth: 1, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false })
     rsiL.createPriceLine({ price: 70, color: '#ef4444', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '70' })
     rsiL.createPriceLine({ price: 50, color: '#6b7280', lineWidth: 1, lineStyle: 2, axisLabelVisible: false })
@@ -348,10 +356,10 @@ export function CandlestickChart({
     const macdL = macdC.addLineSeries({ color: '#60a5fa', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false })
     const sigL  = macdC.addLineSeries({ color: '#f97316', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false })
 
-    s.current = { main, vol, rsi: rsiC, macd: macdC, candle, ma20: ma20s, ma60: ma60s, volume: volumeS, rsiL, hist: histS, macdL, sigL }
+    s.current = { main, rsi: rsiC, macd: macdC, candle, ma20: ma20s, ma60: ma60s, volume: volumeS, rsiL, hist: histS, macdL, sigL }
 
     // 同步时间轴
-    const allCharts: IChartApi[] = [main, vol, rsiC, macdC]
+    const allCharts: IChartApi[] = [main, rsiC, macdC]
     allCharts.forEach((chart, idx) => {
       chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
         if (!range) return
@@ -376,7 +384,7 @@ export function CandlestickChart({
     // Resize
     const ro = new ResizeObserver(() => {
       const pairs: Array<[{ current: HTMLDivElement | null }, IChartApi]> = [
-        [mainRef, main], [volRef, vol], [rsiRef, rsiC], [macdRef, macdC],
+        [mainRef, main], [rsiRef, rsiC], [macdRef, macdC],
       ]
       pairs.forEach(([ref, chart]) => {
         if (ref.current) chart.applyOptions({ width: ref.current.clientWidth, height: ref.current.clientHeight })
@@ -388,7 +396,7 @@ export function CandlestickChart({
     return () => {
       ro.disconnect()
       allCharts.forEach(c => c.remove())
-      s.current = { main: null, vol: null, rsi: null, macd: null, candle: null, ma20: null, ma60: null, volume: null, rsiL: null, hist: null, macdL: null, sigL: null }
+      s.current = { main: null, rsi: null, macd: null, candle: null, ma20: null, ma60: null, volume: null, rsiL: null, hist: null, macdL: null, sigL: null }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -591,8 +599,29 @@ export function CandlestickChart({
     <div className="flex flex-col h-full">
       {/* 图例 + 画线工具栏 */}
       <div className="flex items-center gap-2 px-3 py-1 text-xs text-gray-500 shrink-0 border-b border-gray-800 flex-wrap">
-        <span className="flex items-center gap-1 shrink-0"><span className="w-3 h-0.5 bg-blue-400 inline-block" />MA20</span>
-        <span className="flex items-center gap-1 shrink-0"><span className="w-3 h-0.5 bg-orange-400 inline-block" />MA60</span>
+        <span className="flex items-center gap-1 shrink-0">
+          <span className="w-3 h-0.5 bg-blue-400 inline-block" />
+          <span className="text-blue-400/70">MA</span>
+          <input
+            type="number" min={2} max={999} value={localP1}
+            className="w-9 bg-transparent text-blue-400 text-xs border-b border-blue-400/40 text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            onChange={e => setLocalP1(Math.max(2, Math.min(999, +e.target.value || 2)))}
+            onBlur={() => onMaPeriodsChange?.([localP1, localP2])}
+            onKeyDown={e => e.key === 'Enter' && onMaPeriodsChange?.([localP1, localP2])}
+          />
+        </span>
+        <span className="flex items-center gap-1 shrink-0">
+          <span className="w-3 h-0.5 bg-orange-400 inline-block" />
+          <span className="text-orange-400/70">MA</span>
+          <input
+            type="number" min={2} max={999} value={localP2}
+            className="w-9 bg-transparent text-orange-400 text-xs border-b border-orange-400/40 text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            onChange={e => setLocalP2(Math.max(2, Math.min(999, +e.target.value || 2)))}
+            onBlur={() => onMaPeriodsChange?.([localP1, localP2])}
+            onKeyDown={e => e.key === 'Enter' && onMaPeriodsChange?.([localP1, localP2])}
+          />
+        </span>
+        <span className="flex items-center gap-1 shrink-0 text-gray-600"><span className="w-2 h-2 rounded-sm bg-green-500/30 inline-block" />Vol</span>
         <div className="w-px h-4 bg-gray-800 shrink-0" />
 
         {/* 工具按钮 */}
@@ -696,12 +725,6 @@ export function CandlestickChart({
             </button>
           </div>
         )}
-      </div>
-
-      {/* Volume */}
-      <div className="border-t border-gray-800 shrink-0 flex flex-col" style={{ height: 76 }}>
-        <div className="px-2 text-[10px] text-gray-600 pt-0.5">Vol</div>
-        <div ref={volRef} className="flex-1" />
       </div>
 
       {/* RSI */}

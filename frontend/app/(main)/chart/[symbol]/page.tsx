@@ -35,6 +35,8 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
   const queryClient = useQueryClient()
 
   const setCurrentSymbol = useAppStore(s => s.setCurrentSymbol)
+  const maPeriods    = useAppStore(s => s.maPeriods)
+  const setMaPeriods = useAppStore(s => s.setMaPeriods)
 
   useEffect(() => {
     setCurrentSymbol(symbol)
@@ -97,8 +99,8 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
   })
 
   const indicators: Indicators = useMemo(
-    () => (allCandles.length ? calculateIndicators(allCandles) : EMPTY_IND),
-    [allCandles]
+    () => (allCandles.length ? calculateIndicators(allCandles, maPeriods[0], maPeriods[1]) : EMPTY_IND),
+    [allCandles, maPeriods]
   )
 
   const loadMoreCandles = useCallback(async () => {
@@ -242,6 +244,8 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
             candles={allCandles}
             indicators={indicators}
             logScale={logScale}
+            maPeriods={maPeriods}
+            onMaPeriodsChange={setMaPeriods}
             isLoadingMore={isLoadingMore}
             onScrollToLeft={loadMoreCandles}
           />
