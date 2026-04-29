@@ -65,5 +65,9 @@ class IndicatorsResponse(BaseModel):
     macd: list[MACDPoint]
 
 
+class BatchQuoteResponse(BaseModel):
+    quotes: list[Optional[QuoteResponse]]
+
+
 class ErrorResponse(BaseModel):
     detail: str

@@ -9,6 +9,8 @@ symbol 格式说明：
 """
 import asyncio
 import math
+import time
+from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -17,18 +19,25 @@ import yfinance as yf
 
 # ─── 内存缓存 ────────────────────────────────────────────────────────────────
 class _Cache:
-    def __init__(self) -> None:
-        self._store: dict[str, tuple[Any, float]] = {}
+    def __init__(self, maxsize: int = 256) -> None:
+        self._store: OrderedDict[str, tuple[Any, float]] = OrderedDict()
+        self._maxsize = maxsize
 
     def get(self, key: str, ttl: int = 60) -> Optional[Any]:
-        import time
         entry = self._store.get(key)
-        if entry and time.time() - entry[1] < ttl:
-            return entry[0]
-        return None
+        if entry is None:
+            return None
+        if time.time() - entry[1] >= ttl:
+            del self._store[key]
+            return None
+        self._store.move_to_end(key)
+        return entry[0]
 
     def set(self, key: str, value: Any) -> None:
-        import time
+        if key in self._store:
+            self._store.move_to_end(key)
+        elif len(self._store) >= self._maxsize:
+            self._store.popitem(last=False)
         self._store[key] = (value, time.time())
 
 
@@ -160,14 +169,37 @@ class YahooFinanceProvider:
 
         def _do() -> dict:
             ticker = yf.Ticker(yf_sym)
-            fi = ticker.fast_info
 
-            price = float(getattr(fi, "last_price", 0) or 0)
-            prev  = float(getattr(fi, "previous_close", price) or price)
-            change   = price - prev
-            chg_pct  = (change / prev * 100) if prev else 0.0
+            # ── 尝试 fast_info ────────────────────────────────────────────
+            price, prev, volume = 0.0, 0.0, 0
+            try:
+                fi    = ticker.fast_info
+                price = float(getattr(fi, "last_price", None) or 0)
+                prev  = float(getattr(fi, "previous_close", None) or 0)
+                volume = int(getattr(fi, "regular_market_volume", 0) or 0)
+            except Exception:
+                pass
 
-            # 尝试获取名称（fast_info 不含名称，从 info 拿，失败则用 symbol）
+            # ── fallback: 用最近两根日线 K 线推算 ──────────────────────────
+            if price == 0:
+                try:
+                    hist = ticker.history(period="5d", interval="1d", auto_adjust=True)
+                    if not hist.empty:
+                        closes = hist["Close"].dropna().tolist()
+                        if closes:
+                            price = float(closes[-1])
+                            prev  = float(closes[-2]) if len(closes) >= 2 else price
+                            volume = int(hist["Volume"].iloc[-1]) if "Volume" in hist.columns else 0
+                except Exception:
+                    pass
+
+            if price == 0:
+                raise ValueError(f"无法获取 {symbol} 的报价数据，请确认 symbol 格式正确")
+
+            change  = price - prev
+            chg_pct = (change / prev * 100) if prev else 0.0
+
+            # ── 尝试获取名称 ──────────────────────────────────────────────
             name = yf_sym
             try:
                 info = ticker.info
@@ -181,7 +213,7 @@ class YahooFinanceProvider:
                 "price":          round(price, 6),
                 "change":         round(change, 6),
                 "change_percent": round(chg_pct, 4),
-                "volume":         int(getattr(fi, "regular_market_volume", 0) or 0),
+                "volume":         volume,
                 "timestamp":      datetime.now(timezone.utc).isoformat(),
             }
 
@@ -246,6 +278,214 @@ class YahooFinanceProvider:
 
         _cache.set(cache_key, candles)
         return candles[-outputsize:]
+
+
+    # ── 增量拉取（从指定时间戳之后） ─────────────────────────────────────────
+    async def get_time_series_since(
+        self,
+        symbol: str,
+        interval: str,
+        since_ts: int,
+    ) -> list[dict]:
+        """拉取 since_ts 之后的 K 线（用于增量同步）。"""
+        from datetime import timedelta
+
+        yf_sym = _normalize(symbol)
+        yf_interval = _INTERVAL_MAP.get(interval, "1d")
+
+        def _do() -> pd.DataFrame:
+            ticker = yf.Ticker(yf_sym)
+            start_dt = datetime.fromtimestamp(since_ts, tz=timezone.utc)
+            # 多拉一天避免边界遗漏
+            end_dt = datetime.now(timezone.utc) + timedelta(days=1)
+            return ticker.history(
+                start=start_dt,
+                end=end_dt,
+                interval=yf_interval,
+                auto_adjust=True,
+                prepost=False,
+            )
+
+        df = await asyncio.to_thread(_do)
+        if df is None or df.empty:
+            return []
+
+        candles = _df_to_candles(df)
+        if interval == "4h":
+            candles = _aggregate_to_4h(candles)
+        # 只返回严格晚于 since_ts 的数据，避免重复最后一根
+        return [c for c in candles if c["time"] > since_ts]
+
+    # ── 全量拉取（供首次同步使用） ────────────────────────────────────────────
+    # 全量拉取使用尽可能长的历史，受 yfinance 各周期最大限制约束
+    # 1h/4h 数据 yfinance 只提供最近 2 年，日线/周线可拉 max
+    _FULL_PERIOD_MAP: dict[str, str] = {
+        "1h":    "2y",
+        "4h":    "2y",
+        "1day":  "max",
+        "1week": "max",
+    }
+
+    async def get_full_history(self, symbol: str, interval: str) -> list[dict]:
+        """拉取尽可能长的历史数据（不限 outputsize）。"""
+        yf_sym = _normalize(symbol)
+        yf_interval = _INTERVAL_MAP.get(interval, "1d")
+        yf_period   = self._FULL_PERIOD_MAP.get(interval, "max")
+
+        def _do() -> pd.DataFrame:
+            ticker = yf.Ticker(yf_sym)
+            return ticker.history(
+                period=yf_period,
+                interval=yf_interval,
+                auto_adjust=True,
+                prepost=False,
+            )
+
+        df = await asyncio.to_thread(_do)
+        if df is None or df.empty:
+            raise ValueError(f"未找到 {symbol} 的数据，请确认 symbol 格式正确")
+
+        candles = _df_to_candles(df)
+        if interval == "4h":
+            candles = _aggregate_to_4h(candles)
+        return candles
+
+    # ── 批量报价（一次 HTTP 请求获取多个标的，大幅优于逐个 get_quote） ──────────────
+    async def get_quotes_batch(self, symbols: list[str]) -> list[Optional[dict]]:
+        """用 yf.download 一次性拉取多个标的的最近 5 天日线，速度远快于逐个 get_quote。"""
+        if not symbols:
+            return []
+
+        results: dict[str, Optional[dict]] = {}
+        need_fetch: list[str] = []
+        for sym in symbols:
+            yf_sym = _normalize(sym)
+            cache_key = f"yf:quote:{yf_sym}"
+            cached = _cache.get(cache_key, ttl=30)
+            if cached is not None:
+                results[sym] = cached
+            else:
+                need_fetch.append(sym)
+
+        if need_fetch:
+            yf_syms = [_normalize(s) for s in need_fetch]
+
+            def _do() -> pd.DataFrame:
+                return yf.download(
+                    tickers=yf_syms,
+                    period="5d",
+                    interval="1d",
+                    auto_adjust=True,
+                    progress=False,
+                    threads=True,
+                    group_by="ticker",
+                )
+
+            df = await asyncio.to_thread(_do)
+
+            for orig_sym, yf_sym in zip(need_fetch, yf_syms):
+                try:
+                    if df.columns.nlevels >= 2 and yf_sym in df.columns.get_level_values(0):
+                        sub = df[yf_sym]
+                    elif df.columns.nlevels < 2:
+                        sub = df
+                    else:
+                        sub = None
+
+                    if sub is None or sub.empty:
+                        results[orig_sym] = None
+                        continue
+
+                    closes = sub["Close"].dropna()
+                    if closes.empty:
+                        results[orig_sym] = None
+                        continue
+
+                    price = float(closes.iloc[-1])
+                    prev = float(closes.iloc[-2]) if len(closes) >= 2 else price
+                    vol_series = sub.get("Volume")
+                    try:
+                        raw_vol = vol_series.iloc[-1] if vol_series is not None and not vol_series.empty else 0
+                        volume = int(raw_vol) if raw_vol == raw_vol else 0  # NaN check
+                    except (ValueError, TypeError):
+                        volume = 0
+
+                    change = price - prev
+                    chg_pct = (change / prev * 100) if prev else 0.0
+
+                    name_key = f"yf:name:{yf_sym}"
+                    name = _cache.get(name_key, ttl=86400) or orig_sym
+
+                    quote = {
+                        "symbol": orig_sym,
+                        "name": name,
+                        "price": round(price, 6),
+                        "change": round(change, 6),
+                        "change_percent": round(chg_pct, 4),
+                        "volume": volume,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                    _cache.set(f"yf:quote:{yf_sym}", quote)
+                    results[orig_sym] = quote
+                except Exception:
+                    results[orig_sym] = None
+
+            missing_names = [
+                (orig, _normalize(orig))
+                for orig in need_fetch
+                if results.get(orig) and _cache.get(f"yf:name:{_normalize(orig)}", ttl=86400) is None
+            ]
+            if missing_names:
+                asyncio.create_task(self._resolve_names(missing_names))
+
+        return [results.get(s) for s in symbols]
+
+    async def _resolve_names(self, pairs: list[tuple[str, str]]) -> None:
+        def _do():
+            for orig_sym, yf_sym in pairs:
+                try:
+                    ticker = yf.Ticker(yf_sym)
+                    info = ticker.info
+                    name = info.get("longName") or info.get("shortName") or orig_sym
+                    _cache.set(f"yf:name:{yf_sym}", name)
+                    cached_quote = _cache.get(f"yf:quote:{yf_sym}", ttl=30)
+                    if cached_quote and cached_quote.get("name") == orig_sym:
+                        cached_quote["name"] = name
+                        _cache.set(f"yf:quote:{yf_sym}", cached_quote)
+                except Exception:
+                    pass
+        await asyncio.to_thread(_do)
+
+    # ── 财报日期查询 ──────────────────────────────────────────────────────
+    _EARNINGS_NO_DATA = "__no_data__"
+
+    async def get_earnings_dates(self, symbols: list[str]) -> dict[str, Optional[str]]:
+        def _do() -> dict[str, Optional[str]]:
+            result = {}
+            for sym in symbols:
+                yf_sym = _normalize(sym)
+                cache_key = f"yf:earnings:{yf_sym}"
+                cached = _cache.get(cache_key, ttl=3600)
+                if cached is not None:
+                    result[sym] = None if cached == YahooFinanceProvider._EARNINGS_NO_DATA else cached
+                    continue
+                try:
+                    ticker = yf.Ticker(yf_sym)
+                    cal = ticker.calendar
+                    if cal is not None and isinstance(cal, dict):
+                        ed = cal.get("Earnings Date")
+                        if ed:
+                            date_val = ed[0] if isinstance(ed, list) else ed
+                            date_str = str(date_val)[:10]
+                            _cache.set(cache_key, date_str)
+                            result[sym] = date_str
+                            continue
+                    _cache.set(cache_key, YahooFinanceProvider._EARNINGS_NO_DATA)
+                    result[sym] = None
+                except Exception:
+                    result[sym] = None
+            return result
+        return await asyncio.to_thread(_do)
 
 
 # ─── 单例 ────────────────────────────────────────────────────────────────────

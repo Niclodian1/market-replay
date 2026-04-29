@@ -3,14 +3,13 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { clsx } from 'clsx'
 import { getCandles } from '@/lib/api'
-import { calculateIndicators } from '@/lib/indicators'
+import { calculateIndicators, elderImpulse } from '@/lib/indicators'
 import { CandlestickChart } from '@/components/chart/CandlestickChart'
 import { ReplayControls } from '@/components/ReplayControls'
 import { ReplayNoteForm } from '@/components/ReplayNoteForm'
 import { useAppStore } from '@/store/useAppStore'
-import type { Timeframe, Candle, Indicators } from '@/types'
+import type { Timeframe, Candle, Indicators, ImpulseColor } from '@/types'
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: '15m', value: '15min' },
@@ -20,14 +19,12 @@ const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: '1W',  value: '1week'},
 ]
 
-const EMPTY_IND: Indicators = { ma20: [], ma60: [], rsi: [], macd: [] }
+const EMPTY_IND: Indicators = { ma_lines: [], rsi: [], macd: [] }
 
-// 将 YYYY-MM-DD 日期字符串转为当天结束的 UTC 时间戳（23:59:59）
 function dateToEndTs(dateStr: string): number {
   return Math.floor(new Date(dateStr + 'T23:59:59Z').getTime() / 1000)
 }
 
-// 找到 <= ts 的最后一根 K 线的 index
 function findCursorIndex(candles: Candle[], ts: number): number {
   let idx = -1
   for (let i = 0; i < candles.length; i++) {
@@ -37,17 +34,20 @@ function findCursorIndex(candles: Candle[], ts: number): number {
   return Math.max(0, idx)
 }
 
-// 获取今天的默认起点日期（最近 1 年前）
 function defaultReplayDate(): string {
   const d = new Date()
   d.setFullYear(d.getFullYear() - 1)
   return d.toISOString().slice(0, 10)
 }
 
+function fmtDate(ts: number) {
+  const d = new Date(ts * 1000)
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+}
+
 export default function ReplayPage({ params }: { params: { symbol: string } }) {
   const symbol = decodeURIComponent(params.symbol)
 
-  // ── 基础状态 ─────────────────────────────────────────────────────────
   const [timeframe,    setTimeframe]   = useState<Timeframe>('1day')
   const [allCandles,   setAllCandles]  = useState<Candle[]>([])
   const [replayDate,   setReplayDate]  = useState(defaultReplayDate())
@@ -63,13 +63,13 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
   const setCurrentSymbol = useAppStore(s => s.setCurrentSymbol)
   const maPeriods    = useAppStore(s => s.maPeriods)
   const setMaPeriods = useAppStore(s => s.setMaPeriods)
+  const impulseEnabled = useAppStore(s => s.elderImpulse)
 
   useEffect(() => {
     setCurrentSymbol(symbol)
     return () => setCurrentSymbol(null)
   }, [symbol, setCurrentSymbol])
 
-  // 切换周期时重置复盘状态
   useEffect(() => {
     setIsReplaying(false)
     setIsPlaying(false)
@@ -78,34 +78,34 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
     setStartIndex(0)
   }, [symbol, timeframe])
 
-  // ── 加载全量 K线（复盘需要尽可能多的历史数据）──────────────────────
   const { data: candleData, isLoading, isError, error } = useQuery({
     queryKey: ['replay-candles', symbol, timeframe],
-    queryFn: () => getCandles(symbol, timeframe, 5000), // 5000 根覆盖日线约 20 年
+    queryFn: () => getCandles(symbol, timeframe, 5000),
     retry: 1,
     staleTime: 5 * 60_000,
   })
 
   useEffect(() => {
-    if (candleData?.candles?.length) {
-      setAllCandles(candleData.candles)
-    }
+    if (candleData?.candles?.length) setAllCandles(candleData.candles)
   }, [candleData])
 
-  // ── 复盘逻辑 ─────────────────────────────────────────────────────────
   const visibleCandles = useMemo((): Candle[] => {
     if (!isReplaying) return allCandles
     return allCandles.slice(0, cursorIndex + 1)
   }, [allCandles, isReplaying, cursorIndex])
 
   const indicators: Indicators = useMemo(
-    () => (visibleCandles.length ? calculateIndicators(visibleCandles, maPeriods[0], maPeriods[1]) : EMPTY_IND),
+    () => (visibleCandles.length ? calculateIndicators(visibleCandles, maPeriods) : EMPTY_IND),
     [visibleCandles, maPeriods]
+  )
+
+  const impulseColors: ImpulseColor[] | undefined = useMemo(
+    () => (impulseEnabled && visibleCandles.length ? elderImpulse(visibleCandles) : undefined),
+    [visibleCandles, impulseEnabled]
   )
 
   const currentCandle = isReplaying ? allCandles[cursorIndex] ?? null : null
 
-  // 开始复盘
   const handleStartReplay = useCallback(() => {
     if (!allCandles.length || !replayDate) return
     const ts  = dateToEndTs(replayDate)
@@ -114,55 +114,41 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
     setCursorIndex(idx)
     setIsReplaying(true)
     setIsPlaying(false)
-    setFitTrigger(v => v + 1)  // 触发 fitContent
+    setFitTrigger(v => v + 1)
   }, [allCandles, replayDate])
 
-  // 重置
   const handleReset = useCallback(() => {
     setIsPlaying(false)
     setCursorIndex(startIndex)
     setFitTrigger(v => v + 1)
   }, [startIndex])
 
-  // 下一根
   const handleNext = useCallback(() => {
     setCursorIndex(i => Math.min(i + 1, allCandles.length - 1))
   }, [allCandles.length])
 
-  // 上一根
   const handlePrev = useCallback(() => {
     setCursorIndex(i => Math.max(i - 1, startIndex))
   }, [startIndex])
 
-  // 自动播放
   useEffect(() => {
     if (isPlaying) {
       intervalRef.current = setInterval(() => {
         setCursorIndex(prev => {
-          if (prev >= allCandles.length - 1) {
-            setIsPlaying(false)
-            return prev
-          }
+          if (prev >= allCandles.length - 1) { setIsPlaying(false); return prev }
           return prev + 1
         })
       }, playSpeedMs)
     } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
     }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [isPlaying, playSpeedMs, allCandles.length])
 
-  // ── 错误信息 ─────────────────────────────────────────────────────────
   const errMsg = isError
     ? ((error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '数据加载失败')
     : null
 
-  // 复盘时间字符串
   const replayStartISO = useMemo(() => {
     if (!allCandles.length || !isReplaying) return ''
     return new Date(allCandles[startIndex].time * 1000).toISOString()
@@ -173,100 +159,83 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
     return new Date(currentCandle.time * 1000).toISOString()
   }, [currentCandle])
 
+  const totalSteps = allCandles.length - 1
+  const progress = totalSteps > 0 ? ((cursorIndex - startIndex) / Math.max(1, totalSteps - startIndex)) * 100 : 0
+
   return (
-    <div className="flex flex-col h-full gap-3">
-      {/* ── 顶部栏 ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 shrink-0 flex-wrap">
-        <div>
-          <h1 className="text-base font-bold font-mono text-gray-100 leading-none tracking-wide">
-            {symbol}
-          </h1>
-          <p className="text-xs text-blue-400/80 mt-0.5 font-medium">复盘模式</p>
-        </div>
-
-        <div className="flex-1" />
-
-        {/* 周期选择 */}
-        <div className="flex items-center gap-0.5 bg-gray-900/80 border border-gray-800/80 rounded-lg p-0.5">
-          {TIMEFRAMES.map(tf => (
-            <button
-              key={tf.value}
-              onClick={() => setTimeframe(tf.value)}
-              className={clsx(
-                'px-2.5 py-1 text-xs rounded-md transition-all',
-                timeframe === tf.value
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-200 hover:bg-gray-800'
+    <div className="page" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 0, overflow: 'hidden', height: '100%' }}>
+      {/* Left — chart + controls */}
+      <div style={{ borderRight: '1px solid var(--line-1)', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* Replay header */}
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line-1)', background: 'var(--bg-1)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          <div className="pulse" />
+          <div>
+            <div className="section-title" style={{ color: 'var(--accent)' }}>复盘模式 · REPLAY</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+              <span className="mono" style={{ fontSize: 15, fontWeight: 700, color: 'var(--fg-0)' }}>{symbol}</span>
+              <span className="chip">{timeframe.toUpperCase()}</span>
+              {isReplaying && currentCandle && (
+                <span className="mono" style={{ color: 'var(--fg-1)', fontSize: 12 }}>{fmtDate(currentCandle.time)}</span>
               )}
-            >
-              {tf.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Log 切换 */}
-        <button
-          onClick={() => setLogScale(v => !v)}
-          className={clsx(
-            'text-xs px-2 py-1 rounded-md border transition-all',
-            logScale
-              ? 'border-blue-500/50 text-blue-400 bg-blue-500/8'
-              : 'border-gray-700/60 text-gray-600 hover:text-gray-300 hover:border-gray-600'
-          )}
-        >
-          Log
-        </button>
-
-        {/* 跳回图表 */}
-        <Link
-          href={`/chart/${encodeURIComponent(symbol)}`}
-          className="text-xs text-gray-500 hover:text-gray-200 bg-gray-800/60 hover:bg-gray-700 px-3 py-1 rounded-md transition-all border border-gray-700/40"
-        >
-          ← 图表
-        </Link>
-      </div>
-
-      {/* ── 主体：图表 + 右侧笔记 ─────────────────────────────────────── */}
-      <div className="flex flex-1 min-h-0 gap-3">
-
-        {/* 左侧：图表 + 控制栏 */}
-        <div className="flex flex-col flex-1 min-w-0 bg-gray-900/60 border border-gray-800/80 rounded-lg overflow-hidden">
-          {/* 图表区 */}
-          <div className="flex-1 min-h-0">
-            {isLoading && (
-              <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-500">
-                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm">加载 {symbol} 全量历史数据...</span>
-              </div>
-            )}
-
-            {errMsg && (
-              <div className="h-full flex items-center justify-center text-red-400 text-sm px-4 text-center">
-                {errMsg}
-              </div>
-            )}
-
-            {!isLoading && !errMsg && allCandles.length === 0 && (
-              <div className="h-full flex items-center justify-center text-gray-500 text-sm">
-                暂无数据
-              </div>
-            )}
-
-            {allCandles.length > 0 && (
-              <CandlestickChart
-                candles={visibleCandles}
-                indicators={indicators}
-                logScale={logScale}
-                maPeriods={maPeriods}
-                onMaPeriodsChange={setMaPeriods}
-                replayMode={true}
-                fitTrigger={fitTrigger}
-              />
-            )}
+            </div>
           </div>
 
-          {/* 复盘控制栏 */}
+          <div style={{ flex: 1 }} />
+
+          <div className="tweak-segment">
+            {TIMEFRAMES.map(tf => (
+              <button key={tf.value} className={timeframe === tf.value ? 'on' : ''} onClick={() => setTimeframe(tf.value)}
+                style={{ minWidth: 40, fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                {tf.label}
+              </button>
+            ))}
+          </div>
+
+          <button className={`btn small${logScale ? '' : ' ghost'}`} onClick={() => setLogScale(v => !v)}>Log</button>
+          <Link href={`/chart/${encodeURIComponent(symbol)}`} className="btn small ghost">← 图表</Link>
+        </div>
+
+        {/* Chart area */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          {isLoading && (
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--fg-2)' }}>
+              <div style={{ width: 26, height: 26, border: '2.5px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+              <span className="mono" style={{ fontSize: 11.5 }}>加载历史数据…</span>
+            </div>
+          )}
+          {errMsg && (
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--down)', fontSize: 13 }}>
+              {errMsg}
+            </div>
+          )}
+          {!isLoading && !errMsg && allCandles.length === 0 && (
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg-3)', fontSize: 13 }}>
+              暂无数据
+            </div>
+          )}
           {allCandles.length > 0 && (
+            <CandlestickChart
+              candles={visibleCandles}
+              indicators={indicators}
+              logScale={logScale}
+              maPeriods={maPeriods}
+              onMaPeriodsChange={setMaPeriods}
+              replayMode={true}
+              fitTrigger={fitTrigger}
+              impulseColors={impulseColors}
+            />
+          )}
+        </div>
+
+        {/* Controls */}
+        {allCandles.length > 0 && (
+          <div style={{ padding: '10px 16px', background: 'var(--bg-1)', borderTop: '1px solid var(--line-1)', flexShrink: 0 }}>
+            {/* Progress bar */}
+            {isReplaying && (
+              <div style={{ position: 'relative', height: 5, background: 'var(--bg-2)', borderRadius: 3, marginBottom: 10, overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: progress + '%', background: 'linear-gradient(90deg, var(--accent-dim), var(--accent))', transition: 'width .3s' }} />
+              </div>
+            )}
             <ReplayControls
               isReplaying={isReplaying}
               isPlaying={isPlaying}
@@ -285,19 +254,21 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
               onReset={handleReset}
               onSpeedChange={setPlaySpeedMs}
             />
-          )}
-        </div>
-
-        {/* 右侧：复盘笔记 */}
-        <div className="w-72 shrink-0 rounded-lg overflow-hidden border border-gray-800/80">
-          <ReplayNoteForm
-            symbol={symbol}
-            timeframe={timeframe}
-            replayStartTime={replayStartISO}
-            currentTime={currentISO}
-          />
-        </div>
+          </div>
+        )}
       </div>
+
+      {/* Right — notes panel */}
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--bg-1)', overflow: 'hidden' }}>
+        <ReplayNoteForm
+          symbol={symbol}
+          timeframe={timeframe}
+          replayStartTime={replayStartISO}
+          currentTime={currentISO}
+        />
+      </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

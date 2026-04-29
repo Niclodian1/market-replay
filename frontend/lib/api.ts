@@ -39,10 +39,16 @@ export const searchSymbols = (query: string) =>
 export const getQuote = (symbol: string) =>
   apiClient.get('/api/market/quote', { params: { symbol } }).then((r) => r.data)
 
+export const getQuotes = (symbols: string[]) =>
+  apiClient.get('/api/market/quotes', { params: { symbols: symbols.join(',') } }).then((r) => r.data)
+
 export const getCandles = (symbol: string, timeframe: string, outputsize?: number, before?: number) =>
   apiClient
     .get('/api/market/candles', { params: { symbol, timeframe, outputsize, before } })
     .then((r) => r.data)
+
+export const getEarnings = (symbols: string[]) =>
+  apiClient.get('/api/market/earnings', { params: { symbols: symbols.join(',') } }).then((r) => r.data)
 
 export const getIndicators = (symbol: string, timeframe: string) =>
   apiClient
@@ -71,3 +77,33 @@ export const createReplayNote = (data: object) =>
 
 export const deleteReplayNote = (id: number) =>
   apiClient.delete(`/api/replay/notes/${id}`).then((r) => r.data)
+
+// ===== Alerts =====
+export const getAlerts = () =>
+  apiClient.get('/api/alerts').then((r) => r.data)
+
+export const createAlert = (data: object) =>
+  apiClient.post('/api/alerts', data).then((r) => r.data)
+
+export const updateAlert = (id: number, data: object) =>
+  apiClient.put(`/api/alerts/${id}`, data).then((r) => r.data)
+
+export const deleteAlert = (id: number) =>
+  apiClient.delete(`/api/alerts/${id}`).then((r) => r.data)
+
+export const testAlertWebhook = (id: number) =>
+  apiClient.post(`/api/alerts/${id}/test`).then((r) => r.data)
+
+// ===== Macro =====
+export const getEconomicCalendar = (daysAhead?: number) =>
+  apiClient.get('/api/macro/calendar', { params: { days_ahead: daysAhead } }).then((r) => r.data)
+
+// ===== Backtest =====
+export const runBacktest = (data: object) =>
+  apiClient.post('/api/backtest', data).then((r) => r.data)
+
+export const getBacktestDataRange = (symbol: string, timeframe: string) =>
+  apiClient.get('/api/backtest/data-range', { params: { symbol, timeframe } }).then((r) => r.data)
+
+export const runMtfBacktest = (data: object) =>
+  apiClient.post('/api/backtest/mtf', data).then((r) => r.data)

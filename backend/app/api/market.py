@@ -1,7 +1,8 @@
+import asyncio
 from typing import Optional
 from fastapi import APIRouter, Query, HTTPException
 from app.providers.yahoo_finance import get_provider
-from app.schemas.market import SearchResponse, QuoteResponse, CandlesResponse
+from app.schemas.market import SearchResponse, QuoteResponse, CandlesResponse, BatchQuoteResponse
 
 router = APIRouter()
 
@@ -27,6 +28,31 @@ async def get_quote(symbol: str = Query(..., description="标的代码，如 AAP
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/quotes")
+async def get_quotes(symbols: str = Query(..., description="逗号分隔的标的代码，如 AAPL,MSFT,BTC-USD")):
+    symbol_list = [s.strip() for s in symbols.split(",") if s.strip()]
+    if not symbol_list:
+        raise HTTPException(status_code=400, detail="至少需要一个标的代码")
+    if len(symbol_list) > 30:
+        raise HTTPException(status_code=400, detail="单次最多查询 30 个标的")
+
+    provider = get_provider()
+    results = await provider.get_quotes_batch(symbol_list)
+    return {"quotes": results}
+
+
+@router.get("/earnings")
+async def get_earnings(symbols: str = Query(..., description="逗号分隔的标的代码")):
+    symbol_list = [s.strip() for s in symbols.split(",") if s.strip()]
+    if not symbol_list:
+        raise HTTPException(status_code=400, detail="至少需要一个标的代码")
+    if len(symbol_list) > 20:
+        raise HTTPException(status_code=400, detail="单次最多查询 20 个标的")
+    provider = get_provider()
+    result = await provider.get_earnings_dates(symbol_list)
+    return {"earnings": result}
 
 
 @router.get("/candles", response_model=CandlesResponse)

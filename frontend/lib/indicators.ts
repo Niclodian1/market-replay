@@ -2,7 +2,7 @@
  * 前端指标计算库（纯 TypeScript，避免动态加载时重复请求后端）
  * 与后端 app/core/indicators.py 逻辑一致。
  */
-import type { Candle, Indicators, MAPoint, RSIPoint, MACDPoint } from '@/types'
+import type { Candle, Indicators, MAPoint, RSIPoint, MACDPoint, ImpulseColor } from '@/types'
 
 function sma(values: number[], period: number): (number | null)[] {
   const result: (number | null)[] = new Array(values.length).fill(null)
@@ -95,21 +95,24 @@ function r5(v: number) {
   return Math.round(v * 100000) / 100000
 }
 
-export function calculateIndicators(candles: Candle[], period1 = 30, period2 = 60): Indicators {
-  if (!candles.length) return { ma20: [], ma60: [], rsi: [], macd: [] }
+export function calculateIndicators(candles: Candle[], periods: number[] = [20, 60]): Indicators {
+  if (!candles.length) return { ma_lines: [], rsi: [], macd: [] }
 
   const closes = candles.map(c => c.close)
   const times  = candles.map(c => c.time)
-
-  const ma20Vals = sma(closes, period1)
-  const ma60Vals = sma(closes, period2)
-  const rsiVals  = rsi(closes, 14)
-  const { macdLine, signalLine, histogram } = macd(closes)
 
   const toPoints = (vals: (number | null)[]): MAPoint[] =>
     vals
       .map((v, i) => (v !== null ? { time: times[i], value: r5(v) } : null))
       .filter(Boolean) as MAPoint[]
+
+  const ma_lines = periods.map(period => ({
+    period,
+    data: toPoints(sma(closes, period)),
+  }))
+
+  const rsiVals = rsi(closes, 14)
+  const { macdLine, signalLine, histogram } = macd(closes)
 
   const macdPoints: MACDPoint[] = []
   for (let i = 0; i < candles.length; i++) {
@@ -124,9 +127,30 @@ export function calculateIndicators(candles: Candle[], period1 = 30, period2 = 6
   }
 
   return {
-    ma20: toPoints(ma20Vals),
-    ma60: toPoints(ma60Vals),
+    ma_lines,
     rsi:  toPoints(rsiVals) as RSIPoint[],
     macd: macdPoints,
   }
+}
+
+export function elderImpulse(candles: Candle[]): ImpulseColor[] {
+  const closes = candles.map(c => c.close)
+  const n = closes.length
+  if (n < 2) return new Array(n).fill('blue')
+
+  const ema13 = ema(closes, 13)
+  const { histogram: hist } = macd(closes)
+
+  const colors: ImpulseColor[] = new Array(n).fill('blue')
+  for (let i = 1; i < n; i++) {
+    if (ema13[i] === null || ema13[i - 1] === null || hist[i] === null || hist[i - 1] === null) continue
+    const emaRising = ema13[i]! > ema13[i - 1]!
+    const emaFalling = ema13[i]! < ema13[i - 1]!
+    const histRising = hist[i]! > hist[i - 1]!
+    const histFalling = hist[i]! < hist[i - 1]!
+
+    if (emaRising && histRising) colors[i] = 'green'
+    else if (emaFalling && histFalling) colors[i] = 'red'
+  }
+  return colors
 }

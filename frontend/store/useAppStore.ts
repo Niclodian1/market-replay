@@ -23,14 +23,17 @@ interface AppState {
   replayCursorIndex: number
   setReplayCursorIndex: (idx: number) => void
 
-  // 均线周期（两条可自定义）
-  maPeriods: [number, number]
-  setMaPeriods: (periods: [number, number]) => void
+  // 均线周期（可自定义多条，最多 6 条）
+  maPeriods: number[]
+  setMaPeriods: (periods: number[]) => void
 
-  // 首页自选个股
-  homepageStocks: string[]
-  addHomepageStock: (symbol: string) => void
-  removeHomepageStock: (symbol: string) => void
+  // Elder Impulse
+  elderImpulse: boolean
+  setElderImpulse: (enabled: boolean) => void
+
+  // 主题
+  theme: 'dark' | 'light'
+  setTheme: (theme: 'dark' | 'light') => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -60,20 +63,14 @@ export const useAppStore = create<AppState>()(
       replayCursorIndex: 0,
       setReplayCursorIndex: (idx) => set({ replayCursorIndex: idx }),
 
-      maPeriods: [30, 60],
+      maPeriods: [20, 60],
       setMaPeriods: (periods) => set({ maPeriods: periods }),
 
-      homepageStocks: ['GOOGL', 'NVDA', 'CRCL'],
-      addHomepageStock: (symbol) =>
-        set((state) => ({
-          homepageStocks: state.homepageStocks.includes(symbol)
-            ? state.homepageStocks
-            : [...state.homepageStocks, symbol],
-        })),
-      removeHomepageStock: (symbol) =>
-        set((state) => ({
-          homepageStocks: state.homepageStocks.filter((s) => s !== symbol),
-        })),
+      elderImpulse: false,
+      setElderImpulse: (enabled) => set({ elderImpulse: enabled }),
+
+      theme: 'dark',
+      setTheme: (theme) => set({ theme }),
     }),
     {
       name: 'market-replay-store',
@@ -81,7 +78,8 @@ export const useAppStore = create<AppState>()(
         watchlist: state.watchlist,
         currentTimeframe: state.currentTimeframe,
         maPeriods: state.maPeriods,
-        homepageStocks: state.homepageStocks,
+        elderImpulse: state.elderImpulse,
+        theme: state.theme,
       }),
     }
   )

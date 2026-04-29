@@ -1,20 +1,18 @@
-import { Navbar } from '@/components/layout/Navbar'
-import { Sidebar } from '@/components/layout/Sidebar'
+import { Rail } from '@/components/layout/Rail'
+import { Topbar } from '@/components/layout/Topbar'
+import { WatchlistSide } from '@/components/layout/WatchlistSide'
+import { Statusbar } from '@/components/layout/Statusbar'
 
-export default function MainLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-gray-950">
-      <Navbar />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-auto p-4 md:p-5">
-          {children}
-        </main>
-      </div>
+    <div className="mr-app">
+      <Rail />
+      <Topbar />
+      <WatchlistSide />
+      <main className="mr-main">
+        {children}
+      </main>
+      <Statusbar />
     </div>
   )
 }
