@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# 开发/测试依赖（生产镜像不安装）
+pytest>=8.0.0
