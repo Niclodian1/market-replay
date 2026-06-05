@@ -25,6 +25,14 @@ class SignalDetector(Protocol):
     def detect(self, candles: list[dict[str, Any]], timeframe: str) -> list[SignalHit]:
         ...
 
+    def signal_array(self, candles: list[dict[str, Any]], params: dict[str, Any]) -> list[int]:
+        """返回与 candles 等长的每根 K 线点信号(1=买/-1=卖/0=无)，供回测引擎组合与撮合使用。
+
+        与 detect() 共享同一份底层信号数学，区别仅在输出形态：
+        detect() 产出离散事件(SignalHit)，signal_array() 产出逐根数组。
+        """
+        ...
+
 
 class SignalRegistry:
     def __init__(self) -> None:

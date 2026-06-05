@@ -12,6 +12,13 @@ from app.core.indicators import _sma, _ema, _rsi as _rsi_series, _macd, _bolling
 from app.core.elder_impulse import elder_impulse
 from app.core.price_action import detect_pinbar, detect_engulfing, detect_w_bottom
 from app.core.sr_levels import signals_sr_breakout
+# 信号原语已抽到 core/signals/primitives.py（断开循环依赖）。此处 re-export，保持
+# 本模块内部(run_mtf_backtest)及 golden 测试中的 be._signals_* 引用不变。
+from app.core.signals.primitives import (  # noqa: F401
+    _signals_ma_cross, _signals_rsi, _signals_macd, _signals_ma_breakout,
+    _signals_bollinger, _signals_macd_divergence, _find_extremes,
+)
+from app.core.signals.backtest_indicators import get_backtest_signal
 
 
 # ─── 数据结构 ────────────────────────────────────────────────────────────────
@@ -89,82 +96,9 @@ def _sharpe(returns: list[float], risk_free: float = 0.0) -> float:
 
 # ─── 策略信号生成 ─────────────────────────────────────────────────────────────
 
-def _signals_ma_cross(closes: list[float], fast: int, slow: int) -> list[int]:
-    """返回与 closes 等长的信号列表：1=买入, -1=卖出, 0=无"""
-    ma_f = _sma(closes, fast)
-    ma_s = _sma(closes, slow)
-    n = len(closes)
-    signals = [0] * n
-    for i in range(1, n):
-        if ma_f[i] is None or ma_s[i] is None or ma_f[i - 1] is None or ma_s[i - 1] is None:
-            continue
-        prev_cross = ma_f[i - 1] - ma_s[i - 1]  # type: ignore[operator]
-        curr_cross = ma_f[i] - ma_s[i]           # type: ignore[operator]
-        if prev_cross <= 0 and curr_cross > 0:
-            signals[i] = 1   # 金叉 → 买
-        elif prev_cross >= 0 and curr_cross < 0:
-            signals[i] = -1  # 死叉 → 卖
-    return signals
-
-
-def _signals_rsi(closes: list[float], oversold: float, overbought: float) -> list[int]:
-    rsi = _rsi_series(closes, 14)
-    n = len(closes)
-    signals = [0] * n
-    for i in range(1, n):
-        if rsi[i] is None or rsi[i - 1] is None:
-            continue
-        if rsi[i - 1] >= oversold and rsi[i] < oversold:  # type: ignore[operator]
-            signals[i] = 1   # 超卖反弹 → 买
-        elif rsi[i - 1] <= overbought and rsi[i] > overbought:  # type: ignore[operator]
-            signals[i] = -1  # 超买回落 → 卖
-    return signals
-
-
-def _signals_macd(closes: list[float]) -> list[int]:
-    macd_line, sig_line, _ = _macd(closes)
-    n = len(closes)
-    signals = [0] * n
-    for i in range(1, n):
-        if macd_line[i] is None or sig_line[i] is None or macd_line[i - 1] is None or sig_line[i - 1] is None:
-            continue
-        prev = macd_line[i - 1] - sig_line[i - 1]  # type: ignore[operator]
-        curr = macd_line[i] - sig_line[i]           # type: ignore[operator]
-        if prev <= 0 and curr > 0:
-            signals[i] = 1
-        elif prev >= 0 and curr < 0:
-            signals[i] = -1
-    return signals
-
-
-def _signals_ma_breakout(closes: list[float], period: int) -> list[int]:
-    ma = _sma(closes, period)
-    n = len(closes)
-    signals = [0] * n
-    for i in range(1, n):
-        if ma[i] is None or ma[i - 1] is None:
-            continue
-        prev_above = closes[i - 1] > ma[i - 1]  # type: ignore[operator]
-        curr_above = closes[i] > ma[i]           # type: ignore[operator]
-        if not prev_above and curr_above:
-            signals[i] = 1   # 收盘向上穿越均线 → 买
-        elif prev_above and not curr_above:
-            signals[i] = -1  # 收盘向下穿越均线 → 卖
-    return signals
-
-
-def _signals_bollinger(closes: list[float], period: int = 20, num_std: float = 2.0) -> list[int]:
-    upper, _, lower = _bollinger(closes, period, num_std)
-    n = len(closes)
-    signals = [0] * n
-    for i in range(1, n):
-        if lower[i] is None or lower[i - 1] is None or upper[i] is None or upper[i - 1] is None:
-            continue
-        if closes[i - 1] >= lower[i - 1] and closes[i] < lower[i]:  # type: ignore[operator]
-            signals[i] = 1
-        elif closes[i - 1] <= upper[i - 1] and closes[i] > upper[i]:  # type: ignore[operator]
-            signals[i] = -1
-    return signals
+# 信号生成函数(_signals_ma_cross / _rsi / _macd / _ma_breakout / _bollinger /
+# _macd_divergence)与 _find_extremes 已迁至 core/signals/primitives.py，并由
+# core/signals/backtest_indicators.py 包成 SignalDetector；本模块在顶部 re-export。
 
 
 def _filter_atr(
@@ -186,53 +120,6 @@ def _filter_volume(volumes: list[float], period: int = 20, multiplier: float = 1
         else 0
         for i in range(len(volumes))
     ]
-
-
-def _find_extremes(series: list[float], lookback: int) -> tuple[list[bool], list[bool]]:
-    """返回每个位置是否为局部峰/谷（两侧各 lookback 根 K 线确认）。"""
-    n = len(series)
-    is_peak   = [False] * n
-    is_trough = [False] * n
-    for i in range(lookback, n - lookback):
-        window = series[i - lookback : i + lookback + 1]
-        if series[i] == max(window):
-            is_peak[i] = True
-        if series[i] == min(window):
-            is_trough[i] = True
-    return is_peak, is_trough
-
-
-def _signals_macd_divergence(closes: list[float], lookback: int) -> list[int]:
-    _, _, hist = _macd(closes)
-    n = len(closes)
-    signals = [0] * n
-
-    is_peak, is_trough = _find_extremes(closes, lookback)
-
-    prev_trough_idx: int | None = None
-    prev_peak_idx:   int | None = None
-
-    for i in range(lookback, n - lookback):
-        if hist[i] is None:
-            continue
-
-        if is_trough[i]:
-            if prev_trough_idx is not None and hist[prev_trough_idx] is not None:
-                price_lower = closes[i] < closes[prev_trough_idx]
-                hist_higher = hist[i] > hist[prev_trough_idx]   # type: ignore[operator]
-                if price_lower and hist_higher and i + 1 < n:
-                    signals[i + 1] = 1  # 多头背离确认后下一根买入
-            prev_trough_idx = i
-
-        if is_peak[i]:
-            if prev_peak_idx is not None and hist[prev_peak_idx] is not None:
-                price_higher = closes[i] > closes[prev_peak_idx]
-                hist_lower   = hist[i] < hist[prev_peak_idx]    # type: ignore[operator]
-                if price_higher and hist_lower and i + 1 < n:
-                    signals[i + 1] = -1  # 空头背离确认后下一根卖出
-            prev_peak_idx = i
-
-    return signals
 
 
 # ─── 多指标 AND 组合 ──────────────────────────────────────────────────────────
@@ -319,22 +206,13 @@ def _apply_filters(signals: list[int], filter_masks: list[list[int]]) -> list[in
     return result
 
 
-def _make_signals(strategy: str, params: dict, closes: list[float]) -> list[int]:
-    """根据策略 ID 和参数生成原始点信号列表。"""
-    if strategy == "ma_cross":
-        return _signals_ma_cross(closes, int(params.get("fast_period", 10)), int(params.get("slow_period", 30)))
-    elif strategy == "rsi":
-        return _signals_rsi(closes, float(params.get("oversold", 30.0)), float(params.get("overbought", 70.0)))
-    elif strategy == "macd":
-        return _signals_macd(closes)
-    elif strategy == "ma_breakout":
-        return _signals_ma_breakout(closes, int(params.get("period", 20)))
-    elif strategy == "macd_divergence":
-        return _signals_macd_divergence(closes, int(params.get("lookback", 5)))
-    elif strategy == "bollinger":
-        return _signals_bollinger(closes, int(params.get("period", 20)), float(params.get("num_std", 2.0)))
-    else:
+def _make_signals(strategy: str, params: dict, candles: list[dict]) -> list[int]:
+    """根据策略 ID 和参数生成原始点信号列表（统一走信号注册表）。"""
+    try:
+        detector = get_backtest_signal(strategy)
+    except KeyError:
         raise ValueError(f"未知策略: {strategy}")
+    return detector.signal_array(candles, params or {})
 
 
 def _make_filter(strategy: str, params: dict, candles: list[dict]) -> list[int]:
@@ -385,7 +263,7 @@ def run_backtest(
         raise ValueError("至少需要一个信号类型的指标条件")
 
     states_list = [
-        _to_state(_make_signals(cond["strategy"], cond.get("params", {}), closes))
+        _to_state(_make_signals(cond["strategy"], cond.get("params", {}), candles))
         for cond in signal_conds
     ]
 
