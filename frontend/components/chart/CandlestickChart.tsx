@@ -1,32 +1,35 @@
 'use client'
 
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react'
 import { clsx } from 'clsx'
 import {
   createChart,
   ColorType,
   CrosshairMode,
+  LineStyle,
   PriceScaleMode,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type UTCTimestamp,
 } from 'lightweight-charts'
-import type { Candle, Indicators, ImpulseColor } from '@/types'
+import type { Candle, Indicators, ImpulseColor, TradePlan } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
 import { useChartDrawings, DRAWING_TOOLS, PRESET_COLORS } from '@/hooks/useChartDrawings'
 
 // ── 主题常量 ─────────────────────────────────────────────────────────────────
 
+const PRICE_SCALE_WIDTH = 68
 const DARK_THEME = {
   layout: { background: { type: ColorType.Solid, color: '#111827' }, textColor: '#9ca3af' },
   grid:   { vertLines: { color: '#1f293760' }, horzLines: { color: '#1f293760' } },
-  rightPriceScale: { borderColor: '#374151' },
+  rightPriceScale: { borderColor: '#374151', minimumWidth: PRICE_SCALE_WIDTH },
   crosshair: { mode: CrosshairMode.Normal },
 }
 const LIGHT_THEME = {
   layout: { background: { type: ColorType.Solid, color: '#ffffff' }, textColor: '#374151' },
   grid:   { vertLines: { color: '#f3f4f6' }, horzLines: { color: '#f3f4f6' } },
-  rightPriceScale: { borderColor: '#e5e7eb' },
+  rightPriceScale: { borderColor: '#e5e7eb', minimumWidth: PRICE_SCALE_WIDTH },
   crosshair: { mode: CrosshairMode.Normal },
 }
 const DARK_TS_SHOW  = { borderColor: '#374151', timeVisible: true, secondsVisible: false }
@@ -42,12 +45,14 @@ type SeriesStore = {
   main:   IChartApi | null
   rsi:    IChartApi | null
   macd:   IChartApi | null
+  time:   IChartApi | null
   candle: ISeriesApi<'Candlestick'> | null
   volume: ISeriesApi<'Histogram'> | null
   rsiL:   ISeriesApi<'Line'> | null
   hist:   ISeriesApi<'Histogram'> | null
   macdL:  ISeriesApi<'Line'> | null
   sigL:   ISeriesApi<'Line'> | null
+  timeS:  ISeriesApi<'Line'> | null
 }
 
 interface Props {
@@ -61,6 +66,7 @@ interface Props {
   replayMode?: boolean
   fitTrigger?: number
   impulseColors?: ImpulseColor[]
+  tradePlan?: TradePlan | null
 }
 
 // ── 主组件 ────────────────────────────────────────────────────────────────────
@@ -69,7 +75,7 @@ export function CandlestickChart({
   candles, indicators, logScale,
   maPeriods = [20, 60], onMaPeriodsChange,
   isLoadingMore, onScrollToLeft,
-  replayMode, fitTrigger, impulseColors,
+  replayMode, fitTrigger, impulseColors, tradePlan,
 }: Props) {
   const theme = useAppStore(s => s.theme)
   const isDark = theme === 'dark'
@@ -79,9 +85,11 @@ export function CandlestickChart({
   const mainRef     = useRef<HTMLDivElement>(null)
   const rsiRef      = useRef<HTMLDivElement>(null)
   const macdRef     = useRef<HTMLDivElement>(null)
+  const timeRef     = useRef<HTMLDivElement>(null)
 
   // MA series refs
   const maSeriesRef    = useRef<ISeriesApi<'Line'>[]>([])
+  const tradePlanLinesRef = useRef<IPriceLine[]>([])
   const indicatorsRef  = useRef(indicators)
   const maPeriodsRef   = useRef(maPeriods)
   useEffect(() => { indicatorsRef.current = indicators }, [indicators])
@@ -89,17 +97,20 @@ export function CandlestickChart({
 
   // MA period local editing state
   const [localPeriods, setLocalPeriods] = useState<number[]>(maPeriods)
+  // Dynamic spacer width – kept in sync with the main chart's actual price scale width
+  const [spacerWidth, setSpacerWidth] = useState(PRICE_SCALE_WIDTH)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setLocalPeriods([...maPeriods]) }, [maPeriods.join(',')])
 
   const s = useRef<SeriesStore>({
-    main: null, rsi: null, macd: null,
-    candle: null, volume: null, rsiL: null, hist: null, macdL: null, sigL: null,
+    main: null, rsi: null, macd: null, time: null,
+    candle: null, volume: null, rsiL: null, hist: null, macdL: null, sigL: null, timeS: null,
   })
 
   const fittedRef      = useRef(false)
   const prevFitTrigger = useRef(fitTrigger)
   const onScrollRef    = useRef(onScrollToLeft)
+  const scaleSyncRafRef = useRef<number | null>(null)
   useEffect(() => { onScrollRef.current = onScrollToLeft }, [onScrollToLeft])
 
   // ── Chart refs for drawing hook ─────────────────────────────────────────
@@ -114,12 +125,57 @@ export function CandlestickChart({
     h: mainWrapRef.current?.clientHeight ?? 400,
   }), [])
 
+  const syncRightPriceScaleWidths = useCallback(() => {
+    if (typeof window === 'undefined') return
+    if (scaleSyncRafRef.current !== null) window.cancelAnimationFrame(scaleSyncRafRef.current)
+
+    scaleSyncRafRef.current = window.requestAnimationFrame(() => {
+      scaleSyncRafRef.current = null
+
+      const charts = [s.current.main, s.current.rsi, s.current.macd, s.current.time].filter(Boolean) as IChartApi[]
+      if (!charts.length) return
+
+      const width = Math.max(PRICE_SCALE_WIDTH, ...charts.map(chart => chart.priceScale('right').width()))
+      charts.forEach(chart => {
+        chart.applyOptions({
+          rightPriceScale: {
+            minimumWidth: width,
+          },
+        })
+      })
+      // Keep CSS spacers in sync so sub-chart content areas match the main chart
+      setSpacerWidth(width)
+
+      const mainScaleOptions = s.current.main?.timeScale().options()
+      const mainRange = s.current.main?.timeScale().getVisibleLogicalRange()
+      if (mainScaleOptions && s.current.rsi && s.current.macd && s.current.time) {
+        s.current.rsi.applyOptions({ timeScale: { barSpacing: mainScaleOptions.barSpacing, rightOffset: mainScaleOptions.rightOffset } })
+        s.current.macd.applyOptions({ timeScale: { barSpacing: mainScaleOptions.barSpacing, rightOffset: mainScaleOptions.rightOffset } })
+        s.current.time.applyOptions({ timeScale: { barSpacing: mainScaleOptions.barSpacing, rightOffset: mainScaleOptions.rightOffset } })
+      }
+      if (mainRange && s.current.rsi && s.current.macd && s.current.time) {
+        s.current.rsi.timeScale().setVisibleLogicalRange(mainRange)
+        s.current.macd.timeScale().setVisibleLogicalRange(mainRange)
+        s.current.time.timeScale().setVisibleLogicalRange(mainRange)
+      }
+    })
+  }, [])
+
+  // Resize sub-charts whenever the CSS spacer width changes so their content
+  // area stays aligned with the main chart's content area.
+  useLayoutEffect(() => {
+    const { rsi, macd, time } = s.current
+    if (rsiRef.current  && rsi)  rsi.applyOptions({ width: rsiRef.current.clientWidth })
+    if (macdRef.current && macd) macd.applyOptions({ width: macdRef.current.clientWidth })
+    if (timeRef.current && time) time.applyOptions({ width: timeRef.current.clientWidth })
+  }, [spacerWidth])
+
   // ── Drawing hook ────────────────────────────────────────────────────────
   const draw = useChartDrawings({ chartRefs, mainWrapRef, svgSize, isDark })
 
   // ── 图表初始化（只运行一次） ──────────────────────────────────────────────
   useEffect(() => {
-    if (!mainRef.current || !rsiRef.current || !macdRef.current) return
+    if (!mainRef.current || !rsiRef.current || !macdRef.current || !timeRef.current) return
 
     const chartTheme = isDark ? DARK_THEME : LIGHT_THEME
     const tsShow = isDark ? DARK_TS_SHOW : LIGHT_TS_SHOW
@@ -129,7 +185,25 @@ export function CandlestickChart({
 
     const main  = make(mainRef.current, false)
     const rsiC  = make(rsiRef.current,  false)
-    const macdC = make(macdRef.current, true)
+    const macdC = make(macdRef.current, false)
+    const timeC = make(timeRef.current, true)
+    rsiC.applyOptions({
+      rightPriceScale: { visible: false },
+      handleScroll: { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false },
+      handleScale: { axisPressedMouseMove: { time: false, price: true }, axisDoubleClickReset: { time: false, price: true }, mouseWheel: false, pinch: false },
+    })
+    macdC.applyOptions({
+      rightPriceScale: { visible: false },
+      handleScroll: { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false },
+      handleScale: { axisPressedMouseMove: { time: false, price: true }, axisDoubleClickReset: { time: false, price: true }, mouseWheel: false, pinch: false },
+    })
+    timeC.applyOptions({
+      leftPriceScale: { visible: false },
+      rightPriceScale: { visible: false },
+      handleScroll: { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false },
+      handleScale: { axisPressedMouseMove: { time: false, price: false }, axisDoubleClickReset: { time: false, price: false }, mouseWheel: false, pinch: false },
+      grid: { vertLines: { visible: false }, horzLines: { visible: false } },
+    })
 
     const candle = main.addCandlestickSeries({
       upColor: '#22c55e', downColor: '#ef4444',
@@ -146,7 +220,13 @@ export function CandlestickChart({
     const macdL = macdC.addLineSeries({ color: '#60a5fa', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false })
     const sigL  = macdC.addLineSeries({ color: '#f97316', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false })
 
-    s.current = { main, rsi: rsiC, macd: macdC, candle, volume: volumeS, rsiL, hist: histS, macdL, sigL }
+    // 时间轴 chart 的隐形占位 series：仅用于承载十字光标，使底部时间轴能跟随鼠标显示日期
+    const timeS = timeC.addLineSeries({
+      color: 'rgba(0,0,0,0)', lineWidth: 1,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+    })
+
+    s.current = { main, rsi: rsiC, macd: macdC, time: timeC, candle, volume: volumeS, rsiL, hist: histS, macdL, sigL, timeS }
     chartRefs.current = { main, candle }
 
     // 创建初始 MA series
@@ -159,15 +239,22 @@ export function CandlestickChart({
       maSeriesRef.current.push(ser)
     })
 
-    // 同步时间轴
-    const allCharts: IChartApi[] = [main, rsiC, macdC]
-    allCharts.forEach((chart, idx) => {
-      chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-        if (!range) return
-        allCharts.forEach((other, j) => { if (j !== idx) other.timeScale().setVisibleLogicalRange(range) })
-        if (range.from <= 5) onScrollRef.current?.()
-        draw.bumpSvgTick()
-      })
+    // 同步时间轴。使用防重入广播，避免三个独立 chart 互相回写造成逻辑区间漂移。
+    const allCharts: IChartApi[] = [main, rsiC, macdC, timeC]
+    let syncingRange = false
+    main.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (!range || syncingRange) return
+      syncingRange = true
+      const mainScaleOptions = main.timeScale().options()
+      rsiC.applyOptions({ timeScale: { barSpacing: mainScaleOptions.barSpacing, rightOffset: mainScaleOptions.rightOffset } })
+      macdC.applyOptions({ timeScale: { barSpacing: mainScaleOptions.barSpacing, rightOffset: mainScaleOptions.rightOffset } })
+      timeC.applyOptions({ timeScale: { barSpacing: mainScaleOptions.barSpacing, rightOffset: mainScaleOptions.rightOffset } })
+      rsiC.timeScale().setVisibleLogicalRange(range)
+      macdC.timeScale().setVisibleLogicalRange(range)
+      timeC.timeScale().setVisibleLogicalRange(range)
+      syncingRange = false
+      if (range.from <= 5) onScrollRef.current?.()
+      draw.bumpSvgTick()
     })
 
     main.subscribeClick((params) => {
@@ -175,31 +262,76 @@ export function CandlestickChart({
       draw.clickHandlerRef.current(params.point.x, params.point.y)
     })
 
-    main.subscribeCrosshairMove((params) => {
-      if (!params.point) { draw.moveHandlerRef.current(null, null); return }
-      draw.moveHandlerRef.current(params.point.x, params.point.y)
+    // 同步十字光标（跨三个面板）
+    let syncingCrosshair = false
+    const t2 = (ts: number) => ts as UTCTimestamp
+    const bsearch = <T extends { time: number }>(arr: T[], target: number, getValue: (item: T) => number): number | undefined => {
+      let lo = 0, hi = arr.length - 1
+      while (lo <= hi) {
+        const mid = (lo + hi) >>> 1
+        if (arr[mid].time === target) return getValue(arr[mid])
+        if (arr[mid].time < target) lo = mid + 1
+        else hi = mid - 1
+      }
+      if (lo >= arr.length) lo = arr.length - 1
+      return arr[lo] ? getValue(arr[lo]) : undefined
+    }
+    allCharts.forEach(chart => {
+      chart.subscribeCrosshairMove((params) => {
+        if (!params.point || !params.time) {
+          if (!syncingCrosshair) allCharts.forEach(c => c.clearCrosshairPosition())
+          draw.moveHandlerRef.current(null, null)
+          return
+        }
+        const time = params.time as number
+        if (chart === main) draw.moveHandlerRef.current(params.point.x, params.point.y)
+        if (syncingCrosshair) return
+        syncingCrosshair = true
+        const { rsi, macd } = indicatorsRef.current
+        if (s.current.rsiL && rsi.length) {
+          const v = bsearch(rsi, time, d => d.value)
+          if (v !== undefined) s.current.rsi!.setCrosshairPosition(v, t2(time), s.current.rsiL)
+        }
+        if (s.current.macdL && macd.length) {
+          const v = bsearch(macd, time, d => d.macd)
+          if (v !== undefined) s.current.macd!.setCrosshairPosition(v, t2(time), s.current.macdL)
+        }
+        if (chart !== main && s.current.candle) {
+          const entry = bsearch(candles.map(c => ({ time: c.time, value: c.close })), time, d => d.value)
+          if (entry !== undefined) s.current.main!.setCrosshairPosition(entry, t2(time), s.current.candle)
+        }
+        // 让底部时间轴 chart 也定位十字光标 → 时间轴标签随鼠标显示日期
+        if (chart !== timeC && s.current.timeS) {
+          s.current.time!.setCrosshairPosition(0, t2(time), s.current.timeS)
+        }
+        syncingCrosshair = false
+      })
     })
 
     // Resize
     const ro = new ResizeObserver(() => {
       const pairs: Array<[{ current: HTMLDivElement | null }, IChartApi]> = [
-        [mainRef, main], [rsiRef, rsiC], [macdRef, macdC],
+        [mainRef, main], [rsiRef, rsiC], [macdRef, macdC], [timeRef, timeC],
       ]
       pairs.forEach(([ref, chart]) => {
         if (ref.current) chart.applyOptions({ width: ref.current.clientWidth, height: ref.current.clientHeight })
       })
+      syncRightPriceScaleWidths()
       draw.bumpSvgTick()
     })
     if (mainWrapRef.current?.parentElement) ro.observe(mainWrapRef.current.parentElement)
+    syncRightPriceScaleWidths()
 
     return () => {
       ro.disconnect()
+      if (scaleSyncRafRef.current !== null) window.cancelAnimationFrame(scaleSyncRafRef.current)
+      tradePlanLinesRef.current = []
       maSeriesRef.current = []
       allCharts.forEach(c => c.remove())
-      s.current = { main: null, rsi: null, macd: null, candle: null, volume: null, rsiL: null, hist: null, macdL: null, sigL: null }
+      s.current = { main: null, rsi: null, macd: null, time: null, candle: null, volume: null, rsiL: null, hist: null, macdL: null, sigL: null, timeS: null }
       chartRefs.current = { main: null, candle: null }
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [syncRightPriceScaleWidths]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── MA series 管理 ──────────────────────────────────────────────────────
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -220,9 +352,24 @@ export function CandlestickChart({
 
   // ── 数据更新 ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const { candle, volume, rsiL, hist, macdL, sigL, main } = s.current
+    const { candle, volume, rsiL, hist, macdL, sigL, main, timeS } = s.current
     if (!candle || !candles.length) return
     const t = (ts: number) => ts as UTCTimestamp
+    const buildWhitespaceAlignedLine = (points: Array<{ time: number; value: number }>) => {
+      const byTime = new Map(points.map(p => [p.time, p.value]))
+      return candles.map(c => {
+        const value = byTime.get(c.time)
+        return value === undefined ? { time: t(c.time) } : { time: t(c.time), value }
+      })
+    }
+    const buildWhitespaceAlignedMacd = <K extends 'histogram' | 'macd' | 'signal'>(key: K) => {
+      const byTime = new Map(indicators.macd.map(p => [p.time, p[key]]))
+      return candles.map(c => {
+        const value = byTime.get(c.time)
+        return value === undefined ? { time: t(c.time) } : { time: t(c.time), value }
+      })
+    }
+
     candle.setData(candles.map((c, i) => {
       const base = { time: t(c.time), open: c.open, high: c.high, low: c.low, close: c.close }
       const ic = impulseColors?.[i]
@@ -235,15 +382,22 @@ export function CandlestickChart({
       ser.setData(line ? line.data.map(p => ({ time: t(p.time), value: p.value })) : [])
     })
     volume?.setData(candles.map(c => ({ time: t(c.time), value: c.volume, color: c.close >= c.open ? '#22c55e55' : '#ef444455' })))
-    rsiL?.setData(indicators.rsi.map(p => ({ time: t(p.time), value: p.value })))
-    hist?.setData(indicators.macd.map(p => ({ time: t(p.time), value: p.histogram, color: p.histogram >= 0 ? '#22c55e66' : '#ef444466' })))
-    macdL?.setData(indicators.macd.map(p => ({ time: t(p.time), value: p.macd })))
-    sigL?.setData(indicators.macd.map(p => ({ time: t(p.time), value: p.signal })))
+    timeS?.setData(candles.map(c => ({ time: t(c.time), value: 0 })))
+    rsiL?.setData(buildWhitespaceAlignedLine(indicators.rsi))
+    hist?.setData(candles.map(c => {
+      const point = indicators.macd.find(p => p.time === c.time)
+      return point
+        ? { time: t(c.time), value: point.histogram, color: point.histogram >= 0 ? '#22c55e66' : '#ef444466' }
+        : { time: t(c.time) }
+    }))
+    macdL?.setData(buildWhitespaceAlignedMacd('macd'))
+    sigL?.setData(buildWhitespaceAlignedMacd('signal'))
     const triggerChanged = fitTrigger !== prevFitTrigger.current
     prevFitTrigger.current = fitTrigger
     if (!replayMode || !fittedRef.current || triggerChanged) { main?.timeScale().fitContent(); fittedRef.current = true }
+    syncRightPriceScaleWidths()
     draw.bumpSvgTick()
-  }, [candles, indicators, replayMode, fitTrigger, impulseColors]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [candles, indicators, replayMode, fitTrigger, impulseColors, syncRightPriceScaleWidths]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     s.current.main?.priceScale('right').applyOptions({
@@ -252,15 +406,54 @@ export function CandlestickChart({
   }, [logScale])
 
   useEffect(() => {
+    const candle = s.current.candle
+    if (!candle) return
+    tradePlanLinesRef.current.forEach(line => {
+      try { candle.removePriceLine(line) } catch {}
+    })
+    tradePlanLinesRef.current = []
+    if (!tradePlan) return
+
+    tradePlanLinesRef.current = [
+      candle.createPriceLine({
+        price: tradePlan.entry,
+        color: '#5aa7ff',
+        lineWidth: 2,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: '入场',
+      }),
+      candle.createPriceLine({
+        price: tradePlan.stop_loss,
+        color: '#ff5f6d',
+        lineWidth: 2,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: '止损',
+      }),
+      candle.createPriceLine({
+        price: tradePlan.take_profit,
+        color: '#26d07c',
+        lineWidth: 2,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: '止盈',
+      }),
+    ]
+  }, [tradePlan])
+
+  useEffect(() => {
     const chartTheme = isDark ? DARK_THEME : LIGHT_THEME
     const tsShow = isDark ? DARK_TS_SHOW : LIGHT_TS_SHOW
     const tsHide = isDark ? DARK_TS_HIDE : LIGHT_TS_HIDE
-    const { main, rsi, macd } = s.current
-    if (!main || !rsi || !macd) return
+    const { main, rsi, macd, time } = s.current
+    if (!main || !rsi || !macd || !time) return
     main.applyOptions({ ...chartTheme, timeScale: tsHide })
     rsi.applyOptions({ ...chartTheme, timeScale: tsHide })
-    macd.applyOptions({ ...chartTheme, timeScale: tsShow })
-  }, [isDark])
+    macd.applyOptions({ ...chartTheme, timeScale: tsHide })
+    time.applyOptions({ ...chartTheme, timeScale: tsShow })
+    syncRightPriceScaleWidths()
+  }, [isDark, syncRightPriceScaleWidths])
 
   const { w: svgW, h: svgH } = svgSize()
 
@@ -417,7 +610,10 @@ export function CandlestickChart({
       {/* RSI */}
       <div className="border-t border-gray-100 dark:border-gray-800 shrink-0 flex flex-col" style={{ height: 76 }}>
         <div className="px-2 text-[10px] text-gray-400 dark:text-gray-600 pt-0.5">RSI (14)</div>
-        <div ref={rsiRef} className="flex-1" />
+        <div className="flex-1 flex">
+          <div ref={rsiRef} className="flex-1 min-w-0" />
+          <div className="shrink-0 border-l border-gray-100 dark:border-gray-800" style={{ width: spacerWidth }} />
+        </div>
       </div>
 
       {/* MACD */}
@@ -427,7 +623,17 @@ export function CandlestickChart({
           <span className="text-blue-400">— MACD</span>
           <span className="text-orange-400">— Signal</span>
         </div>
-        <div ref={macdRef} className="flex-1" />
+        <div className="flex-1 flex">
+          <div ref={macdRef} className="flex-1 min-w-0" />
+          <div className="shrink-0 border-l border-gray-100 dark:border-gray-800" style={{ width: spacerWidth }} />
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100 dark:border-gray-800 shrink-0" style={{ height: 28 }}>
+        <div className="flex h-full">
+          <div ref={timeRef} className="flex-1 min-w-0" />
+          <div className="shrink-0 border-l border-gray-100 dark:border-gray-800" style={{ width: spacerWidth }} />
+        </div>
       </div>
     </div>
   )

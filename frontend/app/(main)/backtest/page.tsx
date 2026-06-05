@@ -45,9 +45,14 @@ const ENTRY_SIGNAL_META: Record<EntrySignalId, { label: string; desc: string; pa
     desc: '前K跌/涨幅 ≥ 2%，后K实体收回',
     params: [],
   },
+  w_bottom: {
+    label: 'W底双底',
+    desc: '相隔≥60K的两低点支撑位接近，中间反弹≥5%',
+    params: [],
+  },
 }
 
-const ALL_ENTRY_SIGNALS: EntrySignalId[] = ['ma_breakout', 'macd_divergence', 'sr_breakout', 'pinbar', 'engulfing']
+const ALL_ENTRY_SIGNALS: EntrySignalId[] = ['ma_breakout', 'macd_divergence', 'sr_breakout', 'pinbar', 'engulfing', 'w_bottom']
 
 const TF_LABELS: Record<string, string> = { '1week': '周线', '1day': '日线', '4h': '4H' }
 
@@ -57,6 +62,7 @@ const SIGNAL_NAME_MAP: Record<string, string> = {
   sr_breakout: '支撑阻力',
   pinbar: 'Pinbar',
   engulfing: '吞没',
+  w_bottom: 'W底',
 }
 
 // ─── 权益曲线图 ──────────────────────────────────────────────────────────────
@@ -80,8 +86,10 @@ function EquityChart({ data, buyHoldReturn, initialCapital }: { data: EquityPoin
         vertLines: { color: isDark ? '#1e242e' : '#e4e7ec' },
         horzLines: { color: isDark ? '#1e242e' : '#e4e7ec' },
       },
-      rightPriceScale: { borderColor: isDark ? '#1e242e' : '#e4e7ec' },
+      rightPriceScale: { borderColor: isDark ? '#1e242e' : '#e4e7ec', minimumWidth: 68 },
       timeScale: { borderColor: isDark ? '#1e242e' : '#e4e7ec', timeVisible: true },
+      handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true },
+      handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true },
     })
     const seriesRef = chartRef.current.addLineSeries({ color: '#ffb020', lineWidth: 2, title: '策略' })
     const bhSeriesRef = chartRef.current.addLineSeries({ color: '#7c8594', lineWidth: 1, lineStyle: 2, title: '买持' })
@@ -145,8 +153,10 @@ function BacktestCandleChart({ candles, trades, entrySignals, entryParams }: {
         vertLines: { color: isDark ? '#1e242e' : '#e4e7ec' },
         horzLines: { color: isDark ? '#1e242e' : '#e4e7ec' },
       },
-      rightPriceScale: { borderColor: isDark ? '#1e242e' : '#e4e7ec' },
+      rightPriceScale: { borderColor: isDark ? '#1e242e' : '#e4e7ec', minimumWidth: 68 },
       timeScale: { borderColor: isDark ? '#1e242e' : '#e4e7ec', timeVisible: true },
+      handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true },
+      handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true },
     }
 
     chartRef.current = createChart(containerRef.current, {
@@ -324,7 +334,7 @@ function BacktestCandleChart({ candles, trades, entrySignals, entryParams }: {
 function MtfTradeList({ trades }: { trades: MtfBacktestTrade[] }) {
   const [expanded, setExpanded] = useState(false)
   const visible = expanded ? trades : trades.slice(0, 10)
-  const cols = '36px 1fr 1fr 1fr 1fr 60px 70px 70px 70px 50px 80px 1fr'
+  const cols = '36px 1fr 1fr 1fr 1fr 60px 70px 82px 70px 70px 50px 80px 1fr'
 
   const EXIT_REASON_MAP: Record<string, string> = {
     reverse_signal: '反向信号',
@@ -341,10 +351,11 @@ function MtfTradeList({ trades }: { trades: MtfBacktestTrade[] }) {
         <span className="mono" style={{ textTransform: 'none', letterSpacing: 0 }}>{trades.length} 笔</span>
       </div>
       <div style={{ overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: cols, padding: '8px 12px', borderBottom: '1px solid var(--line-2)', fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--fg-2)', fontWeight: 600, minWidth: 960 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: cols, padding: '8px 12px', borderBottom: '1px solid var(--line-2)', fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--fg-2)', fontWeight: 600, minWidth: 1040 }}>
           <span>#</span><span>入场日期</span><span>入场价</span><span>出场日期</span><span>出场价</span>
           <span style={{ textAlign: 'right' }}>天数</span>
           <span style={{ textAlign: 'right' }}>盈亏%</span>
+          <span style={{ textAlign: 'right' }}>实际盈亏</span>
           <span style={{ textAlign: 'right' }}>浮盈%</span>
           <span style={{ textAlign: 'right' }}>浮亏%</span>
           <span style={{ textAlign: 'center' }}>权重</span>
@@ -352,7 +363,7 @@ function MtfTradeList({ trades }: { trades: MtfBacktestTrade[] }) {
           <span>触发信号</span>
         </div>
         {visible.map((t, i) => (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: cols, padding: '8px 12px', borderBottom: '1px solid var(--line-1)', fontFamily: 'var(--font-mono)', fontSize: 11.5, minWidth: 960, alignItems: 'center' }}
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: cols, padding: '8px 12px', borderBottom: '1px solid var(--line-1)', fontFamily: 'var(--font-mono)', fontSize: 11.5, minWidth: 1040, alignItems: 'center' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-2)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
@@ -364,6 +375,9 @@ function MtfTradeList({ trades }: { trades: MtfBacktestTrade[] }) {
             <span style={{ textAlign: 'right', color: 'var(--fg-2)' }}>{Math.round((t.exit_time - t.entry_time) / 86400)}d</span>
             <span style={{ textAlign: 'right', fontWeight: 600, color: t.pnl_pct >= 0 ? 'var(--up)' : 'var(--down)' }}>
               {t.pnl_pct >= 0 ? '+' : ''}{fmt(t.pnl_pct)}%
+            </span>
+            <span style={{ textAlign: 'right', fontWeight: 600, color: (t.pnl_amount ?? 0) >= 0 ? 'var(--up)' : 'var(--down)' }}>
+              {t.pnl_amount == null ? '-' : `${t.pnl_amount >= 0 ? '+' : ''}${fmt(t.pnl_amount)}`}
             </span>
             <span style={{ textAlign: 'right', color: 'var(--up)' }}>+{fmt(t.max_profit_pct)}%</span>
             <span style={{ textAlign: 'right', color: 'var(--down)' }}>{fmt(t.max_loss_pct)}%</span>
@@ -557,7 +571,7 @@ export default function BacktestPage() {
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0])
   const [capital, setCapital] = useState('10000')
 
-  const [selectedSignals, setSelectedSignals] = useState<EntrySignalId[]>(['ma_breakout', 'macd_divergence', 'sr_breakout', 'pinbar', 'engulfing'])
+  const [selectedSignals, setSelectedSignals] = useState<EntrySignalId[]>(['ma_breakout'])
   const [entryParams, setEntryParams] = useState<Record<string, number>>({
     ma_breakout_period: 30,
     macd_divergence_lookback: 5,

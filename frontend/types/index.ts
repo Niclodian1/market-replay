@@ -123,6 +123,7 @@ export type AlertCondition =
   | 'ma_cross' | 'rsi' | 'macd' | 'ma_breakout'
   | 'macd_divergence' | 'bollinger'
   | 'sr_breakout' | 'pinbar' | 'engulfing'
+  | 'w_bottom'
 
 export interface Alert {
   id: number
@@ -218,7 +219,7 @@ export interface BacktestResult {
 
 // ===== 多级别回测 (MTF) =====
 
-export type EntrySignalId = 'ma_breakout' | 'macd_divergence' | 'sr_breakout' | 'pinbar' | 'engulfing'
+export type EntrySignalId = 'ma_breakout' | 'macd_divergence' | 'sr_breakout' | 'pinbar' | 'engulfing' | 'w_bottom'
 
 export interface ExitRules {
   reverse_signal: boolean
@@ -242,6 +243,7 @@ export interface MtfBacktestRequest {
 }
 
 export interface MtfBacktestTrade extends BacktestTrade {
+  pnl_amount?: number
   signal_weight: number
   signal_names: string[]
   direction: string
@@ -270,6 +272,177 @@ export interface MtfBacktestResult {
   equity_curve: EquityPoint[]
   trades: MtfBacktestTrade[]
   candles: Candle[]
+}
+
+// ===== 自我感知机会系统 =====
+
+export interface EdgeStat {
+  id: number
+  symbol: string
+  timeframe: string
+  combo_hash: string
+  combo_spec: {
+    entry?: string[]
+    exit?: string[]
+    mode?: string
+    [key: string]: unknown
+  }
+  direction: 'long' | 'short'
+  sample_size: number
+  wins: number
+  win_rate: number
+  avg_r: number
+  expectancy: number
+  sharpe_like: number
+  wilson_lower: number
+  window_start_ts: number
+  window_end_ts: number
+  last_updated: string
+}
+
+export interface TradePlan {
+  id: number
+  opportunity_id: number
+  entry: number
+  stop_loss: number
+  take_profit: number
+  rr_ratio: number
+  size_r: number
+  rationale: string
+  valid_until_ts: number
+  created_at: string
+}
+
+export interface Opportunity {
+  id: number
+  symbol: string
+  timeframe: string
+  direction: 'long' | 'short'
+  combo_hash: string
+  confluence_payload: {
+    signals?: Array<{ name: string; tf?: string; timeframe?: string; score?: number }>
+    multi_tf_aligned?: boolean
+    [key: string]: unknown
+  }
+  score: number
+  status: 'open' | 'triggered' | 'expired' | 'closed' | string
+  created_at: string
+  closed_at: string | null
+  realized_r: number | null
+  edge_stat: EdgeStat | null
+  trade_plan: TradePlan | null
+}
+
+export interface OpportunitiesResponse {
+  items: Opportunity[]
+  total: number
+}
+
+export interface OppFilters {
+  status?: string
+  min_score?: number
+  symbol?: string
+  limit?: number
+  offset?: number
+}
+
+export interface RecommenderThresholds {
+  min_winrate: number
+  min_sample: number
+  min_score: number
+  max_open_per_symbol: number
+}
+
+// ===== 策略库 =====
+
+export interface StrategyCard {
+  id: string
+  name: string
+  category: 'indicator' | 'pattern' | 'structure' | 'combo'
+  description: string
+  logic: string
+  direction_support: string[]
+  params_schema: Record<string, unknown>
+  coverage: number
+  avg_win_rate: number | null
+  top_symbol: string | null
+  latest_backtest: StrategyBacktestSummary | null
+}
+
+export interface StrategySymbolPerf {
+  symbol: string
+  timeframe: string
+  direction: 'long' | 'short'
+  sample_size: number
+  win_rate: number
+  avg_r: number
+  expectancy: number
+  max_drawdown: number
+  last_fired_at: string | null
+  confidence: 'low' | 'mid' | 'high'
+  source: 'edge' | 'backtest'
+  latest_backtest_run_id: number | null
+}
+
+export interface StrategyDetail {
+  card: StrategyCard
+  rows: StrategySymbolPerf[]
+  sort_by: string
+  sort_dir: 'asc' | 'desc'
+  generated_at: string
+}
+
+export interface StrategyTrade {
+  symbol: string
+  timeframe: string
+  direction: 'long' | 'short'
+  signal_name: string
+  entry_time: string
+  entry_price: number
+  exit_time: string | null
+  exit_price: number | null
+  outcome: string | null
+  realized_r: number | null
+  pnl_pct: number | null
+}
+
+export interface StrategyTradesResponse {
+  items: StrategyTrade[]
+  total: number
+}
+
+export interface StrategyBacktestSummary {
+  id: number
+  strategy_id: string
+  strategy_kind: string
+  strategy_name: string
+  symbol: string
+  timeframe: string
+  trend_tf: string | null
+  start_date: string
+  end_date: string
+  total_return_pct: number
+  annualized_return_pct: number
+  max_drawdown_pct: number
+  sharpe_ratio: number
+  win_rate_pct: number
+  total_trades: number
+  winning_trades: number
+  losing_trades: number
+  buy_hold_return_pct: number
+  created_at: string
+}
+
+export interface StrategyBacktestsResponse {
+  items: StrategyBacktestSummary[]
+  total: number
+}
+
+export interface StrategyBacktestTrade extends MtfBacktestTrade {}
+
+export interface StrategyBacktestTradesResponse {
+  items: StrategyBacktestTrade[]
+  total: number
 }
 
 // ===== 宏观数据 =====
@@ -336,3 +509,112 @@ export interface FibRetracementDrawing {
 }
 
 export type ChartDrawing = HorizontalLineDrawing | TrendLineDrawing | ChannelDrawing | FibRetracementDrawing
+
+// ===== MA 策略回测（静态 JSON） =====
+
+export type MaStrategyKey = 'breakout' | 'pullback'
+export type MaExitReason = '止损' | '保本' | '均线' | '强制平仓'
+
+export interface MaStrategyTrade {
+  entry_time: number
+  exit_time: number
+  entry_price: number
+  exit_price: number
+  stop_loss: number
+  pnl_pct: number
+  max_profit_pct: number
+  rr: number | null
+  exit_reason: MaExitReason
+}
+
+export interface MaStrategyStats {
+  total_return: number
+  n_trades: number
+  win_rate: number
+  max_drawdown: number
+  max_profit: number
+  avg_profit: number
+  avg_rr: number | null
+  is_best: boolean
+}
+
+export interface MaSeriesPoint {
+  time: number
+  value: number
+}
+
+export interface MaStrategySymbolData {
+  symbol: string
+  name: string
+  generated_at: string
+  candles: Candle[]
+  trend_ma: MaSeriesPoint[]
+  ma_lines: Record<string, MaSeriesPoint[]>
+  strategies: Record<MaStrategyKey, Record<string, { stats: MaStrategyStats; trades: MaStrategyTrade[] }>>
+}
+
+export interface MaStrategyManifest {
+  generated_at: string
+  symbols: { code: string; name: string }[]
+}
+
+// ===== 杠杆浮盈加仓策略 (2x / 3x) =====
+
+export interface TradeEvent {
+  time: number
+  type: 'entry' | 'add' | 'exit'
+  price: number
+  size: number | null
+  reason?: MaExitReason
+}
+
+export interface MaStrategy3xTrade extends MaStrategyTrade {
+  leverage: number
+  n_adds: number
+  events: TradeEvent[]
+}
+
+export interface MaStrategy3xStats extends MaStrategyStats {
+  leverage: number
+}
+
+export interface MaStrategy3xSymbolData {
+  symbol: string
+  name: string
+  leverage: number
+  generated_at: string
+  candles: Candle[]
+  trend_ma: MaSeriesPoint[]
+  ma_lines: Record<string, MaSeriesPoint[]>
+  strategies: Record<MaStrategyKey, Record<string, {
+    stats: MaStrategy3xStats
+    trades: MaStrategy3xTrade[]
+  }>>
+}
+
+// ===== 策略 C：多均线同时上穿（C-x2 / C-x3 / C-x4） =====
+
+export type MaStrategyCVariant = 'x2' | 'x3' | 'x4'
+export type MaStrategyCTimeframe = '1day' | '4h' | '1h'
+
+export interface MaStrategyCTrade extends MaStrategyTrade {
+  exit_ma: number       // 出场参考线（被上穿均线中周期最小那根）
+  crossed: number[]     // 入场当根上穿的均线列表
+}
+
+export interface MaStrategyCSymbolData {
+  symbol: string
+  name: string
+  timeframe: MaStrategyCTimeframe
+  generated_at: string
+  candles: Candle[]
+  ma_lines: Record<string, MaSeriesPoint[]>
+  variants: Record<MaStrategyCVariant, { stats: MaStrategyStats; trades: MaStrategyCTrade[] }>
+}
+
+export interface MaStrategyCManifest {
+  generated_at: string
+  symbols: { code: string; name: string }[]
+  timeframes: MaStrategyCTimeframe[]
+  variants: MaStrategyCVariant[]
+}

@@ -7,6 +7,7 @@ VALID_CONDITIONS = {
     "ma_cross", "rsi", "macd", "ma_breakout",
     "macd_divergence", "bollinger",
     "sr_breakout", "pinbar", "engulfing",
+    "w_bottom",
 }
 
 CONDITION_LABELS = {
@@ -21,6 +22,7 @@ CONDITION_LABELS = {
     "sr_breakout": "支撑阻力突破",
     "pinbar": "Pinbar 锤子线",
     "engulfing": "吞没形态",
+    "w_bottom": "W底双底",
 }
 
 

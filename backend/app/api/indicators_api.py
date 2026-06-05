@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
-from app.providers.yahoo_finance import get_provider
+from app.providers.local_crypto import pick_series_provider
 from app.core.indicators import calculate_indicators
 from app.schemas.market import IndicatorsResponse
 
@@ -17,7 +17,7 @@ async def get_indicators(
     if timeframe not in VALID_INTERVALS:
         raise HTTPException(status_code=400, detail=f"无效 timeframe: {timeframe}")
     try:
-        provider = get_provider()
+        provider = pick_series_provider(symbol, timeframe)
         # 复用缓存：与 /candles 相同参数时不重复请求 API
         candles = await provider.get_time_series(symbol, timeframe, outputsize)
         indicators = calculate_indicators(candles)

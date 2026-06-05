@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
-from app.providers.yahoo_finance import get_provider
+from app.providers.local_crypto import pick_series_provider
 from app.core.market_structure import analyze_structure, detect_swing_points, detect_sr_levels
 from app.schemas.analysis import StructureResponse, SRResponse
 
@@ -18,7 +18,7 @@ async def get_structure(
     if timeframe not in VALID_INTERVALS:
         raise HTTPException(status_code=400, detail=f"无效 timeframe: {timeframe}")
     try:
-        provider = get_provider()
+        provider = pick_series_provider(symbol, timeframe)
         candles = await provider.get_time_series(symbol, timeframe, outputsize)
         result = analyze_structure(candles, lookback=lookback)
         return {"symbol": symbol, "timeframe": timeframe, **result}
@@ -40,7 +40,7 @@ async def get_support_resistance(
     if timeframe not in VALID_INTERVALS:
         raise HTTPException(status_code=400, detail=f"无效 timeframe: {timeframe}")
     try:
-        provider = get_provider()
+        provider = pick_series_provider(symbol, timeframe)
         candles = await provider.get_time_series(symbol, timeframe, outputsize)
         swings = detect_swing_points(candles, lookback)
         levels = detect_sr_levels(candles, swings, tolerance, max_levels)

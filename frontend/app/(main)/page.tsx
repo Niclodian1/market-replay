@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useRef, useState, useEffect } from 'react'
 import { getQuote, getQuotes, getAlerts, getWatchlist, getReplayNotes, getEconomicCalendar } from '@/lib/api'
+import { useOpportunities } from '@/lib/api/opportunities'
 import { useMemo } from 'react'
 import type { Quote, Alert, WatchlistItem, ReplayNote, EconomicEvent } from '@/types'
 
@@ -192,6 +193,8 @@ export default function DashboardPage() {
   const vixData = quotesMap.get('^VIX') ?? null
 
   const nextEvent = getNextMacroEvent(calendarEvents)
+  const { data: opportunitiesData } = useOpportunities({ status: 'open', min_score: 0.7, limit: 5 })
+  const topOpportunities = opportunitiesData?.items ?? []
 
   return (
     <div className="page">
@@ -309,8 +312,30 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Alerts + Notes */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        {/* Opportunities + Alerts + Notes */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <div className="panel" style={{ overflow: 'hidden' }}>
+            <div className="panel-header">
+              <span>高分机会</span>
+              <Link href="/opportunities" className="btn small ghost">全部 →</Link>
+            </div>
+            {topOpportunities.length === 0 ? (
+              <div style={{ padding: 14, color: 'var(--fg-3)', fontSize: 11, textAlign: 'center' }}>暂无高置信机会</div>
+            ) : topOpportunities.map(o => (
+              <Link key={o.id} href={`/opportunities`} style={{ padding: '9px 12px', borderBottom: '1px solid var(--line-1)', display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+                <span className={`chip ${o.direction === 'long' ? 'up' : 'down'}`} style={{ minWidth: 48, justifyContent: 'center' }}>
+                  {Math.round(o.score * 100)}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="mono" style={{ fontSize: 12, color: 'var(--fg-0)', fontWeight: 700 }}>{o.symbol} · {o.timeframe.toUpperCase()}</div>
+                  <div className="mono" style={{ fontSize: 10.5, color: 'var(--fg-2)' }}>
+                    胜率 {o.edge_stat ? `${(o.edge_stat.win_rate * 100).toFixed(1)}%` : '-'} · 期望 {o.edge_stat?.expectancy.toFixed(2) ?? '-'}R
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
           <div className="panel" style={{ overflow: 'hidden' }}>
             <div className="panel-header">
               <span>告警监控</span>
@@ -362,11 +387,12 @@ export default function DashboardPage() {
 
         {/* Feature links */}
         <div className="hline">功能模块</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
           {[
             { title: '行情图表', desc: '蜡烛图、自定义 MA、RSI、MACD，画线工具', href: '/chart/AAPL', color: 'var(--info)' },
             { title: '复盘模式', desc: '从历史起点逐根 K 线推进，记录复盘笔记', href: '/replay/AAPL', color: 'var(--up)' },
             { title: '策略回测', desc: 'MA 双均线、RSI、MACD 策略量化回测', href: '/backtest', color: 'var(--accent)' },
+            { title: '策略库', desc: '浏览所有策略卡片，查看每个策略在哪些品种上表现最好', href: '/strategies', color: 'var(--ma60)' },
           ].map(f => (
             <Link key={f.title} href={f.href}
               style={{ display: 'block', padding: '14px 16px', background: 'var(--bg-1)', border: '1px solid var(--line-1)', borderRadius: 6, textDecoration: 'none', transition: 'border-color .15s, background .15s' }}

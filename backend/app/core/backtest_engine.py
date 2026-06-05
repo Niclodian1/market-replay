@@ -10,7 +10,7 @@ from typing import Optional
 
 from app.core.indicators import _sma, _ema, _rsi as _rsi_series, _macd, _bollinger, _atr
 from app.core.elder_impulse import elder_impulse
-from app.core.price_action import detect_pinbar, detect_engulfing
+from app.core.price_action import detect_pinbar, detect_engulfing, detect_w_bottom
 from app.core.sr_levels import signals_sr_breakout
 
 
@@ -513,6 +513,7 @@ _ENTRY_SIGNAL_NAMES = {
     'sr_breakout': '支撑阻力突破',
     'pinbar': 'Pinbar 锤子线',
     'engulfing': '吞没形态',
+    'w_bottom': 'W底双底',
 }
 
 
@@ -571,6 +572,8 @@ def _generate_entry_signals(
             result[sid] = detect_pinbar(candles)
         elif sid == 'engulfing':
             result[sid] = detect_engulfing(candles)
+        elif sid == 'w_bottom':
+            result[sid] = detect_w_bottom(candles)
         else:
             raise ValueError(f"未知入场信号: {sid}")
     return result
@@ -605,7 +608,7 @@ def run_mtf_backtest(
       - entry_candle_low: 入场K线最低价止损
     """
     if entry_signals is None:
-        entry_signals = ['ma_breakout', 'macd_divergence', 'sr_breakout', 'pinbar', 'engulfing']
+        entry_signals = ['ma_breakout', 'macd_divergence', 'sr_breakout', 'pinbar', 'engulfing', 'w_bottom']
     if entry_params is None:
         entry_params = {}
     if exit_rules is None:
@@ -651,42 +654,45 @@ def run_mtf_backtest(
     all_signals = _generate_entry_signals(exec_candles, closes, entry_signals, entry_params)
 
     # ── 模拟撮合 ──────────────────────────────────────────────────────────
-    capital = initial_capital
-    position = 0.0
-    entry_price = 0.0
-    entry_time_val = 0
-    entry_idx = 0
-    entry_weight = 0
-    entry_names: list[str] = []
-    entry_candle_low = 0.0
+    realized_pnl = 0.0
+    per_trade_notional = initial_capital
+    open_positions: list[dict] = []
     trades: list[dict] = []
     equity: list[float] = []
 
-    def _close_position(i: int, exit_p: float, exit_reason: str):
-        nonlocal capital, position
-        capital = position * exit_p
-        period_highs = highs[entry_idx: i + 1]
-        period_lows = lows[entry_idx: i + 1]
-        mfp = (max(period_highs) - entry_price) / entry_price * 100
-        mfl = (min(period_lows) - entry_price) / entry_price * 100
+    def _current_equity(i: int) -> float:
+        floating = 0.0
+        for pos in open_positions:
+            floating += pos['notional'] * ((closes[i] - pos['entry_price']) / pos['entry_price'])
+        return initial_capital + realized_pnl + floating
+
+    def _close_position(pos: dict, i: int, exit_p: float, exit_reason: str):
+        nonlocal realized_pnl
+        period_highs = highs[pos['entry_idx']: i + 1]
+        period_lows = lows[pos['entry_idx']: i + 1]
+        pnl_pct = (exit_p - pos['entry_price']) / pos['entry_price'] * 100
+        mfp = (max(period_highs) - pos['entry_price']) / pos['entry_price'] * 100
+        mfl = (min(period_lows) - pos['entry_price']) / pos['entry_price'] * 100
+        pnl_amount = pos['notional'] * pnl_pct / 100
+        realized_pnl += pnl_amount
         trades.append({
-            'entry_time': entry_time_val,
-            'entry_price': round(entry_price, 6),
+            'entry_time': pos['entry_time'],
+            'entry_price': round(pos['entry_price'], 6),
             'exit_time': times[i],
             'exit_price': round(exit_p, 6),
-            'pnl_pct': round((exit_p - entry_price) / entry_price * 100, 4),
+            'pnl_pct': round(pnl_pct, 4),
+            'pnl_amount': round(pnl_amount, 4),
             'max_profit_pct': round(mfp, 4),
             'max_loss_pct': round(mfl, 4),
-            'signal_weight': entry_weight,
-            'signal_names': entry_names,
+            'signal_weight': pos['entry_weight'],
+            'signal_names': pos['entry_names'],
             'direction': 'long',
             'exit_reason': exit_reason,
         })
-        position = 0.0
+        open_positions.remove(pos)
 
     for i in range(n):
         price = closes[i]
-        equity.append(capital + position * price)
 
         # 获取趋势方向
         if trend_candles:
@@ -705,34 +711,34 @@ def run_mtf_backtest(
             elif sig == -1:
                 raw_short.append(sid)
 
-        # ── 出场判断 ──
-        if position > 0:
+        # ── 出场判断：每笔持仓独立检查，允许同一时刻多笔持仓并存 ──
+        for pos in open_positions[:]:
             exit_triggered = False
 
             # 1) 固定百分比止损: 用当根K线最低价判断是否触及止损
             if not exit_triggered and stop_loss_pct > 0:
-                stop_price = entry_price * (1 - stop_loss_pct / 100)
+                stop_price = pos['entry_price'] * (1 - stop_loss_pct / 100)
                 if lows[i] <= stop_price:
-                    _close_position(i, stop_price, 'stop_loss')
+                    _close_position(pos, i, stop_price, 'stop_loss')
                     exit_triggered = True
 
             # 2) 入场K线最低价止损
-            if not exit_triggered and use_entry_candle_low and entry_candle_low > 0:
-                if lows[i] <= entry_candle_low:
-                    _close_position(i, entry_candle_low, 'entry_candle_low')
+            if not exit_triggered and use_entry_candle_low and pos['entry_candle_low'] > 0:
+                if lows[i] <= pos['entry_candle_low']:
+                    _close_position(pos, i, pos['entry_candle_low'], 'entry_candle_low')
                     exit_triggered = True
 
             # 3) 保本出场: 浮盈达到阈值后，价格回落到入场价则平仓
             if not exit_triggered and breakeven_trigger_pct > 0:
-                max_high = max(highs[entry_idx: i + 1])
-                max_profit = (max_high - entry_price) / entry_price * 100
-                if max_profit >= breakeven_trigger_pct and lows[i] <= entry_price:
-                    _close_position(i, entry_price, 'breakeven')
+                max_high = max(highs[pos['entry_idx']: i + 1])
+                max_profit = (max_high - pos['entry_price']) / pos['entry_price'] * 100
+                if max_profit >= breakeven_trigger_pct and lows[i] <= pos['entry_price']:
+                    _close_position(pos, i, pos['entry_price'], 'breakeven')
                     exit_triggered = True
 
             # 4) 反向技术指标信号
             if not exit_triggered and use_reverse and raw_short:
-                _close_position(i, price, 'reverse_signal')
+                _close_position(pos, i, price, 'reverse_signal')
                 exit_triggered = True
 
         # 过滤后的信号用于开仓
@@ -752,25 +758,27 @@ def run_mtf_backtest(
         elif color == 'green':
             short_signals = []
 
-        # 开仓: 空仓时出现做多信号（已过滤）
-        if position == 0.0 and capital > 0 and long_signals:
-            position = capital / price
-            entry_price = price
-            entry_time_val = times[i]
-            entry_idx = i
-            entry_candle_low = lows[i]
-            entry_weight = len(long_signals)
-            entry_names = long_signals[:]
-            capital = 0.0
+        # 开仓: 每个有效入场信号单独开一笔，不再因为已有持仓而跳过新机会。
+        if long_signals:
+            open_positions.append({
+                'entry_price': price,
+                'entry_time': times[i],
+                'entry_idx': i,
+                'entry_candle_low': lows[i],
+                'entry_weight': len(long_signals),
+                'entry_names': long_signals[:],
+                'notional': per_trade_notional,
+            })
 
-        equity[-1] = capital + position * closes[i]
+        equity.append(_current_equity(i))
 
     # 强制平仓
-    if position > 0:
-        _close_position(n - 1, closes[-1], 'end_of_data')
-        equity[-1] = capital
+    for pos in open_positions[:]:
+        _close_position(pos, n - 1, closes[-1], 'end_of_data')
+    if equity:
+        equity[-1] = initial_capital + realized_pnl
 
-    final_capital = capital if position == 0 else position * closes[-1]
+    final_capital = initial_capital + realized_pnl
 
     # ── 统计指标 ──────────────────────────────────────────────────────────
     total_return_pct = (final_capital - initial_capital) / initial_capital * 100

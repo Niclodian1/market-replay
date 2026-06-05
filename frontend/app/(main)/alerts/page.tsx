@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAlerts, createAlert, updateAlert, deleteAlert, testAlertWebhook } from '@/lib/api'
+import { fetchThresholds, updateThresholds } from '@/lib/api/opportunities'
 import type { Alert, AlertCreate, AlertCondition } from '@/types'
 import { SymbolCombobox } from '@/components/SymbolCombobox'
 
@@ -18,6 +19,7 @@ const CONDITION_OPTIONS: { value: AlertCondition; label: string; needsThreshold:
   { value: 'sr_breakout',      label: '支撑阻力突破',                 needsThreshold: false, thresholdHint: '',                  needsMaPeriod: false },
   { value: 'pinbar',            label: 'Pinbar 锤子线',               needsThreshold: false, thresholdHint: '',                  needsMaPeriod: false },
   { value: 'engulfing',         label: '吞没形态',                    needsThreshold: false, thresholdHint: '',                  needsMaPeriod: false },
+  { value: 'w_bottom',          label: 'W 底双底',                    needsThreshold: false, thresholdHint: '',                  needsMaPeriod: false },
 ]
 
 const TIMEFRAME_OPTIONS = ['15min', '1h', '4h', '1day', '1week']
@@ -34,6 +36,7 @@ const CONDITION_LABELS: Record<AlertCondition, string> = {
   sr_breakout:      'S/R突破',
   pinbar:           'Pinbar',
   engulfing:        '吞没',
+  w_bottom:         'W底',
 }
 
 
@@ -50,6 +53,7 @@ function conditionColor(cond: AlertCondition): string {
     sr_breakout:     '#fb923c',
     pinbar:          '#f472b6',
     engulfing:       '#e879f9',
+    w_bottom:        '#5aa7ff',
   }
   return map[cond] ?? 'var(--fg-2)'
 }
@@ -446,6 +450,82 @@ function AlertCard({ alert }: { alert: Alert }) {
   )
 }
 
+function RecommenderSettings() {
+  const queryClient = useQueryClient()
+  const { data } = useQuery({
+    queryKey: ['recommender-thresholds'],
+    queryFn: fetchThresholds,
+  })
+  const [draft, setDraft] = useState(data)
+
+  useEffect(() => {
+    if (data) setDraft(data)
+  }, [data])
+
+  const mutation = useMutation({
+    mutationFn: updateThresholds,
+    onSuccess: saved => {
+      setDraft(saved)
+      queryClient.invalidateQueries({ queryKey: ['recommender-thresholds'] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+    },
+  })
+
+  if (!draft) {
+    return <div className="panel" style={{ padding: 14, color: 'var(--fg-2)', marginBottom: 16 }}>加载推荐器阈值...</div>
+  }
+
+  const setNumber = (key: keyof typeof draft, value: number) => setDraft({ ...draft, [key]: value })
+
+  return (
+    <div className="panel" style={{ padding: 14, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div>
+          <div className="section-title">Recommender Settings</div>
+          <div style={{ fontSize: 12, color: 'var(--fg-2)', marginTop: 4 }}>机会管道使用这些阈值过滤 edge 和置信度</div>
+        </div>
+        <button className="btn small primary" disabled={mutation.isPending} onClick={() => mutation.mutate(draft)}>
+          {mutation.isPending ? '保存中...' : '保存阈值'}
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <ThresholdSlider label="Min winrate" value={draft.min_winrate} min={0.5} max={0.7} step={0.01} format={v => `${Math.round(v * 100)}%`} onChange={v => setNumber('min_winrate', v)} />
+        <ThresholdSlider label="Min sample" value={draft.min_sample} min={10} max={100} step={1} format={v => `${Math.round(v)}`} onChange={v => setNumber('min_sample', Math.round(v))} />
+        <ThresholdSlider label="Min score" value={draft.min_score} min={0.4} max={0.9} step={0.01} format={v => `${Math.round(v * 100)}`} onChange={v => setNumber('min_score', v)} />
+        <ThresholdSlider label="Max open/symbol" value={draft.max_open_per_symbol} min={1} max={5} step={1} format={v => `${Math.round(v)}`} onChange={v => setNumber('max_open_per_symbol', Math.round(v))} />
+      </div>
+    </div>
+  )
+}
+
+function ThresholdSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  format,
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  format: (v: number) => string
+  onChange: (v: number) => void
+}) {
+  return (
+    <label style={{ display: 'block' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--fg-2)', fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+        <span>{label}</span>
+        <span className="mono" style={{ color: 'var(--fg-0)' }}>{format(value)}</span>
+      </div>
+      <input style={{ width: '100%' }} type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} />
+    </label>
+  )
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function AlertsPage() {
@@ -482,6 +562,8 @@ export default function AlertsPage() {
             {showForm ? '取消' : '+ 新建告警'}
           </button>
         </div>
+
+        <RecommenderSettings />
 
         {showForm && <AlertForm onClose={() => setShowForm(false)} />}
 

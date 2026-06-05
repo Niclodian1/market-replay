@@ -72,8 +72,17 @@ _TYPE_MAP: dict[str, str] = {
 
 
 def _normalize(symbol: str) -> str:
-    """BTC/USD → BTC-USD"""
-    return symbol.replace("/", "-")
+    """BTC/USD → BTC-USD；A 股 6 位数字自动补交易所后缀"""
+    sym = symbol.replace("/", "-")
+    # A 股：6 位纯数字，按首位判断交易所
+    if sym.isdigit() and len(sym) == 6:
+        if sym.startswith(("6",)):
+            return sym + ".SS"   # 上交所
+        elif sym.startswith(("0", "3")):
+            return sym + ".SZ"   # 深交所
+        elif sym.startswith(("4", "8")):
+            return sym + ".BJ"   # 北交所
+    return sym
 
 
 def _df_to_candles(df: pd.DataFrame) -> list[dict]:
@@ -487,6 +496,100 @@ class YahooFinanceProvider:
             return result
         return await asyncio.to_thread(_do)
 
+    # ── 基本面快照 ────────────────────────────────────────────────────────
+    async def get_financial_snapshot(self, symbol: str) -> dict:
+        yf_sym = _normalize(symbol)
+        cache_key = f"yf:fundamentals:snapshot:{yf_sym}"
+        if (cached := _cache.get(cache_key, ttl=3600)) is not None:
+            return cached
+
+        def _do() -> dict:
+            ticker = yf.Ticker(yf_sym)
+            info: dict[str, Any] = {}
+            try:
+                info = ticker.info or {}
+            except Exception:
+                info = {}
+
+            qf = pd.DataFrame()
+            try:
+                qf = ticker.quarterly_financials
+            except Exception:
+                qf = pd.DataFrame()
+
+            revenue_values = _financial_row_values(qf, ["Total Revenue", "Operating Revenue"])
+            net_income_values = _financial_row_values(qf, ["Net Income", "Net Income Common Stockholders"])
+            gross_profit_values = _financial_row_values(qf, ["Gross Profit"])
+
+            revenue = revenue_values[0][1] if revenue_values else None
+            net_income = net_income_values[0][1] if net_income_values else None
+            quarter = revenue_values[0][0] if revenue_values else None
+
+            snapshot = {
+                "symbol": symbol,
+                "revenue": revenue,
+                "net_income": net_income,
+                "revenue_yoy": _growth(revenue_values, 4),
+                "revenue_qoq": _growth(revenue_values, 1),
+                "net_income_yoy": _growth(net_income_values, 4),
+                "net_income_qoq": _growth(net_income_values, 1),
+                "gross_margin": _ratio(gross_profit_values[0][1] if gross_profit_values else None, revenue),
+                "market_cap": _safe_float(info.get("marketCap")),
+                "trailing_pe": _safe_float(info.get("trailingPE")),
+                "forward_pe": _safe_float(info.get("forwardPE")),
+                "roe": _safe_float(info.get("returnOnEquity")),
+                "dividend_yield": _safe_float(info.get("dividendYield")),
+                "currency": info.get("financialCurrency") or info.get("currency"),
+                "quarter": quarter,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            _cache.set(cache_key, snapshot)
+            return snapshot
+
+        return await asyncio.to_thread(_do)
+
+    async def get_earnings_history(self, symbol: str, n: int = 4) -> dict:
+        yf_sym = _normalize(symbol)
+        cache_key = f"yf:fundamentals:earnings:{yf_sym}:{n}"
+        if (cached := _cache.get(cache_key, ttl=3600)) is not None:
+            return cached
+
+        def _do() -> dict:
+            ticker = yf.Ticker(yf_sym)
+            next_date = None
+            try:
+                cal = ticker.calendar
+                if cal is not None and isinstance(cal, dict):
+                    ed = cal.get("Earnings Date")
+                    if ed:
+                        date_val = ed[0] if isinstance(ed, list) else ed
+                        next_date = str(date_val)[:10]
+            except Exception:
+                next_date = None
+
+            history = []
+            try:
+                earnings = ticker.get_earnings_dates(limit=max(n, 4))
+            except Exception:
+                earnings = pd.DataFrame()
+
+            if earnings is not None and not earnings.empty:
+                for idx, row in earnings.head(n).iterrows():
+                    actual = _row_value(row, ["Reported EPS", "EPS Actual"])
+                    estimate = _row_value(row, ["EPS Estimate", "Estimated EPS"])
+                    history.append({
+                        "date": str(idx)[:10],
+                        "eps_actual": actual,
+                        "eps_estimate": estimate,
+                        "surprise_pct": _row_value(row, ["Surprise(%)", "Surprise %"]),
+                    })
+
+            result = {"symbol": symbol, "next_earnings_date": next_date, "history": history}
+            _cache.set(cache_key, result)
+            return result
+
+        return await asyncio.to_thread(_do)
+
 
 # ─── 单例 ────────────────────────────────────────────────────────────────────
 _provider: Optional[YahooFinanceProvider] = None
@@ -497,3 +600,55 @@ def get_provider() -> YahooFinanceProvider:
     if _provider is None:
         _provider = YahooFinanceProvider()
     return _provider
+
+
+def _safe_float(value: Any) -> Optional[float]:
+    try:
+        if value is None:
+            return None
+        number = float(value)
+        if math.isnan(number) or math.isinf(number):
+            return None
+        return number
+    except (TypeError, ValueError):
+        return None
+
+
+def _row_value(row: pd.Series, names: list[str]) -> Optional[float]:
+    for name in names:
+        if name in row.index:
+            return _safe_float(row.get(name))
+    return None
+
+
+def _financial_row_values(df: pd.DataFrame, row_names: list[str]) -> list[tuple[str, float]]:
+    if df is None or df.empty:
+        return []
+    for row_name in row_names:
+        if row_name not in df.index:
+            continue
+        values = []
+        series = df.loc[row_name].dropna()
+        for col, value in series.items():
+            safe = _safe_float(value)
+            if safe is None:
+                continue
+            values.append((str(col)[:10], safe))
+        return values
+    return []
+
+
+def _growth(values: list[tuple[str, float]], lag: int) -> Optional[float]:
+    if len(values) <= lag:
+        return None
+    current = values[0][1]
+    previous = values[lag][1]
+    if previous == 0:
+        return None
+    return (current - previous) / abs(previous)
+
+
+def _ratio(numerator: Optional[float], denominator: Optional[float]) -> Optional[float]:
+    if numerator is None or denominator in (None, 0):
+        return None
+    return numerator / denominator

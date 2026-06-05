@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timezone
 
 from app.core.indicators import _sma, _rsi, _ema, _macd, _bollinger
-from app.core.price_action import detect_pinbar, detect_engulfing
+from app.core.price_action import detect_pinbar, detect_engulfing, detect_w_bottom
 from app.core.sr_levels import signals_sr_breakout
 from app.core.discord_webhook import send_discord_alert
 from app.schemas.alerts import CONDITION_LABELS
@@ -247,6 +247,14 @@ async def evaluate_alert(alert, provider) -> tuple[bool, str]:
                 detail_extra = "检测到**看涨吞没形态**"
             elif sig == -1:
                 detail_extra = "检测到**看跌吞没形态**"
+
+        elif ctype == "w_bottom":
+            sigs = detect_w_bottom(candles)
+            sig = sigs[-1] if sigs else 0
+            if sig == 1:
+                detail_extra = "检测到**W底（双底）形态**"
+            elif sig == -1:
+                detail_extra = "检测到**M顶（双顶）形态**"
 
         if sig and sig != 0:
             direction = _SIGNAL_DESC.get(sig, "")

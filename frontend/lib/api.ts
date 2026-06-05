@@ -107,3 +107,55 @@ export const getBacktestDataRange = (symbol: string, timeframe: string) =>
 
 export const runMtfBacktest = (data: object) =>
   apiClient.post('/api/backtest/mtf', data).then((r) => r.data)
+
+// ===== MA Strategies (静态 JSON) =====
+export const getMaStrategiesManifest = () =>
+  apiClient.get('/api/ma-strategies/manifest').then((r) => r.data)
+
+export const getMaStrategiesSymbol = (symbol: string) =>
+  apiClient
+    .get(`/api/ma-strategies/${encodeURIComponent(symbol)}`)
+    .then((r) => r.data)
+
+export const refreshMaStrategiesSymbol = (symbol: string) =>
+  apiClient
+    .post(`/api/ma-strategies/${encodeURIComponent(symbol)}/refresh`)
+    .then((r) => r.data)
+
+// ===== MA Strategies 3x (杠杆浮盈加仓) =====
+export const getMaStrategies3xManifest = (leverage: 2 | 3 = 2) =>
+  apiClient.get('/api/ma-strategies-3x/manifest', { params: { leverage } }).then((r) => r.data)
+
+export const getMaStrategies3xSymbol = (symbol: string, leverage: 2 | 3 = 2) =>
+  apiClient
+    .get(`/api/ma-strategies-3x/${encodeURIComponent(symbol)}`, { params: { leverage } })
+    .then((r) => r.data)
+
+export const refreshMaStrategies3xSymbol = (symbol: string, leverage: 2 | 3 = 2) =>
+  apiClient
+    .post(`/api/ma-strategies-3x/${encodeURIComponent(symbol)}/refresh`, null, { params: { leverage } })
+    .then((r) => r.data)
+
+// ===== MA Strategies Pro: 浮盈加仓 =====
+export const getMaStrategiesProManifest = (leverage: 2 | 3 = 2) =>
+  getMaStrategies3xManifest(leverage)
+
+export const getMaStrategiesProSymbol = (symbol: string, leverage: 2 | 3 = 2) =>
+  getMaStrategies3xSymbol(symbol, leverage)
+
+export const refreshMaStrategiesProSymbol = (symbol: string, leverage: 2 | 3 = 2) =>
+  refreshMaStrategies3xSymbol(symbol, leverage)
+
+// ===== 策略 C：多均线同时上穿 =====
+export const getMaStrategiesCManifest = () =>
+  apiClient.get('/api/ma-strategies-c/manifest').then((r) => r.data)
+
+export const getMaStrategiesCSymbol = (symbol: string, timeframe: string) =>
+  apiClient
+    .get(`/api/ma-strategies-c/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}`)
+    .then((r) => r.data)
+
+export const refreshMaStrategiesCSymbol = (symbol: string, timeframe: string) =>
+  apiClient
+    .post(`/api/ma-strategies-c/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}/refresh`)
+    .then((r) => r.data)

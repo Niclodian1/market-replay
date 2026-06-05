@@ -142,28 +142,37 @@ class BinanceProvider:
     ) -> list[dict]:
         """
         拉取 since_ts（秒）之后的增量 K 线。
-        OKX before=ts 返回比 ts 更新的数据，newest-first。
+
+        注意：OKX before=ts 返回的是「比 ts 新的**最近 100 根**」，而非紧跟 ts 之后的 100 根。
+        因此缺口超过 100 根时用 before 正向翻页会漏掉中间段。这里改为用 after 从最新
+        往历史反向翻页（与 get_full_history 同策略），翻到覆盖 since_ts 为止，确保任意
+        大小的缺口都能补全。
         """
         inst_id  = to_okx_inst_id(symbol)
         bar      = _INTERVAL_MAP.get(interval, "1H")
-        before_ms = since_ts * 1000  # 取比 since_ts 更新的数据
+        since_ms = since_ts * 1000
 
         all_candles: list[dict] = []
+        after_ms: int | None = None  # 首页不传 after，拿最新 100 根
 
         async with httpx.AsyncClient(timeout=30) as client:
             while True:
-                data = await self._fetch_page(client, inst_id, bar, before_ms=before_ms)
+                data = await self._fetch_page(client, inst_id, bar, after_ms=after_ms)
                 if not data:
                     break
 
                 candles = _parse_candles(data)
                 all_candles.extend(candles)
 
+                # data 按 newest-first 排列，最后一个是本页最旧的
+                oldest_ts_ms = int(data[-1][0])
+                if oldest_ts_ms <= since_ms:
+                    break  # 已覆盖到 since_ts，无需继续往更旧翻
+
                 if len(data) < 100:
                     break
 
-                # 继续往更新方向翻页（before 参数取最新那根的 ts）
-                before_ms = int(data[0][0])
+                after_ms = oldest_ts_ms  # 下一页：拉比当前最旧更旧的数据
                 await asyncio.sleep(0.05)
 
         all_candles.sort(key=lambda c: c["time"])

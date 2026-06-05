@@ -3,13 +3,15 @@
 所有操作基于 market_candles 表（PostgreSQL）。
 
 数据来源路由策略：
-  加密货币 (BTC-USD 等) + 1h/4h  → Binance（历史可达 8 年）
-  其他所有情况                    → Yahoo Finance
+  加密货币 (BTC-USD 等) + 本地有 parquet → LocalCrypto（parquet 历史 + OKX 增量）
+  加密货币 + 1h/4h（无本地）             → Binance/OKX（历史可达 8 年）
+  其他所有情况                           → Yahoo Finance
 """
 from __future__ import annotations
 
 import time as _time
 from datetime import datetime, timezone
+from collections.abc import Awaitable, Callable
 
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +24,15 @@ from app.providers.binance import (
     is_crypto_symbol,
     get_full_history_days as binance_full_days,
 )
+from app.providers.local_crypto import LocalCryptoProvider, has_local_data
+
+NewCandleCallback = Callable[[str, str, int], Awaitable[None]]
+_new_candle_callbacks: list[NewCandleCallback] = []
+
+
+def register_on_new_candle_callback(callback: NewCandleCallback) -> None:
+    if callback not in _new_candle_callbacks:
+        _new_candle_callbacks.append(callback)
 
 # yfinance 各周期实际能提供的最大历史天数
 _YF_FULL_HISTORY_DAYS: dict[str, int] = {
@@ -35,11 +46,15 @@ _YF_FULL_HISTORY_DAYS: dict[str, int] = {
 def _select_provider(symbol: str, timeframe: str):
     """
     根据标的和周期选择数据提供商。
-    加密货币 + 1h/4h → BinanceProvider；其余 → YahooFinanceProvider。
+    加密货币 + 本地有 parquet → LocalCryptoProvider（parquet 历史 + OKX 增量）；
+    加密货币 + 1h/4h（无本地） → BinanceProvider；其余 → YahooFinanceProvider。
     返回 (provider, expected_full_history_days)。
     """
-    if is_crypto_symbol(symbol) and timeframe in ("1h", "4h"):
-        return BinanceProvider(), binance_full_days(timeframe)
+    if is_crypto_symbol(symbol):
+        if has_local_data(symbol, timeframe):
+            return LocalCryptoProvider(), binance_full_days(timeframe)
+        if timeframe in ("1h", "4h"):
+            return BinanceProvider(), binance_full_days(timeframe)
     return get_yf_provider(), _YF_FULL_HISTORY_DAYS.get(timeframe, 730)
 
 
@@ -132,6 +147,10 @@ async def sync_candles(
         result = await db.execute(stmt)
         total_inserted += result.rowcount or len(batch)
     await db.commit()
+    if total_inserted and _new_candle_callbacks:
+        latest_ts = max(int(c["time"]) for c in candles)
+        for callback in list(_new_candle_callbacks):
+            await callback(symbol, timeframe, latest_ts)
     return total_inserted
 
 

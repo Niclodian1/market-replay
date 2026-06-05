@@ -4,8 +4,10 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCandles, getQuote, addWatchlist, getWatchlist } from '@/lib/api'
+import { useOpportunity } from '@/lib/api/opportunities'
 import { calculateIndicators, elderImpulse } from '@/lib/indicators'
 import { CandlestickChart } from '@/components/chart/CandlestickChart'
+import { TradePlanOverlay } from '@/components/chart/TradePlanOverlay'
 import { useAppStore } from '@/store/useAppStore'
 import type { Timeframe, Candle, Indicators, WatchlistItem, ImpulseColor } from '@/types'
 
@@ -26,8 +28,9 @@ function fmtPrice(v: number): string {
   return v.toFixed(6)
 }
 
-export default function ChartPage({ params }: { params: { symbol: string } }) {
+export default function ChartPage({ params, searchParams }: { params: { symbol: string }; searchParams?: { planId?: string } }) {
   const symbol = decodeURIComponent(params.symbol)
+  const planId = Number(searchParams?.planId)
 
   const [timeframe, setTimeframe]         = useState<Timeframe>('1day')
   const [logScale, setLogScale]           = useState(false)
@@ -83,6 +86,9 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
     staleTime: 60_000,
   })
   const isInWatchlist = watchlistData?.items.some(w => w.symbol === symbol) ?? false
+
+  const { data: opportunityData } = useOpportunity(Number.isFinite(planId) ? planId : NaN)
+  const tradePlan = opportunityData?.symbol === symbol ? opportunityData.trade_plan : null
 
   const addMutation = useMutation({
     mutationFn: () => addWatchlist({ symbol, name: quote?.name || symbol, asset_type: 'stock' }),
@@ -272,16 +278,20 @@ export default function ChartPage({ params }: { params: { symbol: string } }) {
           </div>
         )}
         {allCandles.length > 0 && (
-          <CandlestickChart
-            candles={allCandles}
-            indicators={indicators}
-            logScale={logScale}
-            maPeriods={maPeriods}
-            onMaPeriodsChange={setMaPeriods}
-            isLoadingMore={isLoadingMore}
-            onScrollToLeft={loadMoreCandles}
-            impulseColors={impulseColors}
-          />
+          <>
+            <CandlestickChart
+              candles={allCandles}
+              indicators={indicators}
+              logScale={logScale}
+              maPeriods={maPeriods}
+              onMaPeriodsChange={setMaPeriods}
+              isLoadingMore={isLoadingMore}
+              onScrollToLeft={loadMoreCandles}
+              impulseColors={impulseColors}
+              tradePlan={tradePlan}
+            />
+            <TradePlanOverlay tradePlan={tradePlan} />
+          </>
         )}
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

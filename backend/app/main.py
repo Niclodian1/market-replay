@@ -12,6 +12,8 @@ from app.db.base import Base
 import app.models  # noqa: F401
 
 from app.tasks.alert_scheduler import start_scheduler, stop_scheduler
+from app.tasks.candle_worker import register_candle_worker_hooks
+from app.tasks.opportunity_consumer import register_opportunity_consumer
 
 
 @asynccontextmanager
@@ -27,6 +29,8 @@ async def lifespan(application: FastAPI):
         async with engine.connect() as conn:
             await conn.execute(text(ddl))
             await conn.commit()
+    register_candle_worker_hooks()
+    register_opportunity_consumer()
     start_scheduler()
     yield
     stop_scheduler()

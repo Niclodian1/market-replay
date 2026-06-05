@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+import hashlib
+import json
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.core.backtest_engine import run_backtest, run_mtf_backtest
 from app.core.candle_store import sync_candles, load_candles, get_local_range
+from app.models.models import StrategyBacktestRun
 
 router = APIRouter()
 
@@ -131,9 +134,17 @@ async def run_backtest_endpoint(
 
 # ─── 多级别回测 ──────────────────────────────────────────────────────────────
 
-_VALID_ENTRY_SIGNALS = {"ma_breakout", "macd_divergence", "sr_breakout", "pinbar", "engulfing"}
+_VALID_ENTRY_SIGNALS = {"ma_breakout", "macd_divergence", "sr_breakout", "pinbar", "engulfing", "w_bottom"}
 _MTF_TIMEFRAMES = {"4h", "1day", "1week"}
 _TF_ORDER = {"1week": 4, "1day": 3, "4h": 2, "1h": 1}
+_ENTRY_SIGNAL_LABELS = {
+    "ma_breakout": "均线突破",
+    "macd_divergence": "MACD 背离",
+    "sr_breakout": "支撑阻力突破",
+    "pinbar": "Pinbar 反转",
+    "engulfing": "吞没形态",
+    "w_bottom": "W底双底",
+}
 
 
 class MtfBacktestRequest(BaseModel):
@@ -144,10 +155,67 @@ class MtfBacktestRequest(BaseModel):
     end_date: str
     trend_ma_period: int = 60
     use_impulse: bool = True
-    entry_signals: list[str] = Field(default=["ma_breakout", "macd_divergence", "sr_breakout", "pinbar", "engulfing"])
+    entry_signals: list[str] = Field(default=["ma_breakout", "macd_divergence", "sr_breakout", "pinbar", "engulfing", "w_bottom"])
     entry_params: dict = Field(default_factory=dict)
     exit_rules: dict = Field(default_factory=lambda: {"reverse_signal": True})
     initial_capital: float = 10_000.0
+
+
+def _combo_strategy_id(req: MtfBacktestRequest) -> str:
+    payload = {
+        "execution_tf": req.execution_tf,
+        "trend_tf": req.trend_tf,
+        "trend_ma_period": req.trend_ma_period,
+        "use_impulse": req.use_impulse,
+        "entry_signals": sorted(req.entry_signals),
+        "entry_params": req.entry_params,
+        "exit_rules": req.exit_rules,
+    }
+    raw = json.dumps(payload, sort_keys=True, ensure_ascii=True)
+    return f"mtf_combo:{hashlib.sha1(raw.encode()).hexdigest()[:12]}"
+
+
+def _combo_strategy_name(req: MtfBacktestRequest) -> str:
+    labels = [_ENTRY_SIGNAL_LABELS.get(sig, sig) for sig in req.entry_signals]
+    return f"多级别组合 · {'+'.join(labels[:3])}{'等' if len(labels) > 3 else ''}"
+
+
+async def _persist_mtf_backtest_runs(db: AsyncSession, req: MtfBacktestRequest, result: dict) -> None:
+    common = {
+        "symbol": result["symbol"],
+        "timeframe": result["timeframe"],
+        "trend_tf": result.get("trend_tf"),
+        "start_date": result["start_date"],
+        "end_date": result["end_date"],
+        "entry_signals": result["entry_signals"],
+        "entry_params": req.entry_params,
+        "exit_rules": req.exit_rules,
+        "initial_capital": result["initial_capital"],
+        "total_return_pct": result["total_return_pct"],
+        "annualized_return_pct": result["annualized_return_pct"],
+        "max_drawdown_pct": result["max_drawdown_pct"],
+        "sharpe_ratio": result["sharpe_ratio"],
+        "win_rate_pct": result["win_rate_pct"],
+        "total_trades": result["total_trades"],
+        "winning_trades": result["winning_trades"],
+        "losing_trades": result["losing_trades"],
+        "buy_hold_return_pct": result["buy_hold_return_pct"],
+        "payload": result,
+    }
+    for signal_id in req.entry_signals:
+        db.add(StrategyBacktestRun(
+            strategy_id=signal_id,
+            strategy_kind="entry_signal",
+            strategy_name=_ENTRY_SIGNAL_LABELS.get(signal_id, signal_id),
+            **common,
+        ))
+    db.add(StrategyBacktestRun(
+        strategy_id=_combo_strategy_id(req),
+        strategy_kind="mtf_combo",
+        strategy_name=_combo_strategy_name(req),
+        **common,
+    ))
+    await db.commit()
 
 
 @router.post("/mtf")
@@ -214,4 +282,5 @@ async def run_mtf_backtest_endpoint(
     except ValueError as e:
         raise HTTPException(422, str(e))
 
+    await _persist_mtf_backtest_runs(db, req, result)
     return result

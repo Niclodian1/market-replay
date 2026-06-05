@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Market Replay · 行情复盘助手</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="mock.js"></script>
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="chart.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" src="page_chart.jsx"></script>
+<script type="text/babel" src="page_replay.jsx"></script>
+<script type="text/babel" src="page_backtest.jsx"></script>
+<script type="text/babel" src="page_misc.jsx"></script>
+
+<script type="text/babel">
+const TWEAKS_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "dark",
+  "accent": "amber",
+  "density": "compact",
+  "font": "jetbrains",
+  "defaultRoute": "chart",
+  "defaultSymbol": "AAPL"
+}/*EDITMODE-END*/;
+
+const ACCENTS = {
+  amber:  "#ffb020",
+  cyan:   "#3ecfcf",
+  magenta:"#e666b0",
+  lime:   "#9ed54b",
+};
+const FONTS = {
+  jetbrains: { mono: '"JetBrains Mono", ui-monospace, monospace', ui: '"Inter", sans-serif' },
+  ibm:       { mono: '"IBM Plex Mono", ui-monospace, monospace', ui: '"IBM Plex Sans", sans-serif' },
+  berkeley:  { mono: 'ui-monospace, "SF Mono", Menlo, monospace',  ui: 'system-ui, -apple-system, sans-serif' },
+};
+
+function App() {
+  const [theme, setTheme] = React.useState(TWEAKS_DEFAULTS.theme);
+  const [accent, setAccent] = React.useState(TWEAKS_DEFAULTS.accent);
+  const [density, setDensity] = React.useState(TWEAKS_DEFAULTS.density);
+  const [route, setRoute] = React.useState(() => localStorage.getItem("mr_route") || TWEAKS_DEFAULTS.defaultRoute);
+  const [activeSymbol, setActiveSymbol] = React.useState(() => localStorage.getItem("mr_symbol") || TWEAKS_DEFAULTS.defaultSymbol);
+  const [tweaksOpen, setTweaksOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    const c = ACCENTS[accent] || ACCENTS.amber;
+    document.documentElement.style.setProperty("--accent", c);
+    document.documentElement.style.setProperty("--accent-dim", c + "26");
+    document.documentElement.style.setProperty("--accent-line", c + "66");
+    document.documentElement.style.setProperty("--ma20", c);
+    const base = density === "compact" ? 13 : density === "spacious" ? 14 : 13.5;
+    document.body.style.fontSize = base + "px";
+  }, [theme, accent, density]);
+
+  React.useEffect(() => { localStorage.setItem("mr_route", route); }, [route]);
+  React.useEffect(() => { localStorage.setItem("mr_symbol", activeSymbol); }, [activeSymbol]);
+
+  // Edit mode wiring
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      if (e.data?.type === "__activate_edit_mode") setTweaksOpen(true);
+      if (e.data?.type === "__deactivate_edit_mode") setTweaksOpen(false);
+    };
+    window.addEventListener("message", onMsg);
+    try { window.parent.postMessage({ type: "__edit_mode_available" }, "*"); } catch (_) {}
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  const pushEdit = (edits) => {
+    try { window.parent.postMessage({ type: "__edit_mode_set_keys", edits }, "*"); } catch (_) {}
+  };
+
+  // Keyboard shortcuts
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA" || e.target?.tagName === "SELECT") return;
+      if (e.key === "g") { e.preventDefault(); /* go-to prefix */ }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  return (
+    <div className="app" data-screen-label={"00 " + route}>
+      <Rail route={route} setRoute={setRoute} />
+      <Topbar theme={theme} setTheme={(t) => { setTheme(t); pushEdit({ theme: t }); }} activeSymbol={activeSymbol} setActiveSymbol={setActiveSymbol} route={route} />
+      <div className="side" style={{ gridArea: "side" }}>
+        <WatchlistSide activeSymbol={activeSymbol} setActiveSymbol={setActiveSymbol} />
+      </div>
+      <div className="main" data-screen-label={route}>
+        {route === "dashboard" && <DashboardPage activeSymbol={activeSymbol} setRoute={setRoute} />}
+        {route === "chart"     && <ChartPage activeSymbol={activeSymbol} />}
+        {route === "replay"    && <ReplayPage activeSymbol={activeSymbol} />}
+        {route === "backtest"  && <BacktestPage activeSymbol={activeSymbol} />}
+        {route === "watchlist" && <WatchlistPage setActiveSymbol={setActiveSymbol} setRoute={setRoute} />}
+        {route === "alerts"    && <AlertsPage />}
+        {route === "notes"     && <NotesPage setActiveSymbol={setActiveSymbol} setRoute={setRoute} />}
+      </div>
+      <Statusbar activeSymbol={activeSymbol} />
+
+      {tweaksOpen && (
+        <div className="tweaks-panel fade-in">
+          <div className="tweaks-header">
+            <span>Tweaks</span>
+            <button className="btn icon small ghost" onClick={() => setTweaksOpen(false)}><I.X /></button>
+          </div>
+          <div className="tweaks-body">
+            <div className="tweak-row">
+              <label>主题</label>
+              <div className="tweak-segment">
+                <button className={theme === "dark" ? "on" : ""} onClick={() => { setTheme("dark"); pushEdit({ theme: "dark" }); }}>深色</button>
+                <button className={theme === "light" ? "on" : ""} onClick={() => { setTheme("light"); pushEdit({ theme: "light" }); }}>浅色</button>
+              </div>
+            </div>
+            <div className="tweak-row">
+              <label>强调色</label>
+              <div className="tweak-segment">
+                {Object.keys(ACCENTS).map((k) => (
+                  <button key={k} className={accent === k ? "on" : ""} onClick={() => { setAccent(k); pushEdit({ accent: k }); }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: ACCENTS[k], display: "inline-block" }} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="tweak-row">
+              <label>密度</label>
+              <div className="tweak-segment">
+                <button className={density === "compact" ? "on" : ""} onClick={() => { setDensity("compact"); pushEdit({ density: "compact" }); }}>紧凑</button>
+                <button className={density === "regular" ? "on" : ""} onClick={() => { setDensity("regular"); pushEdit({ density: "regular" }); }}>常规</button>
+                <button className={density === "spacious" ? "on" : ""} onClick={() => { setDensity("spacious"); pushEdit({ density: "spacious" }); }}>宽松</button>
+              </div>
+            </div>
+            <div className="tweak-row">
+              <label>默认起始页</label>
+              <select className="input" value={route} onChange={(e) => { setRoute(e.target.value); pushEdit({ defaultRoute: e.target.value }); }}>
+                <option value="dashboard">总览</option>
+                <option value="chart">行情图</option>
+                <option value="replay">复盘</option>
+                <option value="backtest">回测</option>
+                <option value="watchlist">自选</option>
+                <option value="alerts">告警</option>
+                <option value="notes">笔记</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

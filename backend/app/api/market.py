@@ -2,6 +2,7 @@ import asyncio
 from typing import Optional
 from fastapi import APIRouter, Query, HTTPException
 from app.providers.yahoo_finance import get_provider
+from app.providers.local_crypto import pick_series_provider
 from app.schemas.market import SearchResponse, QuoteResponse, CandlesResponse, BatchQuoteResponse
 
 router = APIRouter()
@@ -65,7 +66,8 @@ async def get_candles(
     if timeframe not in VALID_INTERVALS:
         raise HTTPException(status_code=400, detail=f"timeframe 必须是 {VALID_INTERVALS} 之一")
     try:
-        provider = get_provider()
+        # crypto 且本地有 parquet → 走混合本地源；其余走 Yahoo
+        provider = pick_series_provider(symbol, timeframe)
         candles = await provider.get_time_series(symbol, timeframe, outputsize, before=before)
         return {"symbol": symbol, "timeframe": timeframe, "candles": candles}
     except ValueError as e:
