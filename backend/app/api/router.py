@@ -15,6 +15,7 @@ from app.api import (
     opportunities_api,
     recommender_api,
     replay_notes_api,
+    strategy_lab_api,
     strategy_library_api,
     watchlist_api,
 )
@@ -35,6 +36,7 @@ api_router.include_router(edge_api.router, prefix="/edge", tags=["edge"])
 api_router.include_router(fundamentals_api.router, prefix="/fundamentals", tags=["fundamentals"])
 api_router.include_router(recommender_api.router, prefix="/recommender", tags=["recommender"])
 api_router.include_router(strategy_library_api.router, prefix="/strategies", tags=["strategies"])
+api_router.include_router(strategy_lab_api.router, prefix="/strategy-lab", tags=["strategy-lab"])
 api_router.include_router(ma_strategies_api.router, prefix="/ma-strategies", tags=["ma-strategies"])
 api_router.include_router(ma_strategies_3x_api.router, prefix="/ma-strategies-3x", tags=["ma-strategies-3x"])
 api_router.include_router(ma_strategies_c_api.router, prefix="/ma-strategies-c", tags=["ma-strategies-c"])
