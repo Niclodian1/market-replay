@@ -95,6 +95,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    key: 'strategy-lab', href: '/strategy-lab', label: '策略台',
+    icon: (
+      <svg className="ico" viewBox="0 0 24 24">
+        <path d="M9 3h6" />
+        <path d="M10 3v6l-5 8a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-8V3" />
+        <path d="M7 15h10" />
+      </svg>
+    ),
+  },
+  {
     key: 'ma-strategies', href: '/ma-strategies', label: '均线策略',
     icon: (
       <svg className="ico" viewBox="0 0 24 24">

@@ -618,3 +618,52 @@ export interface MaStrategyCManifest {
   timeframes: MaStrategyCTimeframe[]
   variants: MaStrategyCVariant[]
 }
+
+// ===== 统一策略实验台（strategy-spine 展示层） =====
+export interface StrategyLabCatalogEntry {
+  id: string
+  name: string
+  kind: 'multi_position' | 'single_position'
+  category: string
+  description: string
+  params_schema: Record<string, unknown>
+  timeframes: string[]
+  variant_axis: string | null
+  tags: string[]
+}
+
+export interface StrategyLabCatalog {
+  strategies: StrategyLabCatalogEntry[]
+}
+
+export interface StrategyLabVariantStats {
+  total_return: number
+  n_trades: number
+  win_rate: number
+  max_drawdown?: number
+  max_profit?: number
+  avg_profit?: number
+  avg_rr?: number | null
+  sharpe?: number
+  is_best?: boolean
+}
+
+export interface StrategyLabVariant {
+  id: string
+  label: string
+  params: Record<string, unknown>
+  stats: StrategyLabVariantStats
+  trades: Record<string, unknown>[]
+}
+
+export interface StrategyLabRun {
+  strategy_id: string
+  name: string
+  symbol: string
+  timeframe: string
+  kind: 'multi_position' | 'single_position'
+  candles: { time: number; open: number; high: number; low: number; close: number; volume: number }[]
+  overlays: { ma_lines: Record<string, (number | null)[]> } | null
+  best_variant: string | null
+  variants: StrategyLabVariant[]
+}

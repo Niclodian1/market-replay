@@ -159,3 +159,12 @@ export const refreshMaStrategiesCSymbol = (symbol: string, timeframe: string) =>
   apiClient
     .post(`/api/ma-strategies-c/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}/refresh`)
     .then((r) => r.data)
+
+// ===== 统一策略实验台（strategy-spine 展示层） =====
+export const getStrategyLabCatalog = () =>
+  apiClient.get('/api/strategy-lab/catalog').then((r) => r.data)
+
+export const runStrategyLab = (strategyId: string, symbol: string, timeframe: string) =>
+  apiClient
+    .get('/api/strategy-lab/run', { params: { strategy_id: strategyId, symbol, timeframe } })
+    .then((r) => r.data)
