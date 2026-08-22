@@ -30,17 +30,13 @@ export default function LoginPage() {
         // 存储简单 token（阶段1先用 sessionStorage，后续完善）
         sessionStorage.setItem('auth_token', data.token || 'authenticated')
         router.push('/')
+      } else if (res.status === 503) {
+        setError('后端未配置 APP_PASSWORD，无法登录')
       } else {
         setError('密码错误，请重试')
       }
     } catch {
-      // 开发阶段：后端未启动时允许用默认密码直接登录
-      if (password === 'admin123') {
-        sessionStorage.setItem('auth_token', 'dev_token')
-        router.push('/')
-      } else {
-        setError('无法连接到服务器，或密码错误')
-      }
+      setError('无法连接到服务器')
     } finally {
       setLoading(false)
     }

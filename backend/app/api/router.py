@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from app.api import (
     alerts_api,
+    auth_api,
     analysis_api,
     backtest_api,
     chanlun_api,
@@ -21,6 +22,7 @@ from app.api import (
 api_router = APIRouter()
 
 api_router.include_router(health.router, tags=["health"])
+api_router.include_router(auth_api.router, prefix="/auth", tags=["auth"])
 api_router.include_router(market.router, prefix="/market", tags=["market"])
 api_router.include_router(indicators_api.router, prefix="/indicators", tags=["indicators"])
 api_router.include_router(watchlist_api.router, prefix="/watchlist", tags=["watchlist"])

@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://marketuser:marketpass@postgres:5432/marketreplay"
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
     DEBUG: bool = False
-    APP_PASSWORD: str = "admin123"
+    # 单用户登录密码；为空表示未配置，/api/auth/login 返回 503（不设弱默认值）
+    APP_PASSWORD: str = ""
     DISCORD_WEBHOOK_URL: Optional[str] = None
     # 飞书自建应用凭证（用于上传图片换取 image_key）
     FEISHU_APP_ID: Optional[str] = None
