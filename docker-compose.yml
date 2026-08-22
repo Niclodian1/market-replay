@@ -33,6 +33,7 @@ services:
     volumes:
       - ./backend:/app
       - ./:/repo
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-marketuser}:${POSTGRES_PASSWORD:-marketpass}@postgres:5432/${POSTGRES_DB:-marketreplay}"
       REPO_ROOT: "/repo"
@@ -50,6 +51,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
+    command: npm run dev
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:8000"
 
