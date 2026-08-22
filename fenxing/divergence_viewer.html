@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MACD 背离四套逻辑对比 · BTC 日线</title>
+<style>
+  :root[data-theme="dark"] {
+    --surface: #1a1a19; --plane: #0d0d0d; --ink: #ffffff;
+    --ink-2: #c3c2b7;   --muted: #898781; --grid: #2c2c2a;
+    --border: #383835;  --up: #0ca30c;    --down: #e66767;
+  }
+  :root[data-theme="light"] {
+    --surface: #fcfcfb; --plane: #f9f9f7; --ink: #0b0b0b;
+    --ink-2: #52514e;   --muted: #898781; --grid: #e1e0d9;
+    --border: #c3c2b7;  --up: #008300;    --down: #e34948;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--plane); color: var(--ink); font-size: 13px;
+  }
+  #app { display: flex; flex-direction: column; height: 100%; }
+
+  /* ---- 顶部工具条 ---- */
+  .toolbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; background: var(--surface);
+    border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  }
+  .brand-title { font-size: 15px; font-weight: 600; letter-spacing: .5px; }
+  .brand-sub {
+    font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px;
+  }
+  .meta-chip { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .spacer { flex: 1 1 auto; }
+  .btn {
+    background: transparent; color: var(--ink-2);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  .btn:hover { border-color: var(--muted); color: var(--ink); }
+  .btn.primary { color: var(--up); }
+  .btn.danger  { color: var(--down); }
+  .anno-count { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  /* ---- 主布局 ---- */
+  .layout { display: flex; flex: 1 1 auto; min-height: 0; }
+  .chart-pane { flex: 1 1 auto; min-width: 0; padding: 10px; display: flex; }
+  .chart-box {
+    position: relative; flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  }
+  #candleChart { flex: 1 1 auto; min-height: 0; }
+  .chart-hint {
+    position: absolute; bottom: 4px; left: 10px; z-index: 5;
+    font-size: 10px; color: var(--muted); pointer-events: none;
+  }
+
+  /* ---- 右侧面板 ---- */
+  .side {
+    flex: 0 0 360px; min-width: 0;
+    padding: 10px 12px 10px 0;
+    overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .card h3 {
+    margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+
+  /* ---- 图例 ---- */
+  .legend-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0; border-bottom: 1px dashed var(--border);
+  }
+  .legend-row:last-child { border-bottom: none; }
+  .legend-row input[type=checkbox] { accent-color: var(--up); cursor: pointer; }
+  .glyph {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; flex: 0 0 auto;
+    border-radius: 5px; font-size: 12px; font-weight: 700;
+    color: var(--surface);
+  }
+  .legend-meta { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+  .legend-name { font-size: 12px; font-weight: 600; }
+  .legend-sub { font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .legend-count { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .legend-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .filter-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--ink-2); }
+
+  /* ---- 详情 ---- */
+  .detail-empty { color: var(--muted); font-size: 12px; padding: 8px 0; }
+  .detail-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .detail-head .glyph { width: 26px; height: 26px; }
+  .detail-title { font-size: 13px; font-weight: 700; }
+  .pill {
+    font-size: 10px; padding: 1px 7px; border-radius: 10px;
+    border: 1px solid var(--border); color: var(--ink-2); font-variant-numeric: tabular-nums;
+  }
+  .pill.buy  { color: var(--up);   border-color: color-mix(in srgb, var(--up) 45%, transparent); }
+  .pill.sell { color: var(--down); border-color: color-mix(in srgb, var(--down) 45%, transparent); }
+  .detail-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+  .detail-table th, .detail-table td {
+    text-align: left; padding: 3px 4px; vertical-align: top;
+  }
+  .detail-table th { color: var(--muted); font-weight: 500; white-space: nowrap; width: 74px; }
+  .detail-table td { color: var(--ink-2); word-break: break-word; }
+  .detail-table .why { color: var(--ink); }
+  .anno-btns { display: flex; gap: 8px; margin-top: 10px; }
+  .anno-btns .btn { flex: 1; text-align: center; }
+  .btn.agree  { color: var(--up); }
+  .btn.reject { color: var(--down); }
+  .btn.agree.active, .btn.reject.active { background: var(--ink); color: var(--surface); font-weight: 700; }
+
+  /* ---- 重叠 ---- */
+  .overlap-summary { font-size: 11px; color: var(--ink-2); margin-bottom: 8px; line-height: 1.6; }
+  .overlap-pairs { font-size: 12px; }
+  .pair-row {
+    display: flex; align-items: center; gap: 8px; padding: 4px 0;
+    border-bottom: 1px dashed var(--border); font-variant-numeric: tabular-nums;
+  }
+  .pair-row:last-child { border-bottom: none; }
+  .pair-glyphs { flex: 0 0 auto; }
+  .pair-glyphs .glyph { width: 18px; height: 18px; font-size: 11px; margin-right: -4px; }
+  .pair-count { flex: 1 1 auto; text-align: right; color: var(--ink-2); }
+  .overlap-list { max-height: 240px; overflow-y: auto; margin-top: 8px; border-top: 1px solid var(--border); }
+  .ol-row {
+    display: flex; align-items: center; gap: 8px; padding: 4px 0;
+    font-size: 11px; cursor: pointer; font-variant-numeric: tabular-nums;
+    border-bottom: 1px dashed var(--border);
+  }
+  .ol-row:hover { color: var(--ink); }
+  .ol-date { flex: 0 0 84px; color: var(--ink-2); }
+  .ol-sides { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+  .ol-tags { display: flex; gap: 3px; flex-wrap: wrap; }
+  .tag { font-size: 10px; padding: 0 5px; border-radius: 4px; color: var(--surface); }
+  .ol-more { font-size: 11px; color: var(--muted); padding: 6px 0 0; }
+
+  /* ---- 计算规则 ---- */
+  .rule-item { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; overflow: hidden; }
+  .rule-item:last-child { margin-bottom: 0; }
+  .rule-item summary {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; cursor: pointer; list-style: none;
+    font-size: 12px; font-weight: 600; user-select: none;
+  }
+  .rule-item summary::-webkit-details-marker { display: none; }
+  .rule-item summary::after { content: '▸'; margin-left: auto; color: var(--muted); transition: transform .12s; }
+  .rule-item[open] summary::after { transform: rotate(90deg); }
+  .rule-item summary:hover { color: var(--ink); }
+  .rule-item .glyph { width: 18px; height: 18px; font-size: 10px; }
+  .rule-meta { font-size: 10px; color: var(--muted); font-weight: 500; margin-left: auto; font-variant-numeric: tabular-nums; }
+  .rule-body { padding: 4px 10px 10px; font-size: 11.5px; color: var(--ink-2); line-height: 1.75; }
+  .rule-body b { color: var(--ink); font-weight: 600; }
+  .rule-instance { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border); font-size: 11px; line-height: 1.7; }
+  .rule-instance b { color: var(--ink); }
+
+  @media (max-width: 960px) {
+    .layout { flex-direction: column; }
+    .side { flex: 0 0 auto; flex-direction: row; flex-wrap: wrap; padding: 10px; }
+    .side .card { flex: 1 1 300px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="toolbar">
+    <span class="brand-title">MACD 背离四套逻辑对比</span>
+    <span class="brand-sub" id="meta-symbol">—</span>
+    <span class="meta-chip" id="meta-range">—</span>
+    <span class="meta-chip" id="meta-gen">—</span>
+    <span class="spacer"></span>
+    <span class="anno-count" id="anno-count">已认同 0 · 已排除 0</span>
+    <button class="btn" id="theme-btn" title="切换明暗主题">主题</button>
+    <button class="btn" id="export-btn" title="导出标注为 JSON">导出标注</button>
+    <button class="btn danger" id="clear-btn" title="清空全部标注">清空标注</button>
+  </div>
+
+  <div class="layout">
+    <div class="chart-pane">
+      <div class="chart-box">
+        <div id="candleChart"></div>
+        <div class="chart-hint">K线 + 内嵌 MACD 柱（同轴十字光标）· 上箭头=做多 · 下箭头=做空 · 方块=穿越零轴+强度版 · 图例字形区分检测器 · 点击信号查看依据</div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="card" id="legend-card">
+        <h3>检测器</h3>
+        <div id="legend"></div>
+        <div class="legend-actions">
+          <button class="btn" id="all-on-btn">全开</button>
+          <button class="btn" id="all-off-btn">全关</button>
+        </div>
+        <label class="filter-row">
+          <input type="checkbox" id="strong-filter">
+          仅显示确认级信号（隐藏 在途/待确认）
+        </label>
+      </div>
+
+      <div class="card" id="detail-card">
+        <h3>信号详情 · 确认</h3>
+        <div id="detail"><div class="detail-empty">点击图表上的信号标记查看依据，并标注「认同 / 排除」。</div></div>
+      </div>
+
+      <div class="card" id="overlap-card">
+        <h3>重叠统计</h3>
+        <div id="overlap"></div>
+      </div>
+
+      <div class="card" id="rules-card">
+        <h3>检测器计算规则</h3>
+        <div id="rules"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="lightweight-charts.standalone.production.js"></script>
+<script src="divergence_data.js"></script>
+<script>
+"use strict";
+const D = window.DIVERGENCE_DATA;
+if (!D) {
+  document.body.innerHTML = '<p style="padding:40px;font-family:sans-serif">缺少 divergence_data.js，请先运行 build_divergence_data.py。</p>';
+  throw new Error('no data');
+}
+
+/* ---------------- 主题 ---------------- */
+const THEMES = {
+  dark:  { surface:'#1a1a19', plane:'#0d0d0d', ink:'#ffffff', ink2:'#c3c2b7', muted:'#898781', grid:'#2c2c2a', border:'#383835', up:'#0ca30c', down:'#e66767' },
+  light: { surface:'#fcfcfb', plane:'#f9f9f7', ink:'#0b0b0b', ink2:'#52514e', muted:'#898781', grid:'#e1e0d9', border:'#c3c2b7', up:'#008300', down:'#e34948' },
+};
+const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "PingFang SC", sans-serif';
+const t = () => THEMES[document.documentElement.dataset.theme];
+
+/* ---------------- 检测器配置 ---------------- */
+const DETECTORS = [
+  { key:'swing_strong',   glyph:'强', color:'#ec4899', size:1.0, label:'柱极值背离 · 动能极值相对减弱', sub:'当前段极值 vs 前一同向段极值，穿越≥3反向柱，强度0.4/0.7分级' },
+  { key:'chanlun',        glyph:'缠', color:'#ea580c', size:1.5, label:'缠论中枢背驰 · C/A面积比',      sub:'fenxing 中枢 C/A 面积比 < 0.9' },
+];
+const DET_BY_KEY = Object.fromEntries(DETECTORS.map(d => [d.key, d]));
+
+const STATE_LABEL = {
+  confirmed: '已确认', pending: '待确认（±3 窗口未完）', forming: '在途·待收盘确认',
+  confirmed_divergence: '确认背离',
+  early_warning: '预警 · 柱首衰', divergence_candidate: '背离候选',
+};
+const SIDE_LABEL = { buy: '做多', sell: '做空' };
+const KIND_LABEL = {
+  一买:'缠论一买', 二买:'缠论二买', 三买:'缠论三买',
+  一卖:'缠论一卖', 二卖:'缠论二卖', 三卖:'缠论三卖',
+  背驰买:'抢先背驰买', 背驰卖:'抢先背驰卖',
+};
+
+/* ---------------- 标注存取 ---------------- */
+const ANNO_PREFIX = 'dvg-annotate:';
+function annoKey(det, sg){ return ANNO_PREFIX + det.key + ':' + sg.t + ':' + sg.side + ':' + (sg.k || '') + ':' + (sg.mode || ''); }
+function getAnno(det, sg){ try { return JSON.parse(localStorage.getItem(annoKey(det, sg)) || 'null'); } catch(e){ return null; } }
+function setAnno(det, sg, verdict){ localStorage.setItem(annoKey(det, sg), JSON.stringify({ verdict, ts: Date.now() })); }
+function delAnno(det, sg){ localStorage.removeItem(annoKey(det, sg)); }
+
+/* ---------------- 状态 ---------------- */
+const enabled = Object.fromEntries(DETECTORS.map(d => [d.key, true]));
+let filterStrong = false;
+let selected = null; // {det, sg}
+
+/* ---------------- 时间工具 ---------------- */
+const p2 = n => String(n).padStart(2, '0');
+function fmtDay(ts){ if (ts == null) return '—'; const d = new Date(ts * 1000); return d.getUTCFullYear() + '-' + p2(d.getUTCMonth()+1) + '-' + p2(d.getUTCDate()); }
+const timeToIdx = new Map(D.candles.map((c, i) => [c[0], i]));
+function idxOf(t){ return timeToIdx.get(t); }
+
+/* ---------------- 图表初始化 ---------------- */
+function chartOptions(){
+  const T = t();
+  return {
+    layout: { background: { type: LightweightCharts.ColorType.Solid, color: T.surface }, textColor: T.ink2, fontSize: 11, fontFamily: FONT, attributionLogo: false },
+    grid: { vertLines: { color: T.grid }, horzLines: { color: T.grid } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal, vertLine: { color: T.border, labelBackgroundColor: T.ink2, labelTextColor: T.surface }, horzLine: { color: T.border, labelBackgroundColor: T.ink2, labelTextColor: T.surface } },
+    rightPriceScale: { borderColor: T.border },
+    timeScale: { borderColor: T.border, timeVisible: false, secondsVisible: false, rightOffset: 3 },
+    autoSize: true,
+  };
+}
+
+const candleChart = LightweightCharts.createChart(document.getElementById('candleChart'), chartOptions());
+const candleSeries = candleChart.addCandlestickSeries({
+  upColor: t().up, downColor: t().down,
+  borderUpColor: t().up, borderDownColor: t().down,
+  wickUpColor: t().up, wickDownColor: t().down,
+});
+candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.06, bottom: 0.34 } });
+
+// 内嵌 MACD 柱：同图第二价格刻度，置于底部约 30%（与 K 线共享时间轴与十字光标）
+const macdHistSeries = candleChart.addHistogramSeries({
+  priceScaleId: 'macd', lastValueVisible: false, priceLineVisible: false,
+});
+const macdScale = candleChart.priceScale('macd');
+macdScale.applyOptions({ scaleMargins: { top: 0.68, bottom: 0.05 }, visible: false });
+
+candleSeries.setData(D.candles.map(c => ({ time: c[0], open: c[1], high: c[2], low: c[3], close: c[4] })));
+renderHistogram();
+
+function renderHistogram(){
+  const up = t().up, down = t().down;
+  macdHistSeries.setData(D.hist.map(([time, v]) => ({
+    time, value: v, color: (v == null ? undefined : v >= 0 ? up : down),
+  })));
+}
+
+function setVisible(range){ if (range) candleChart.timeScale().setVisibleLogicalRange(range); }
+
+/* ---------------- 信号可见性 / 标记 ---------------- */
+function signalVisible(sg){
+  if (!filterStrong) return true;
+  return ['confirmed', 'confirmed_divergence', 'divergence_candidate'].includes(sg.state);
+}
+function markerFor(det, sg){
+  const buy = sg.side === 'buy';
+  let shape = buy ? 'arrowUp' : 'arrowDown';
+  let color = det.color, text = det.glyph, size = det.size;
+  if (det.key === 'chanlun'){
+    if (sg.mode === 'fast'){ text = '快'; }
+  } else if (det.key === 'swing_strong'){
+    shape = buy ? 'arrowUp' : 'arrowDown';  // 方向用箭头表达
+    if (sg.state === 'pending'){ color = '#f9a8d4'; text = '待'; size = 0.8; }
+    else {
+      // 强度分档: 强=深色, 中=中色, 弱=浅色（同检测器色相 #ec4899）
+      color = sg.strength_tier === '强' ? '#be185d'
+            : sg.strength_tier === '中' ? '#ec4899'
+            : '#f9a8d4';
+    }
+  }
+  const anno = getAnno(det, sg);
+  if (anno){
+    if (anno.verdict === 'agree'){ color = '#059669'; text = '✓' + text; }
+    else { color = '#b91c1c'; text = '✗' + text; }
+    size += 0.5;
+  }
+  return { time: sg.t, position: buy ? 'aboveBar' : 'belowBar', color, shape, text, size };
+}
+function renderMarkers(){
+  const markers = [];
+  for (const det of DETECTORS){
+    if (!enabled[det.key]) continue;
+    for (const sg of D.signals[det.key]){
+      if (!signalVisible(sg)) continue;
+      markers.push(markerFor(det, sg));
+    }
+  }
+  markers.sort((a, b) => a.time - b.time);
+  candleSeries.setMarkers(markers);
+}
+
+/* ---------------- 图例 ---------------- */
+function renderLegend(){
+  const box = document.getElementById('legend');
+  box.innerHTML = '';
+  for (const det of DETECTORS){
+    const sigs = D.signals[det.key];
+    const row = document.createElement('div');
+    row.className = 'legend-row';
+    row.innerHTML =
+      '<input type="checkbox" ' + (enabled[det.key] ? 'checked' : '') + ' data-key="' + det.key + '">' +
+      '<span class="glyph" style="background:' + det.color + '">' + det.glyph + '</span>' +
+      '<span class="legend-meta"><span class="legend-name">' + det.label + '</span>' +
+      '<span class="legend-sub">' + det.sub + '</span></span>' +
+      '<span class="legend-count">' + sigs.length + ' 条</span>';
+    box.appendChild(row);
+  }
+  box.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      enabled[cb.dataset.key] = cb.checked;
+      renderMarkers(); renderOverlap();
+      if (selected && !enabled[selected.det.key]) selected = null, renderDetail();
+    });
+  });
+}
+document.getElementById('all-on-btn').addEventListener('click', () => { DETECTORS.forEach(d => enabled[d.key] = true); renderLegend(); renderMarkers(); renderOverlap(); });
+document.getElementById('all-off-btn').addEventListener('click', () => { DETECTORS.forEach(d => enabled[d.key] = false); renderLegend(); renderMarkers(); renderOverlap(); });
+document.getElementById('strong-filter').addEventListener('change', e => { filterStrong = e.target.checked; renderMarkers(); renderOverlap(); });
+
+/* ---------------- 点击 → 最近信号 ---------------- */
+function allEnabledSignals(){
+  const out = [];
+  for (const det of DETECTORS){
+    if (!enabled[det.key]) continue;
+    for (const sg of D.signals[det.key]) if (signalVisible(sg)) out.push({ det, sg });
+  }
+  return out;
+}
+candleChart.subscribeClick(param => {
+  if (!param.time) return;
+  const clicked = param.time;
+  let best = null, bestDist = Infinity;
+  for (const item of allEnabledSignals()){
+    const dist = Math.abs(item.sg.t - clicked);
+    if (dist < bestDist){ bestDist = dist; best = item; }
+  }
+  if (best && bestDist <= 2 * 86400 * 1.6) showDetail(best);
+  else { selected = null; renderDetail(); }
+});
+
+/* ---------------- 详情面板 ---------------- */
+function showDetail(item){
+  selected = item;
+  renderDetail();
+  const i = idxOf(item.sg.t);
+  if (i != null){
+    const half = Math.max(70, D.candles.length * 0.015);
+    setVisible({ from: Math.max(0, i - half), to: i + half });
+  }
+}
+function renderDetail(){
+  const box = document.getElementById('detail');
+  if (!selected){ box.innerHTML = '<div class="detail-empty">点击图表上的信号标记查看依据，并标注「认同 / 排除」。</div>'; return; }
+  const { det, sg } = selected;
+  const anno = getAnno(det, sg);
+  const buy = sg.side === 'buy';
+  const rows = [
+    ['时间', fmtDay(sg.t)],
+    ['方向', '<b style="color:' + (buy ? t().up : t().down) + '">' + SIDE_LABEL[sg.side] + '</b>'],
+  ];
+  if (det.key === 'chanlun'){
+    rows.push(['类型', KIND_LABEL[sg.k] || sg.k]);
+    if (sg.mode) rows.push(['层级', sg.mode === 'seg' ? '线段级（中枢）' : '抢先（笔级）']);
+  }
+  if (sg.state) rows.push(['状态', STATE_LABEL[sg.state] || sg.state]);
+  if (sg.tier) rows.push(['级别', sg.tier]);
+  if (sg.price != null) rows.push(['参考价', Number(sg.price).toFixed(2)]);
+  if (sg.ratio != null) rows.push(['C/A 面积比', sg.ratio + (sg.ratio < 0.7 ? '（明显）' : '')]);
+  if (sg.trigger) rows.push(['触发', sg.trigger]);
+  if (det.key === 'chanlun' && sg.alertT) rows.push(['背驰起点', fmtDay(sg.alertT)]);
+  if (sg.confirmedT) rows.push(['确认于', fmtDay(sg.confirmedT)]);
+  if (det.key === 'swing_strong'){
+    if (sg.confirm_t) rows.push(['两段式确认', fmtDay(sg.t) + ' 待确认 → ±3 窗口 ' + fmtDay(sg.confirm_t) + ' 收盘确认']);
+    if (sg.alertT) rows.push(['首衰告警', fmtDay(sg.alertT) + '（动能首次减弱）']);
+    if (sg.prev_extreme != null) rows.push(['参照柱极值', fmtDay(sg.prev_extreme)]);
+    if (sg.height_ratio != null) rows.push(['柱极值比', sg.height_ratio + '（动能相对 ' + Math.round((1 - sg.height_ratio) * 100) + '%）']);
+    if (sg.strength != null){
+      const tc = sg.strength_tier === '强' ? t().up : (sg.strength_tier === '中' ? '#ca8a04' : t().muted);
+      rows.push(['背离强度', '<b style="color:' + tc + '">' + sg.strength + '（' + sg.strength_tier + '）</b>']);
+    }
+    rows.push(['穿越零轴', '两段同向柱之间柱曾穿越 0 轴（有反向柱段）']);
+  }
+  if (sg.why) rows.push(['依据', '<span class="why">' + escapeHtml(sg.why) + '</span>']);
+  if (sg.sub) rows.push(['次级别', escapeHtml(sg.sub)]);
+  if (sg.upper) rows.push(['上级别', escapeHtml(sg.upper)]);
+
+  const head =
+    '<div class="detail-head">' +
+    '<span class="glyph" style="background:' + det.color + '">' + det.glyph + '</span>' +
+    '<span class="detail-title">' + det.label + '</span>' +
+    '<span class="pill ' + (buy ? 'buy' : 'sell') + '">' + SIDE_LABEL[sg.side] + '</span>' +
+    (anno ? '<span class="pill">' + (anno.verdict === 'agree' ? '✓ 已认同' : '✗ 已排除') + '</span>' : '') +
+    '</div>' +
+    '<table class="detail-table">' + rows.map(([k, v]) => '<tr><th>' + k + '</th><td>' + v + '</td></tr>').join('') + '</table>' +
+    '<div class="anno-btns">' +
+    '<button class="btn agree' + (anno && anno.verdict === 'agree' ? ' active' : '') + '" id="btn-agree">✓ 认同</button>' +
+    '<button class="btn reject' + (anno && anno.verdict === 'reject' ? ' active' : '') + '" id="btn-reject">✗ 排除</button>' +
+    (anno ? '<button class="btn" id="btn-clear-anno">撤销</button>' : '') +
+    '</div>';
+  box.innerHTML = head;
+  document.getElementById('btn-agree').addEventListener('click', () => { setAnno(det, sg, 'agree'); renderMarkers(); renderCounts(); renderDetail(); });
+  document.getElementById('btn-reject').addEventListener('click', () => { setAnno(det, sg, 'reject'); renderMarkers(); renderCounts(); renderDetail(); });
+  const clearBtn = document.getElementById('btn-clear-anno');
+  if (clearBtn) clearBtn.addEventListener('click', () => { delAnno(det, sg); renderMarkers(); renderCounts(); renderDetail(); });
+}
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ---------------- 标注计数 / 导出 / 清空 ---------------- */
+function renderCounts(){
+  let agree = 0, reject = 0;
+  for (const det of DETECTORS) for (const sg of D.signals[det.key]){
+    const a = getAnno(det, sg);
+    if (a) a.verdict === 'agree' ? agree++ : reject++;
+  }
+  document.getElementById('anno-count').textContent = '已认同 ' + agree + ' · 已排除 ' + reject;
+}
+document.getElementById('export-btn').addEventListener('click', () => {
+  const annos = [];
+  for (const det of DETECTORS) for (const sg of D.signals[det.key]){
+    const a = getAnno(det, sg);
+    if (a) annos.push({ detector: det.key, t: sg.t, date: fmtDay(sg.t), side: sg.side, k: sg.k || null, mode: sg.mode || null, verdict: a.verdict, ts: a.ts });
+  }
+  const blob = new Blob([JSON.stringify({
+    symbol: D.meta.symbol, timeframe: D.meta.timeframe, exportedAt: new Date().toISOString(),
+    count: annos.length, annotations: annos,
+  }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'macd-divergence-annotations.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+document.getElementById('clear-btn').addEventListener('click', () => {
+  if (!confirm('确定清空全部标注？')) return;
+  for (const det of DETECTORS) for (const sg of D.signals[det.key]) delAnno(det, sg);
+  renderMarkers(); renderCounts(); renderDetail();
+});
+
+/* ---------------- 检测器计算规则 ---------------- */
+const RULES = [
+  {
+    key: 'swing_strong', title: '柱极值背离 · 穿越零轴+强度', meta: '动能极值背离 · 双向 · 两段式',
+    steps: [
+      'MACD(12,26,9) 计算柱，按正负切成同向柱段。',
+      '<b>当前极值 hist[i]</b>：当前同向柱段内 |MACD柱| 最大的 K 线（买侧=负段最深谷，卖侧=正段最高峰）。',
+      '<b>参照极值 hist[pre]</b>：向前穿过 <b>≥3 根反向柱</b>（真正的动能反转）后，前一段同向柱区间内 |MACD柱| 最大的 K 线。',
+      '<b>背离强度（0~1）</b> = 1 − hist[i]/hist[pre]（同号比值，动能相对减弱越多越接近 1）；所有动能减弱（强度&gt;0）均标记背离，分级 <b>≥0.7 强 / ≥0.4 中 / 其余弱</b>。',
+      '<b>告警时点 alertT</b>：当前动能段内 <b>首次动能减弱</b>（|MACD柱| 首次缩短）的 K 线——最早的可操作预警点。',
+      '<b>两段式确认</b>：信号 t 落在<b>极值日</b>（此时仅「待确认」），极值须 ±3 窗口走完（极值+3 收盘，即 confirm_t）才确定 → 升级「已确认」。',
+      '特点：纯动能比较，不含价格创新低条件；6-29 买点 = 极值日，参照 06-05（ratio 0.05，强度 0.953），首衰告警 06-28。',
+    ],
+  },
+  {
+    key: 'chanlun', title: '缠论中枢背驰 · C/A面积比', meta: 'C/A 面积比 < 0.9',
+    steps: [
+      '<b>线段级一买</b>：下跌趋势（≥2 个降序中枢链）末端，C 段（创出新低的最后一跌）绿柱面积 &lt; A 段（链内面积最大向下笔）× 0.9 → 一买；ratio &lt; 0.7 为明显。',
+      '<b>抢先（笔级）背驰买</b>：本笔创新低 → 语境成立；A = 前 ≤3 笔同类段绿柱面积最大者；本笔按已走 bar 数应积累 A×(elapsed/A_len)，实际积累速率 &lt; A 速率×0.75 且运行面积 run 仍 &lt; 0.9A → 进入背驰识别窗口；窗口内 MACD 柱首次缩短 1 根 → <b>背驰买</b>（入场）；run 冲过 0.9A → 背驰消失。（潜在背驰「告警」已移除：原速率式告警在段起步（第3根）即触发，属系统噪声。）',
+      '二买：一买后反弹 + 回调不破一买低点；三买：向上离开中枢后回抽不回中枢。',
+      '卖侧完全对称（红柱面积）。',
+    ],
+  },
+];
+function renderRules(){
+  const box = document.getElementById('rules');
+  const details = RULES.map((r, i) => {
+    const d = DET_BY_KEY[r.key];
+    return '<details class="rule-item"' + (i === 0 ? ' open' : '') + '>' +
+      '<summary><span class="glyph" style="background:' + d.color + '">' + d.glyph + '</span>' +
+      '<span>' + d.title + '</span><span class="rule-meta">' + r.meta + '</span></summary>' +
+      '<div class="rule-body">' + r.steps.join('<br>') + '</div></details>';
+  }).join('');
+  const instance =
+    '<div class="rule-instance"><b>2026-06 底部实例</b>：06-24 价格破 06-05 低点（low 58110 &lt; 59111）但柱 +27.96 未跟随 → <b>柱极值背离 6/29</b>（柱谷 -73.74，参照 06-05，强度 0.953 强，首衰告警 06-28）与<b>缠论 6/28</b> 背驰买（C/A 面积 24/25116）先后触发，对应 06-30 盘中新低 57809。</div>';
+  box.innerHTML = details + instance;
+}
+
+/* ---------------- 重叠统计 ---------------- */
+function renderOverlap(){
+  const box = document.getElementById('overlap');
+  const pres = new Map(); // idx -> {buy:Set, sell:Set}
+  for (const det of DETECTORS){
+    if (!enabled[det.key]) continue;
+    for (const sg of D.signals[det.key]){
+      if (!signalVisible(sg)) continue;
+      const i = idxOf(sg.t);
+      if (i == null) continue;
+      if (!pres.has(i)) pres.set(i, { buy: new Set(), sell: new Set() });
+      pres.get(i)[sg.side].add(det.key);
+    }
+  }
+  // 配对共现计数（同一根、同方向 ≥2 套）
+  const pair = new Map(); // 'a|b' -> {buy, sell}
+  const overlapIdx = [];
+  for (const [i, p] of pres){
+    for (const side of ['buy', 'sell']){
+      const keys = [...p[side]];
+      for (let a = 0; a < keys.length; a++) for (let b = a + 1; b < keys.length; b++){
+        const k = keys[a] < keys[b] ? keys[a] + '|' + keys[b] : keys[b] + '|' + keys[a];
+        if (!pair.has(k)) pair.set(k, { buy: 0, sell: 0 });
+        pair.get(k)[side]++;
+      }
+    }
+    if (p.buy.size >= 2 || p.sell.size >= 2) overlapIdx.push(i);
+  }
+  overlapIdx.sort((a, b) => b - a);
+
+  if (!pair.size){
+    box.innerHTML = '<div class="overlap-summary">当前可见检测器之间没有同一根同向的共现信号。</div>';
+    return;
+  }
+  const pairRows = [...pair.entries()].sort((a, b) => (a[1].buy + a[1].sell) - (b[1].buy + b[1].sell)).reverse();
+  const top = pairRows[0];
+  const [ka, kb] = top[0].split('|');
+  let html =
+    '<div class="overlap-summary">同一根 K 线上同向共现的对子，最高频：<b>' +
+    DET_BY_KEY[ka].label.split('·')[0] + '</b> × <b>' + DET_BY_KEY[kb].label.split('·')[0] +
+    '</b>（共现 ' + (top[1].buy + top[1].sell) + ' 次，买 ' + top[1].buy + '/卖 ' + top[1].sell + '）。</div>' +
+    '<div class="overlap-pairs">' +
+    pairRows.map(([k, c]) => {
+      const [x, y] = k.split('|');
+      return '<div class="pair-row">' +
+        '<span class="pair-glyphs"><span class="glyph" style="background:' + DET_BY_KEY[x].color + '">' + DET_BY_KEY[x].glyph + '</span>' +
+        '<span class="glyph" style="background:' + DET_BY_KEY[y].color + '">' + DET_BY_KEY[y].glyph + '</span></span>' +
+        '<span class="legend-meta"><span class="legend-name">' + DET_BY_KEY[x].label.split('·')[0] + ' × ' + DET_BY_KEY[y].label.split('·')[0] + '</span></span>' +
+        '<span class="pair-count">共 ' + (c.buy + c.sell) + ' 次（买 ' + c.buy + '/卖 ' + c.sell + '）</span>' +
+        '</div>';
+    }).join('') + '</div>';
+
+  const shown = overlapIdx.slice(0, 50);
+  const rows = shown.map(i => {
+    const p = pres.get(i);
+    const tags = (side, color) => [...p[side]].map(k => '<span class="tag" style="background:' + DET_BY_KEY[k].color + '">' + DET_BY_KEY[k].glyph + '</span>').join('');
+    return '<div class="ol-row" data-i="' + i + '">' +
+      '<span class="ol-date">' + fmtDay(D.candles[i][0]) + '</span>' +
+      '<span class="ol-sides">' +
+      (p.buy.size >= 2 ? '<span class="ol-tags"><span class="tag" style="background:' + t().up + '">买</span>' + tags('buy') + '</span>' : '') +
+      (p.sell.size >= 2 ? '<span class="ol-tags"><span class="tag" style="background:' + t().down + '">卖</span>' + tags('sell') + '</span>' : '') +
+      '</span></div>';
+  }).join('');
+  html += '<div class="overlap-list">' + rows +
+    (overlapIdx.length > 50 ? '<div class="ol-more">… 共 ' + overlapIdx.length + ' 根重叠（仅列前 50）</div>' : '') +
+    '</div>';
+  box.innerHTML = html;
+  box.querySelectorAll('.ol-row').forEach(el => {
+    el.addEventListener('click', () => {
+      const i = Number(el.dataset.i);
+      const half = Math.max(70, D.candles.length * 0.015);
+      setVisible({ from: Math.max(0, i - half), to: i + half });
+      // 选中该 bar 的某一信号
+      for (const item of allEnabledSignals()){
+        if (idxOf(item.sg.t) === i){ showDetail(item); return; }
+      }
+    });
+  });
+}
+
+/* ---------------- 主题 ---------------- */
+function applyTheme(){
+  candleChart.applyOptions(chartOptions());
+  candleSeries.applyOptions({
+    upColor: t().up, downColor: t().down,
+    borderUpColor: t().up, borderDownColor: t().down,
+    wickUpColor: t().up, wickDownColor: t().down,
+  });
+  renderHistogram();
+  renderDetail();
+  renderOverlap();
+}
+document.getElementById('theme-btn').addEventListener('click', () => {
+  document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  applyTheme();
+});
+
+/* ---------------- 元信息 ---------------- */
+document.getElementById('meta-symbol').textContent = D.meta.symbol + ' · ' + D.meta.timeframe + ' · ' + D.meta.nBars + ' 根';
+document.getElementById('meta-range').textContent = D.meta.firstDate + ' ~ ' + D.meta.lastDate + '（本地数据，非实时）';
+document.getElementById('meta-gen').textContent = '生成于 ' + D.meta.generatedAt + (D.meta.chanlunAvailable ? '' : ' · 缠论不可用');
+
+/* ---------------- 初始化 ---------------- */
+renderLegend();
+renderMarkers();
+renderCounts();
+renderOverlap();
+renderRules();
+const n = D.candles.length;
+setVisible({ from: Math.max(0, n - 300), to: n + 3 });
+
+/* ---------------- 自测 (?selftest=1，headless 验证交互逻辑) ---------------- */
+if (new URLSearchParams(location.search).get('selftest') === '1'){
+  (function(){
+    const fail = m => { console.error('SELFTEST FAIL: ' + m); throw new Error(m); };
+    const all = allEnabledSignals();
+    if (!all.length) fail('no enabled signals');
+    showDetail(all[0]);
+    if (document.getElementById('detail').innerHTML.indexOf(all[0].det.label) === -1) fail('detail label not rendered');
+    const det = all[0].det, sg = all[0].sg;
+    const mkBase = markerFor(det, sg);
+    setAnno(det, sg, 'agree');
+    if (!getAnno(det, sg) || getAnno(det, sg).verdict !== 'agree') fail('annotation not persisted');
+    if (markerFor(det, sg).color !== '#059669') fail('annotated marker not green');
+    setAnno(det, sg, 'reject');
+    if (markerFor(det, sg).color !== '#b91c1c') fail('rejected marker not red');
+    delAnno(det, sg);
+    if (getAnno(det, sg) !== null) fail('annotation not removed');
+    if (markerFor(det, sg).color !== mkBase.color) fail('marker color not restored');
+    const overlapHtml = document.getElementById('overlap').innerHTML;
+    if (overlapHtml.indexOf('overlap-pairs') === -1) fail('overlap pairs not rendered');
+    if (document.getElementById('legend').children.length !== DETECTORS.length) fail('legend rows missing');
+    if (document.getElementById('rules').children.length !== RULES.length + 1) fail('rules blocks missing');
+    console.log('SELFTEST OK: ' + all.length + ' signals, detail/anno/overlap passed');
+  })();
+}
+</script>
+</body>
+</html>
