@@ -6,19 +6,16 @@ actually available A/B/C, timeframe, and leverage combinations to the frontend.
 """
 
 import datetime
-import json
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.api._backtest_artifacts import REPO_ROOT, python_cmd, read_json as _read_json, run_backtest
+
 router = APIRouter()
 
 BASE_DIR = Path(__file__).resolve().parents[2] / "data"
-REPO_ROOT = Path(os.environ.get("REPO_ROOT", str(Path(__file__).resolve().parents[3])))
 
 # 第一阶段产品面只暴露四个市场、策略 A、日线、无杠杆。
 # 旧策略数据仍保留在磁盘和旧 API 中，避免破坏用户已有实验结果。
@@ -35,14 +32,6 @@ LEVERAGES = ("none",)
 AB_STRATEGY_KEY = {"A": "breakout", "B": "pullback"}
 AB_OPTION_KEYS = ("30", "60", "99", "120")
 C_OPTION_KEYS = ("x2", "x3", "x4")
-
-
-def _read_json(path: Path) -> dict[str, Any]:
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except json.JSONDecodeError as e:
-        raise HTTPException(500, f"JSON 损坏：{path.name}（{e}）")
 
 
 def _safe_symbol(symbol: str) -> str:
@@ -358,26 +347,18 @@ def refresh_symbol(
         script = REPO_ROOT / "scripts" / "backtests" / (
             "backtest_ma_strategies.py" if leverage == "none" else "backtest_ma_strategies_3x.py"
         )
-        args = [sys.executable, str(script), "--symbol", symbol, "--timeframe", timeframe, "--no-excel"]
+        args = [*python_cmd(script), "--symbol", symbol, "--timeframe", timeframe, "--no-excel"]
         if leverage == "none":
             args.append("--no-html")
         else:
             args.extend(["--leverage", leverage])
     else:
         script = REPO_ROOT / "scripts" / "backtests" / "backtest_ma_strategies_c.py"
-        args = [sys.executable, str(script), "--symbol", symbol, "--timeframe", timeframe, "--no-excel"]
+        args = [*python_cmd(script), "--symbol", symbol, "--timeframe", timeframe, "--no-excel"]
         if leverage != "none":
             args.extend(["--leverage", leverage])
 
-    if not script.exists():
-        raise HTTPException(500, f"找不到脚本：{script}")
-    try:
-        result = subprocess.run(args, cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=300)
-    except subprocess.TimeoutExpired:
-        raise HTTPException(504, "回测超时（>5 分钟）")
-    if result.returncode != 0:
-        tail = (result.stderr or result.stdout or "").strip().splitlines()[-10:]
-        raise HTTPException(500, f"脚本执行失败：\n{chr(10).join(tail)}")
+    run_backtest(args, timeout_seconds=300, timeout_message="回测超时（>5 分钟）")
 
     path = _data_path(symbol, strategy, timeframe, leverage)
     if not path.exists():
