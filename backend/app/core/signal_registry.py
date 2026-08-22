@@ -21,6 +21,11 @@ class SignalDetector(Protocol):
     logic: str
     direction_support: list[str]
     params_schema: dict[str, Any]
+    # 策略类型: "trend" | "momentum" | "reversal" | "indicator"
+    # indicator = 原始指标信号（MA突破/RSI/MACD等），不受 regime 过滤
+    strategy_type: str
+    # 该策略在哪些 Regime ID 下允许触发 (空集 = 不限，用于 indicator 类型)
+    valid_regimes: set[int]
 
     def detect(self, candles: list[dict[str, Any]], timeframe: str) -> list[SignalHit]:
         ...

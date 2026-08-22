@@ -16,9 +16,15 @@ from app.core.sr_levels import signals_sr_breakout
 # 本模块内部(run_mtf_backtest)及 golden 测试中的 be._signals_* 引用不变。
 from app.core.signals.primitives import (  # noqa: F401
     _signals_ma_cross, _signals_rsi, _signals_macd, _signals_ma_breakout,
-    _signals_bollinger, _signals_macd_divergence, _find_extremes,
+    _signals_bollinger, _find_extremes,
 )
 from app.core.signals.backtest_indicators import get_backtest_signal
+
+
+def _signals_macd_divergence(candles: list[dict]) -> list[int]:
+    """MACD 柱极值背离（口径统一：动能极值相对减弱）。"""
+    from app.core.divergence_detectors import macd_extreme_divergence_array
+    return macd_extreme_divergence_array(candles)
 
 
 # ─── 数据结构 ────────────────────────────────────────────────────────────────
@@ -437,8 +443,7 @@ def _generate_entry_signals(
             period = int(params.get('ma_breakout_period', 30))
             result[sid] = _signals_ma_breakout(closes, period)
         elif sid == 'macd_divergence':
-            lookback = int(params.get('macd_divergence_lookback', 5))
-            result[sid] = _signals_macd_divergence(closes, lookback)
+            result[sid] = _signals_macd_divergence(candles)
         elif sid == 'sr_breakout':
             result[sid] = signals_sr_breakout(
                 candles,

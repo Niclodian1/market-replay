@@ -18,7 +18,7 @@ SIG_DIGESTS = {
     "macd": "a4cab8a518586a65",
     "ma_breakout": "de4bc7bfb5bb878c",
     "bollinger": "e9e44cd80b72d379",
-    "macd_divergence": "72fa535c5d8f4280",
+    "macd_divergence": "8bbf34dcb04c6e17",
 }
 
 
@@ -47,7 +47,7 @@ def test_signal_bollinger_stable():
 
 
 def test_signal_macd_divergence_stable():
-    assert digest(be._signals_macd_divergence(_closes(), 5)) == SIG_DIGESTS["macd_divergence"]
+    assert digest(be._signals_macd_divergence(make_candles())) == SIG_DIGESTS["macd_divergence"]
 
 
 # ── 基准:端到端 run_backtest(单信号)────────────────────────────────────────

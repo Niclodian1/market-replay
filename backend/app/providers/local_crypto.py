@@ -1,15 +1,15 @@
 """
-本地 crypto 数据层（混合模式）。
+本地 crypto 数据层（Binance 单一市场混合模式）。
 
 历史底座来自 data/crypto/*.parquet（Binance 全量历史，可回溯至 2017-08），
-最近增量再用 OKX 公开接口补齐（parquet 落地后到现在的缺口），
+最近增量再用 Binance Spot 公开接口补齐（parquet 落地后到现在的缺口），
 从而做到「历史拉满 + 不缺最新」。
 
 parquet 文件命名：{BASE}{QUOTE}_{周期}.parquet，例如 BTCUSDT_1d.parquet。
 列：open_time(UTC, tz-aware), open, high, low, close, volume, ...（其余列忽略）。
 
 symbol 归一化：BTC-USD / BTC/USD / BTC-USDT → BTCUSDT。
-周期映射：1h→1h、4h→4h、1day→1d；本地不提供 15min / 1week（自动回退远端）。
+周期映射：1h→1h、4h→4h、1day→1d；本地不提供 15min / 1week（全程走 Binance）。
 """
 from __future__ import annotations
 
@@ -21,7 +21,12 @@ from typing import Optional
 
 import pandas as pd
 
-from app.providers.binance import BinanceProvider, is_crypto_symbol
+from app.providers.binance import (
+    get_binance_futures_provider,
+    get_binance_spot_provider,
+    is_binance_futures_symbol,
+    is_crypto_symbol,
+)
 
 # ─── 路径 ────────────────────────────────────────────────────────────────────
 # Docker 下 REPO_ROOT=/repo（仓库根挂载点）；本地回退到源码相对路径的仓库根。
@@ -38,7 +43,7 @@ _TF_SUFFIX: dict[str, str] = {
 # ─── 缓存 ────────────────────────────────────────────────────────────────────
 # parquet 文件是静态的，解析一次后常驻内存。
 _parquet_cache: dict[tuple[str, str], list[dict]] = {}
-# 拼接好的「parquet + OKX 增量」全量序列，带 TTL，避免每次图表请求都打 OKX。
+# 拼接好的「Binance parquet + Binance Spot 增量」全量序列。
 _full_series_cache: dict[tuple[str, str], tuple[list[dict], float]] = {}
 _FULL_SERIES_TTL = 60  # 秒
 
@@ -109,13 +114,15 @@ def _merge_dedup(base: list[dict], extra: list[dict]) -> list[dict]:
 
 class LocalCryptoProvider:
     """
-    混合数据源：parquet 历史 + OKX 最近增量。
-    接口与 BinanceProvider / YahooFinanceProvider 对齐
+    同市场混合数据源：Binance parquet 历史 + Binance Spot 最近增量。
+    接口与 BinanceSpotProvider / YahooFinanceProvider 对齐
     （get_full_history / get_time_series_since / get_time_series）。
     """
 
     def __init__(self) -> None:
-        self._remote = BinanceProvider()  # 实为 OKX 接口
+        self._remote = get_binance_spot_provider()
+        self.source = "binance_spot"
+        self.source_label = "Binance Spot"
 
     async def _remote_since(self, symbol: str, timeframe: str, since_ts: int) -> list[dict]:
         try:
@@ -125,7 +132,7 @@ class LocalCryptoProvider:
             return []
 
     async def _full_series(self, symbol: str, timeframe: str) -> list[dict]:
-        """parquet 全量 + OKX 补齐落地后缺口，带 TTL 缓存。"""
+        """Binance parquet 全量 + Binance Spot 补齐落地后缺口。"""
         key = (_normalize_symbol(symbol), timeframe)
         now = _time.time()
         cached = _full_series_cache.get(key)
@@ -152,7 +159,7 @@ class LocalCryptoProvider:
         timeframe: str,
         since_ts: int,
     ) -> list[dict]:
-        """增量同步：parquet 中晚于 since_ts 的部分 + OKX 补齐 parquet 之后的缺口。"""
+        """增量同步：parquet 尾部 + 同一 Binance Spot 市场的最新缺口。"""
         base = _load_parquet(symbol, timeframe)
         if not base:
             return await self._remote_since(symbol, timeframe, since_ts)
@@ -181,10 +188,36 @@ class LocalCryptoProvider:
 def pick_series_provider(symbol: str, timeframe: str):
     """
     为图表 / 指标 / 结构分析等「实时取数」接口选择 provider：
-    crypto 且本地有 parquet → LocalCryptoProvider；其余 → YahooFinanceProvider。
+    BINANCE:... → Binance USD-M；普通 crypto → Binance Spot；其余 → 既有市场源。
     返回的对象都实现 get_time_series(symbol, timeframe, outputsize, before=...)。
     """
+    from app.providers.hyperliquid import get_hyperliquid_provider, is_hyperliquid_symbol
+    from app.providers.dukascopy import get_xau_provider, is_xauusd_symbol
+    if is_binance_futures_symbol(symbol):
+        return get_binance_futures_provider()
+    if is_xauusd_symbol(symbol):
+        return get_xau_provider()
+    if is_hyperliquid_symbol(symbol):
+        return get_hyperliquid_provider()
     if has_local_data(symbol, timeframe):
         return LocalCryptoProvider()
+    if is_crypto_symbol(symbol):
+        return get_binance_spot_provider()
+    from app.providers.yahoo_finance import get_provider
+    return get_provider()
+
+
+def pick_quote_provider(symbol: str):
+    """Choose the quote provider without allowing local candle caches to mask live quotes."""
+    from app.providers.hyperliquid import get_hyperliquid_provider, is_hyperliquid_symbol
+    from app.providers.dukascopy import get_xau_provider, is_xauusd_symbol
+    if is_binance_futures_symbol(symbol):
+        return get_binance_futures_provider()
+    if is_xauusd_symbol(symbol):
+        return get_xau_provider()
+    if is_hyperliquid_symbol(symbol):
+        return get_hyperliquid_provider()
+    if is_crypto_symbol(symbol):
+        return get_binance_spot_provider()
     from app.providers.yahoo_finance import get_provider
     return get_provider()

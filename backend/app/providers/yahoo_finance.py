@@ -11,7 +11,7 @@ import asyncio
 import math
 import time
 from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import pandas as pd
@@ -28,7 +28,14 @@ class _Cache:
         if entry is None:
             return None
         if time.time() - entry[1] >= ttl:
-            del self._store[key]
+            return None
+        self._store.move_to_end(key)
+        return entry[0]
+
+    def get_stale(self, key: str, max_age: int = 3600) -> Optional[Any]:
+        """Return a recently expired value when Yahoo is temporarily unavailable."""
+        entry = self._store.get(key)
+        if entry is None or time.time() - entry[1] >= max_age:
             return None
         self._store.move_to_end(key)
         return entry[0]
@@ -52,13 +59,18 @@ _INTERVAL_MAP: dict[str, str] = {
     "1week": "1wk",
 }
 
-_PERIOD_MAP: dict[str, str] = {
-    "15min": "60d",
-    "1h":    "2y",
-    "4h":    "2y",
-    "1day":  "5y",
-    "1week": "max",
-}
+def _lookback_days(interval: str, outputsize: int) -> int:
+    """Approximate the calendar range needed for the requested bar count."""
+    if interval == "15min":
+        return min(60, max(7, math.ceil(outputsize / 26 * 7 / 5 * 1.25)))
+    if interval == "1h":
+        return min(730, max(30, math.ceil(outputsize / 6 * 7 / 5 * 1.25)))
+    if interval == "4h":
+        # 4h bars are built from four 1h bars below.
+        return min(730, max(90, math.ceil(outputsize * 4 / 6 * 7 / 5 * 1.25)))
+    if interval == "1week":
+        return max(365, math.ceil(outputsize * 7 * 1.15))
+    return max(90, math.ceil(outputsize * 7 / 5 * 1.2))
 
 _TYPE_MAP: dict[str, str] = {
     "equity":         "stock",
@@ -72,7 +84,7 @@ _TYPE_MAP: dict[str, str] = {
 
 
 def _normalize(symbol: str) -> str:
-    """BTC/USD → BTC-USD；A 股 6 位数字自动补交易所后缀"""
+    """项目代码 → Yahoo 代码；A 股 6 位数字自动补交易所后缀。"""
     sym = symbol.replace("/", "-")
     # A 股：6 位纯数字，按首位判断交易所
     if sym.isdigit() and len(sym) == 6:
@@ -140,6 +152,11 @@ def _aggregate_to_4h(candles: list[dict]) -> list[dict]:
 # ─── Provider ────────────────────────────────────────────────────────────────
 class YahooFinanceProvider:
 
+    @staticmethod
+    def _mark_stale(candles: list[dict]) -> list[dict]:
+        """Mark cache fallback rows so callers can choose a better source."""
+        return [{**row, "_yahoo_stale": True} for row in candles]
+
     # ── 搜索 ──────────────────────────────────────────────────────────────
     async def search(self, query: str) -> list[dict]:
         cache_key = f"yf:search:{query}"
@@ -173,7 +190,7 @@ class YahooFinanceProvider:
     async def get_quote(self, symbol: str) -> dict:
         yf_sym = _normalize(symbol)
         cache_key = f"yf:quote:{yf_sym}"
-        if (cached := _cache.get(cache_key, ttl=30)) is not None:
+        if (cached := _cache.get(cache_key, ttl=60)) is not None:
             return cached
 
         def _do() -> dict:
@@ -238,46 +255,37 @@ class YahooFinanceProvider:
         outputsize: int = 500,
         before: Optional[int] = None,  # Unix 时间戳，仅返回此时间之前的数据
     ) -> list[dict]:
-        from datetime import timedelta
-
         yf_sym = _normalize(symbol)
-        cache_key = f"yf:ts:{yf_sym}:{interval}:{before or 'latest'}"
+        cache_key = f"yf:ts:{yf_sym}:{interval}:{outputsize}:{before or 'latest'}"
         if (cached := _cache.get(cache_key, ttl=60)) is not None:
             return cached[-outputsize:]
+        stale = _cache.get_stale(cache_key, max_age=604800 if before is not None else 21600)
 
         yf_interval = _INTERVAL_MAP.get(interval, "1d")
-        yf_period   = _PERIOD_MAP.get(interval, "5y")
-
-        # before 参数：拉取指定时间点之前的历史数据
-        _LOOKBACK_DAYS = {
-            "15min": 60, "1h": 730, "4h": 730,
-            "1day": 365 * 10, "1week": 365 * 20,
-        }
+        end_dt = datetime.fromtimestamp(before, tz=timezone.utc) if before else datetime.now(timezone.utc) + timedelta(days=1)
+        start_dt = end_dt - timedelta(days=_lookback_days(interval, outputsize))
 
         def _do() -> pd.DataFrame:
             ticker = yf.Ticker(yf_sym)
-            if before:
-                end_dt   = datetime.fromtimestamp(before, tz=timezone.utc)
-                days_back = _LOOKBACK_DAYS.get(interval, 365 * 5)
-                start_dt = end_dt - timedelta(days=days_back)
-                df = ticker.history(
-                    start=start_dt, end=end_dt,
-                    interval=yf_interval,
-                    auto_adjust=True,
-                    prepost=False,
-                )
-            else:
-                df = ticker.history(
-                    period=yf_period,
-                    interval=yf_interval,
-                    auto_adjust=True,
-                    prepost=False,
-                )
-            return df
+            return ticker.history(
+                start=start_dt,
+                end=end_dt,
+                interval=yf_interval,
+                auto_adjust=True,
+                prepost=False,
+                timeout=6,
+            )
 
-        df = await asyncio.to_thread(_do)
+        try:
+            df = await asyncio.wait_for(asyncio.to_thread(_do), timeout=8)
+        except Exception:
+            if stale is not None:
+                return self._mark_stale(stale[-outputsize:])
+            raise
 
         if df is None or df.empty:
+            if stale is not None:
+                return self._mark_stale(stale[-outputsize:])
             raise ValueError(f"未找到 {symbol} 的数据，请确认 symbol 格式正确（加密货币用 BTC-USD）")
 
         candles = _df_to_candles(df)
@@ -370,7 +378,7 @@ class YahooFinanceProvider:
         for sym in symbols:
             yf_sym = _normalize(sym)
             cache_key = f"yf:quote:{yf_sym}"
-            cached = _cache.get(cache_key, ttl=30)
+            cached = _cache.get(cache_key, ttl=60)
             if cached is not None:
                 results[sym] = cached
             else:
@@ -388,9 +396,15 @@ class YahooFinanceProvider:
                     progress=False,
                     threads=True,
                     group_by="ticker",
+                    timeout=4,
                 )
 
-            df = await asyncio.to_thread(_do)
+            try:
+                # yfinance may retry individual tickers internally. Bound the
+                # whole batch so an unhealthy Yahoo endpoint cannot hold up UI.
+                df = await asyncio.wait_for(asyncio.to_thread(_do), timeout=6)
+            except Exception:
+                df = pd.DataFrame()
 
             for orig_sym, yf_sym in zip(need_fetch, yf_syms):
                 try:
@@ -402,12 +416,12 @@ class YahooFinanceProvider:
                         sub = None
 
                     if sub is None or sub.empty:
-                        results[orig_sym] = None
+                        results[orig_sym] = _cache.get_stale(f"yf:quote:{yf_sym}")
                         continue
 
                     closes = sub["Close"].dropna()
                     if closes.empty:
-                        results[orig_sym] = None
+                        results[orig_sym] = _cache.get_stale(f"yf:quote:{yf_sym}")
                         continue
 
                     price = float(closes.iloc[-1])
@@ -437,15 +451,7 @@ class YahooFinanceProvider:
                     _cache.set(f"yf:quote:{yf_sym}", quote)
                     results[orig_sym] = quote
                 except Exception:
-                    results[orig_sym] = None
-
-            missing_names = [
-                (orig, _normalize(orig))
-                for orig in need_fetch
-                if results.get(orig) and _cache.get(f"yf:name:{_normalize(orig)}", ttl=86400) is None
-            ]
-            if missing_names:
-                asyncio.create_task(self._resolve_names(missing_names))
+                    results[orig_sym] = _cache.get_stale(f"yf:quote:{yf_sym}")
 
         return [results.get(s) for s in symbols]
 
@@ -496,101 +502,6 @@ class YahooFinanceProvider:
             return result
         return await asyncio.to_thread(_do)
 
-    # ── 基本面快照 ────────────────────────────────────────────────────────
-    async def get_financial_snapshot(self, symbol: str) -> dict:
-        yf_sym = _normalize(symbol)
-        cache_key = f"yf:fundamentals:snapshot:{yf_sym}"
-        if (cached := _cache.get(cache_key, ttl=3600)) is not None:
-            return cached
-
-        def _do() -> dict:
-            ticker = yf.Ticker(yf_sym)
-            info: dict[str, Any] = {}
-            try:
-                info = ticker.info or {}
-            except Exception:
-                info = {}
-
-            qf = pd.DataFrame()
-            try:
-                qf = ticker.quarterly_financials
-            except Exception:
-                qf = pd.DataFrame()
-
-            revenue_values = _financial_row_values(qf, ["Total Revenue", "Operating Revenue"])
-            net_income_values = _financial_row_values(qf, ["Net Income", "Net Income Common Stockholders"])
-            gross_profit_values = _financial_row_values(qf, ["Gross Profit"])
-
-            revenue = revenue_values[0][1] if revenue_values else None
-            net_income = net_income_values[0][1] if net_income_values else None
-            quarter = revenue_values[0][0] if revenue_values else None
-
-            snapshot = {
-                "symbol": symbol,
-                "revenue": revenue,
-                "net_income": net_income,
-                "revenue_yoy": _growth(revenue_values, 4),
-                "revenue_qoq": _growth(revenue_values, 1),
-                "net_income_yoy": _growth(net_income_values, 4),
-                "net_income_qoq": _growth(net_income_values, 1),
-                "gross_margin": _ratio(gross_profit_values[0][1] if gross_profit_values else None, revenue),
-                "market_cap": _safe_float(info.get("marketCap")),
-                "trailing_pe": _safe_float(info.get("trailingPE")),
-                "forward_pe": _safe_float(info.get("forwardPE")),
-                "roe": _safe_float(info.get("returnOnEquity")),
-                "dividend_yield": _safe_float(info.get("dividendYield")),
-                "currency": info.get("financialCurrency") or info.get("currency"),
-                "quarter": quarter,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-            _cache.set(cache_key, snapshot)
-            return snapshot
-
-        return await asyncio.to_thread(_do)
-
-    async def get_earnings_history(self, symbol: str, n: int = 4) -> dict:
-        yf_sym = _normalize(symbol)
-        cache_key = f"yf:fundamentals:earnings:{yf_sym}:{n}"
-        if (cached := _cache.get(cache_key, ttl=3600)) is not None:
-            return cached
-
-        def _do() -> dict:
-            ticker = yf.Ticker(yf_sym)
-            next_date = None
-            try:
-                cal = ticker.calendar
-                if cal is not None and isinstance(cal, dict):
-                    ed = cal.get("Earnings Date")
-                    if ed:
-                        date_val = ed[0] if isinstance(ed, list) else ed
-                        next_date = str(date_val)[:10]
-            except Exception:
-                next_date = None
-
-            history = []
-            try:
-                earnings = ticker.get_earnings_dates(limit=max(n, 4))
-            except Exception:
-                earnings = pd.DataFrame()
-
-            if earnings is not None and not earnings.empty:
-                for idx, row in earnings.head(n).iterrows():
-                    actual = _row_value(row, ["Reported EPS", "EPS Actual"])
-                    estimate = _row_value(row, ["EPS Estimate", "Estimated EPS"])
-                    history.append({
-                        "date": str(idx)[:10],
-                        "eps_actual": actual,
-                        "eps_estimate": estimate,
-                        "surprise_pct": _row_value(row, ["Surprise(%)", "Surprise %"]),
-                    })
-
-            result = {"symbol": symbol, "next_earnings_date": next_date, "history": history}
-            _cache.set(cache_key, result)
-            return result
-
-        return await asyncio.to_thread(_do)
-
-
 # ─── 单例 ────────────────────────────────────────────────────────────────────
 _provider: Optional[YahooFinanceProvider] = None
 
@@ -600,55 +511,3 @@ def get_provider() -> YahooFinanceProvider:
     if _provider is None:
         _provider = YahooFinanceProvider()
     return _provider
-
-
-def _safe_float(value: Any) -> Optional[float]:
-    try:
-        if value is None:
-            return None
-        number = float(value)
-        if math.isnan(number) or math.isinf(number):
-            return None
-        return number
-    except (TypeError, ValueError):
-        return None
-
-
-def _row_value(row: pd.Series, names: list[str]) -> Optional[float]:
-    for name in names:
-        if name in row.index:
-            return _safe_float(row.get(name))
-    return None
-
-
-def _financial_row_values(df: pd.DataFrame, row_names: list[str]) -> list[tuple[str, float]]:
-    if df is None or df.empty:
-        return []
-    for row_name in row_names:
-        if row_name not in df.index:
-            continue
-        values = []
-        series = df.loc[row_name].dropna()
-        for col, value in series.items():
-            safe = _safe_float(value)
-            if safe is None:
-                continue
-            values.append((str(col)[:10], safe))
-        return values
-    return []
-
-
-def _growth(values: list[tuple[str, float]], lag: int) -> Optional[float]:
-    if len(values) <= lag:
-        return None
-    current = values[0][1]
-    previous = values[lag][1]
-    if previous == 0:
-        return None
-    return (current - previous) / abs(previous)
-
-
-def _ratio(numerator: Optional[float], denominator: Optional[float]) -> Optional[float]:
-    if numerator is None or denominator in (None, 0):
-        return None
-    return numerator / denominator

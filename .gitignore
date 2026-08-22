@@ -52,3 +52,6 @@ fenxing/multilevel_profile.txt
 fenxing/*.txt
 
 # Keep source market data (data/crypto/*.parquet, backend/data/fundamentals/)
+
+# Temporary parquet copies
+backend/tmp_parquet/

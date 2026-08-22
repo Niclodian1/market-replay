@@ -2,10 +2,11 @@
 
 锁两件事:
 1. detector.signal_array() 与底层 primitives 原语逐根一致(回测路径的等价性);
-2. detector.detect() 把同一数组转成 SignalHit 事件(edge 流水线路径)。
+2. detector.detect() 把同一数组转成 SignalHit 事件（策略探测路径）。
 """
 from app.core.signals import primitives
 from app.core.signals.backtest_indicators import backtest_registry, get_backtest_signal
+from app.core.divergence_detectors import macd_extreme_divergence_array
 from tests.golden_helpers import make_candles
 
 
@@ -24,7 +25,7 @@ def test_signal_array_matches_primitive():
         "macd": primitives._signals_macd(closes),
         "ma_breakout": primitives._signals_ma_breakout(closes, 20),
         "bollinger": primitives._signals_bollinger(closes, 20, 2.0),
-        "macd_divergence": primitives._signals_macd_divergence(closes, 5),
+        "macd_divergence": macd_extreme_divergence_array(candles),
     }
     for name, expected in cases.items():
         got = get_backtest_signal(name).signal_array(candles, {})
@@ -40,3 +41,16 @@ def test_detect_emits_hits_at_nonzero_bars():
     for h in hits:
         assert h.name == "ma_cross"
         assert h.direction in ("long", "short")
+
+
+def test_ma_breakout_hits_include_structured_volume_evidence():
+    candles = make_candles()
+    hits = get_backtest_signal("ma_breakout").detect(candles, "1h")
+    assert hits
+    payload = hits[-1].payload
+    assert payload["schema_version"] == 1
+    assert payload["signal_type"] == "ma_breakout"
+    assert payload["state"] == "confirmed"
+    assert payload["bar_closed"] is True
+    assert set(payload["evidence"]["volume"]["windows"]) == {"5", "10"}
+    assert payload["evidence"]["volume"]["windows"]["10"]["ratio_to_average"] is not None

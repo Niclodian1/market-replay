@@ -4,10 +4,13 @@ from typing import Optional
 
 class SearchResult(BaseModel):
     symbol: str
+    display_symbol: Optional[str] = None
     name: str
     type: str
     exchange: str
     currency: str
+    source: str = "yahoo"
+    source_label: str = "Yahoo Finance"
 
 
 class SearchResponse(BaseModel):
@@ -16,11 +19,22 @@ class SearchResponse(BaseModel):
 
 class QuoteResponse(BaseModel):
     symbol: str
+    provider_symbol: Optional[str] = None
+    display_symbol: Optional[str] = None
     name: str
     price: float
     change: float
     change_percent: float
-    volume: int
+    volume: float
+    day_notional_volume: Optional[float] = None
+    funding_rate: Optional[float] = None
+    open_interest: Optional[float] = None
+    open_interest_value: Optional[float] = None
+    mark_price: Optional[float] = None
+    oracle_price: Optional[float] = None
+    max_leverage: Optional[int] = None
+    source: str = "yahoo"
+    source_label: str = "Yahoo Finance"
     timestamp: str
 
 
@@ -35,6 +49,8 @@ class Candle(BaseModel):
 
 class CandlesResponse(BaseModel):
     symbol: str
+    provider_symbol: Optional[str] = None
+    source: str = "yahoo"
     timeframe: str
     candles: list[Candle]
 

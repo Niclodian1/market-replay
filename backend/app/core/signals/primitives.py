@@ -102,33 +102,10 @@ def _find_extremes(series: list[float], lookback: int) -> tuple[list[bool], list
 
 
 def _signals_macd_divergence(closes: list[float], lookback: int) -> list[int]:
-    _, _, hist = _macd(closes)
-    n = len(closes)
-    signals = [0] * n
+    """（已弃用）旧收盘极值摆动式背离，口径已统一到柱极值背离。
 
-    is_peak, is_trough = _find_extremes(closes, lookback)
-
-    prev_trough_idx: int | None = None
-    prev_peak_idx:   int | None = None
-
-    for i in range(lookback, n - lookback):
-        if hist[i] is None:
-            continue
-
-        if is_trough[i]:
-            if prev_trough_idx is not None and hist[prev_trough_idx] is not None:
-                price_lower = closes[i] < closes[prev_trough_idx]
-                hist_higher = hist[i] > hist[prev_trough_idx]   # type: ignore[operator]
-                if price_lower and hist_higher and i + 1 < n:
-                    signals[i + 1] = 1  # 多头背离确认后下一根买入
-            prev_trough_idx = i
-
-        if is_peak[i]:
-            if prev_peak_idx is not None and hist[prev_peak_idx] is not None:
-                price_higher = closes[i] > closes[prev_peak_idx]
-                hist_lower   = hist[i] < hist[prev_peak_idx]    # type: ignore[operator]
-                if price_higher and hist_lower and i + 1 < n:
-                    signals[i + 1] = -1  # 空头背离确认后下一根卖出
-            prev_peak_idx = i
-
-    return signals
+    新口径需要完整 candles（含 time），见 app.core.divergence_detectors。
+    """
+    raise NotImplementedError(
+        "旧 MACD 背离口径已废弃；请使用 app.core.divergence_detectors.macd_extreme_divergence_array"
+    )

@@ -1,18 +1,23 @@
 """回测指标信号探测器 —— 把 backtest_engine 原先硬编码的六个 `_signals_*`
 包装成统一的 SignalDetector。
 
-这是 strategy-spine 的"信号层":回测引擎(run_backtest)与 edge 流水线
-(SignalDetector.detect)从此共享同一份信号定义。每个探测器都:
+这是 strategy-spine 的"信号层"，让回测引擎与策略实验台共享同一份信号定义。
+每个探测器都:
 
 - `signal_array()` 产出逐根点信号(1/-1/0) —— 回测引擎消费;
-- `detect()` 把同一数组转成离散 SignalHit 事件 —— edge 流水线消费。
+- `detect()` 把同一数组转成离散 SignalHit 事件 —— 策略探测器消费。
 
 参数解析与旧 `_make_signals` 完全一致,行为由 golden 测试锁定。
 """
 from typing import Any
 
 from app.core.signal_registry import SignalHit, SignalRegistry
+from app.core.divergence_detectors import macd_extreme_divergence_array
 from app.core.signals import primitives
+from app.core.signals.evidence import (
+    build_signal_payload,
+    ma_breakout_evidence,
+)
 
 
 def _array_to_hits(name: str, arr: list[int], candles: list[dict[str, Any]], timeframe: str,
@@ -43,6 +48,8 @@ class _Base:
     logic: str
     direction_support = ["long", "short"]
     params_schema: dict[str, Any] = {}
+    strategy_type = "indicator"       # 原始指标信号，不受 regime 过滤
+    valid_regimes: set[int] = set()   # 空集 = 不限
 
     def signal_array(self, candles: list[dict[str, Any]], params: dict[str, Any]) -> list[int]:
         raise NotImplementedError
@@ -104,6 +111,35 @@ class MaBreakoutSignal(_Base):
         closes = [c["close"] for c in candles]
         return primitives._signals_ma_breakout(closes, int(params.get("period", 20)))
 
+    def detect(self, candles, timeframe):
+        period = int(self.params_schema["period"])
+        arr = self.signal_array(candles, self.params_schema)
+        hits: list[SignalHit] = []
+        for i, signal in enumerate(arr):
+            if signal == 0:
+                continue
+            direction = "long" if signal == 1 else "short"
+            evidence = ma_breakout_evidence(candles, i, period, direction)
+            payload = build_signal_payload(
+                signal_type=self.name,
+                direction=direction,
+                state="confirmed",
+                candle=candles[i],
+                timeframe=timeframe,
+                evidence=evidence,
+                parameters={"period": period, "volume_windows": [5, 10], "atr_period": 14},
+            )
+            hits.append(SignalHit(
+                name=self.name,
+                direction=direction,
+                timeframe=timeframe,
+                score=0.6,
+                fired_at_ts=int(candles[i]["time"]),
+                fired_price=float(candles[i]["close"]),
+                payload=payload,
+            ))
+        return hits
+
 
 class BollingerSignal(_Base):
     name = "bollinger"
@@ -121,15 +157,14 @@ class BollingerSignal(_Base):
 
 class MacdDivergenceSignal(_Base):
     name = "macd_divergence"
-    display_name = "MACD 背离"
+    display_name = "MACD 柱极值背离"
     category = "indicator"
-    description = "价格与 MACD 柱状图背离。"
-    logic = "价格创新低而 MACD 柱抬高(底背离)→ 买;反之 → 卖。"
-    params_schema = {"lookback": 5}
+    description = "当前动能段极值相对前一同向段极值减弱（柱极值背离）。"
+    logic = "柱极值动能减弱 → 底背离做多 / 顶背离做空。"
+    params_schema = {}
 
     def signal_array(self, candles, params):
-        closes = [c["close"] for c in candles]
-        return primitives._signals_macd_divergence(closes, int(params.get("lookback", 5)))
+        return macd_extreme_divergence_array(candles)
 
 
 _DETECTORS = [

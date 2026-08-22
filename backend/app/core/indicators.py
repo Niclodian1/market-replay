@@ -126,6 +126,177 @@ def _atr(
     return result
 
 
+# ── 市场状态分类指标 ────────────────────────────────────────────────────────
+
+def _adx(
+    highs: list[float],
+    lows: list[float],
+    closes: list[float],
+    period: int = 14,
+) -> list[Optional[float]]:
+    """
+    Average Directional Index —— 趋势强度（不判方向）。
+
+    返回与输入等长的 ADX 序列。
+    典型阈值:
+      ADX < 20  → 震荡 (Ranging)
+      ADX 20-35 → 弱趋势 (Weak Trend)
+      ADX > 35  → 强趋势 (Strong Trend)
+
+    Wilder 平滑: next = (prev * (period - 1) + current) / period
+    """
+    n = len(highs)
+    result: list[Optional[float]] = [None] * n
+    if n < period * 2:
+        return result
+
+    # Step 1: True Range
+    tr = [0.0] * n
+    tr[0] = highs[0] - lows[0]
+    for i in range(1, n):
+        tr[i] = max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i - 1]),
+            abs(lows[i] - closes[i - 1]),
+        )
+
+    # Step 2: 方向运动 +DM / -DM
+    plus_dm = [0.0] * n
+    minus_dm = [0.0] * n
+    for i in range(1, n):
+        up = highs[i] - highs[i - 1]
+        down = lows[i - 1] - lows[i]
+        if up > down and up > 0:
+            plus_dm[i] = up
+        if down > up and down > 0:
+            minus_dm[i] = down
+
+    # Step 3: Wilder 平滑 TR / +DM / -DM，得到 +DI / -DI
+    # 初始值: 前 period 根的简单平均
+    plus_di: list[Optional[float]] = [None] * n
+    minus_di: list[Optional[float]] = [None] * n
+
+    tr_smoothed = sum(tr[1:period + 1]) / period
+    pdm_smoothed = sum(plus_dm[1:period + 1]) / period
+    ndm_smoothed = sum(minus_dm[1:period + 1]) / period
+
+    for i in range(period, n):
+        if tr_smoothed == 0:
+            plus_di[i] = 0.0
+            minus_di[i] = 0.0
+        else:
+            plus_di[i] = 100.0 * pdm_smoothed / tr_smoothed
+            minus_di[i] = 100.0 * ndm_smoothed / tr_smoothed
+
+        # Wilder smoothing 递推
+        tr_smoothed = (tr_smoothed * (period - 1) + tr[i]) / period
+        pdm_smoothed = (pdm_smoothed * (period - 1) + plus_dm[i]) / period
+        ndm_smoothed = (ndm_smoothed * (period - 1) + minus_dm[i]) / period
+
+    # Step 4: DX = |+DI - -DI| / (+DI + -DI) * 100
+    dx: list[Optional[float]] = [None] * n
+    for i in range(period, n):
+        if plus_di[i] is not None and minus_di[i] is not None:
+            denom = plus_di[i] + minus_di[i]
+            dx[i] = 100.0 * abs(plus_di[i] - minus_di[i]) / denom if denom > 0 else 0.0
+
+    # Step 5: ADX = Wilder 平滑 DX
+    # DX 有效起始位 = period ~ period*2
+    valid_dx = [v for v in dx[period:period * 2] if v is not None]
+    if not valid_dx:
+        return result
+
+    adx_smoothed = sum(valid_dx) / len(valid_dx)
+    result[period * 2 - 1] = adx_smoothed
+    for i in range(period * 2, n):
+        if dx[i] is not None:
+            adx_smoothed = (adx_smoothed * (period - 1) + dx[i]) / period
+            result[i] = adx_smoothed
+
+    return result
+
+
+def _atr_percentile(
+    highs: list[float],
+    lows: list[float],
+    closes: list[float],
+    atr_period: int = 14,
+    lookback: int = 100,
+) -> list[Optional[float]]:
+    """
+    ATR/Price 在 lookback 窗口内的百分位 (0.0-1.0)。
+
+    0.0 = 窗口内最低波动，1.0 = 窗口内最高波动。
+    用相对历史自身的百分位而非绝对值，因为 BTC 2021 年的"低波"
+    绝对值可能比 2023 年的"高波"还高——百分位消除了这个漂移。
+    """
+    atr_vals = _atr(highs, lows, closes, atr_period)
+    n = len(closes)
+    result: list[Optional[float]] = [None] * n
+
+    for i in range(lookback, n):
+        window_start = max(0, i - lookback + 1)
+        ratios: list[float] = []
+        for j in range(window_start, i + 1):
+            av = atr_vals[j]
+            c = closes[j]
+            if av is not None and c > 0:
+                ratios.append(av / c)
+
+        current_av = atr_vals[i]
+        current_c = closes[i]
+        if current_av is None or current_c <= 0:
+            continue
+
+        current_ratio = current_av / current_c
+        # 计数严格小于 current 的比例
+        rank = sum(1 for r in ratios if r < current_ratio)
+        result[i] = rank / max(len(ratios), 1)
+
+    return result
+
+
+def _ma_alignment(
+    closes: list[float],
+    periods: tuple[int, int, int] = (20, 60, 120),
+) -> list[int]:
+    """
+    均线排列状态。
+
+      +2 = 价格 > MA快 > MA中 > MA慢 (完美多头排列)
+      +1 = 价格 > MA快 > MA中 (基本多头)
+       0 = 缠绕/无序
+      -1 = 价格 < MA快 < MA中 (基本空头)
+      -2 = 价格 < MA快 < MA中 < MA慢 (完美空头排列)
+    """
+    fast_p, mid_p, slow_p = periods
+    mas = {
+        "fast": _sma(closes, fast_p),
+        "mid": _sma(closes, mid_p),
+        "slow": _sma(closes, slow_p),
+    }
+    n = len(closes)
+    result = [0] * n
+
+    for i in range(slow_p - 1, n):
+        f = mas["fast"][i]
+        m = mas["mid"][i]
+        s = mas["slow"][i]
+        if any(v is None for v in (f, m, s)):
+            continue
+        price = closes[i]
+        if price > f > m > s:
+            result[i] = 2
+        elif price > f > m:
+            result[i] = 1
+        elif price < f < m < s:
+            result[i] = -2
+        elif price < f < m:
+            result[i] = -1
+
+    return result
+
+
 def calculate_indicators(candles: list[dict]) -> dict:
     """
     输入 candles（已按时间升序排列），返回各指标数据点列表。

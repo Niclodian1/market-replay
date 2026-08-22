@@ -3,15 +3,16 @@
 所有操作基于 market_candles 表（PostgreSQL）。
 
 数据来源路由策略：
-  加密货币 (BTC-USD 等) + 本地有 parquet → LocalCrypto（parquet 历史 + OKX 增量）
-  加密货币 + 1h/4h（无本地）             → Binance/OKX（历史可达 8 年）
+  Hyperliquid (HL:...)                    → Hyperliquid（含 HIP-3）
+  BINANCE:...                             → Binance USD-M 永续 / TradFi 永续
+  加密货币 (BTC-USD 等) + 本地有 parquet → Binance parquet + Binance Spot 增量
+  其他加密货币                           → Binance Spot
   其他所有情况                           → Yahoo Finance
 """
 from __future__ import annotations
 
 import time as _time
 from datetime import datetime, timezone
-from collections.abc import Awaitable, Callable
 
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,19 +21,14 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.models.models import MarketCandle
 from app.providers.yahoo_finance import get_provider as get_yf_provider
 from app.providers.binance import (
-    BinanceProvider,
+    get_binance_futures_provider,
+    get_binance_spot_provider,
+    is_binance_futures_symbol,
     is_crypto_symbol,
     get_full_history_days as binance_full_days,
 )
 from app.providers.local_crypto import LocalCryptoProvider, has_local_data
-
-NewCandleCallback = Callable[[str, str, int], Awaitable[None]]
-_new_candle_callbacks: list[NewCandleCallback] = []
-
-
-def register_on_new_candle_callback(callback: NewCandleCallback) -> None:
-    if callback not in _new_candle_callbacks:
-        _new_candle_callbacks.append(callback)
+from app.providers.hyperliquid import get_hyperliquid_provider, is_hyperliquid_symbol
 
 # yfinance 各周期实际能提供的最大历史天数
 _YF_FULL_HISTORY_DAYS: dict[str, int] = {
@@ -46,15 +42,20 @@ _YF_FULL_HISTORY_DAYS: dict[str, int] = {
 def _select_provider(symbol: str, timeframe: str):
     """
     根据标的和周期选择数据提供商。
-    加密货币 + 本地有 parquet → LocalCryptoProvider（parquet 历史 + OKX 增量）；
-    加密货币 + 1h/4h（无本地） → BinanceProvider；其余 → YahooFinanceProvider。
+    币安永续使用带前缀的独立产品；普通 crypto 始终使用 Binance Spot。
     返回 (provider, expected_full_history_days)。
     """
+    if is_hyperliquid_symbol(symbol):
+        # HIP-3 listings have different launch dates, so no fixed expected history
+        # range can be used to decide whether their local cache is incomplete.
+        return get_hyperliquid_provider(), 0
+    if is_binance_futures_symbol(symbol):
+        # New TradFi perpetuals have short, product-specific histories.
+        return get_binance_futures_provider(), 0
     if is_crypto_symbol(symbol):
         if has_local_data(symbol, timeframe):
             return LocalCryptoProvider(), binance_full_days(timeframe)
-        if timeframe in ("1h", "4h"):
-            return BinanceProvider(), binance_full_days(timeframe)
+        return get_binance_spot_provider(), 0
     return get_yf_provider(), _YF_FULL_HISTORY_DAYS.get(timeframe, 730)
 
 
@@ -82,6 +83,8 @@ def _needs_full_resync(min_ts: int, expected_full_days: int) -> bool:
     判断本地最早数据是否不完整。
     若本地最早时间晚于理论起点的 80%，则需要重拉全量。
     """
+    if expected_full_days <= 0:
+        return False
     threshold_ts = _time.time() - expected_full_days * 86400 * 0.8
     return min_ts > threshold_ts
 
@@ -116,7 +119,9 @@ async def sync_candles(
         candles = await provider.get_full_history(symbol, timeframe)
 
     else:
-        candles = await provider.get_time_series_since(symbol, timeframe, last_ts)
+        # Re-fetch the current open timestamp as well. This lets the upsert
+        # refresh an unfinished candle instead of freezing its first snapshot.
+        candles = await provider.get_time_series_since(symbol, timeframe, last_ts - 1)
 
     if not candles:
         return 0
@@ -141,16 +146,19 @@ async def sync_candles(
     for i in range(0, len(rows), BATCH_SIZE):
         batch = rows[i : i + BATCH_SIZE]
         stmt = pg_insert(MarketCandle).values(batch)
-        stmt = stmt.on_conflict_do_nothing(
-            index_elements=["symbol", "timeframe", "time"]
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["symbol", "timeframe", "time"],
+            set_={
+                "open": stmt.excluded.open,
+                "high": stmt.excluded.high,
+                "low": stmt.excluded.low,
+                "close": stmt.excluded.close,
+                "volume": stmt.excluded.volume,
+            },
         )
         result = await db.execute(stmt)
         total_inserted += result.rowcount or len(batch)
     await db.commit()
-    if total_inserted and _new_candle_callbacks:
-        latest_ts = max(int(c["time"]) for c in candles)
-        for callback in list(_new_candle_callbacks):
-            await callback(symbol, timeframe, latest_ts)
     return total_inserted
 
 

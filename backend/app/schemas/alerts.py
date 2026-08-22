@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 VALID_CONDITIONS = {
     "price_above", "price_below",
-    "ma_cross", "rsi", "macd", "ma_breakout",
+    "ma_cross", "rsi", "macd", "ma_breakout", "strategy_a_breakout",
     "macd_divergence", "bollinger",
     "sr_breakout", "pinbar", "engulfing",
     "w_bottom",
@@ -17,7 +17,8 @@ CONDITION_LABELS = {
     "rsi": "RSI 超买超卖",
     "macd": "MACD 交叉",
     "ma_breakout": "价格突破均线",
-    "macd_divergence": "MACD 背离",
+    "strategy_a_breakout": "策略A · 日线均线突破",
+    "macd_divergence": "MACD 柱极值背离",
     "bollinger": "布林带触及",
     "sr_breakout": "支撑阻力突破",
     "pinbar": "Pinbar 锤子线",
@@ -60,10 +61,17 @@ class AlertOut(BaseModel):
     is_active: bool
     is_triggered: bool
     triggered_at: Optional[datetime]
+    last_triggered_signal_time: Optional[int]
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("discord_webhook_url")
+    def mask_webhook(self, value: str) -> str:
+        if len(value) <= 18:
+            return "••••••"
+        return f"{value[:12]}…{value[-6:]}"
 
 
 class AlertsResponse(BaseModel):

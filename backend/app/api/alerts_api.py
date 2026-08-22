@@ -41,6 +41,13 @@ async def create_alert(body: AlertCreate, db: AsyncSession = Depends(get_db)):
     await _ensure_default_user(db)
     if body.condition_type not in VALID_CONDITIONS:
         raise HTTPException(status_code=400, detail=f"不支持的条件类型: {body.condition_type}")
+    if body.condition_type == "strategy_a_breakout":
+        if body.symbol.upper() not in {"BTC-USD", "AAPL", "XAUUSD", "600519.SS"}:
+            raise HTTPException(status_code=400, detail="策略A第一阶段仅支持 BTC-USD、AAPL、XAUUSD、600519.SS")
+        if body.timeframe != "1day":
+            raise HTTPException(status_code=400, detail="策略A第一阶段仅支持日线收盘")
+        if body.ma_period not in {30, 60, 99, 120}:
+            raise HTTPException(status_code=400, detail="策略A均线仅支持 MA30、MA60、MA99、MA120")
     alert = Alert(
         user_id=DEFAULT_USER_ID,
         name=body.name,
@@ -70,8 +77,10 @@ async def update_alert(alert_id: int, body: AlertUpdate, db: AsyncSession = Depe
         alert.name = body.name
     if body.threshold is not None:
         alert.threshold = body.threshold
+        alert.last_triggered_signal_time = None
     if body.timeframe is not None:
         alert.timeframe = body.timeframe
+        alert.last_triggered_signal_time = None
     if body.discord_webhook_url is not None:
         alert.discord_webhook_url = body.discord_webhook_url
     if body.is_active is not None:
@@ -80,6 +89,14 @@ async def update_alert(alert_id: int, body: AlertUpdate, db: AsyncSession = Depe
         if body.is_active:
             alert.is_triggered = False
             alert.triggered_at = None
+            alert.last_triggered_signal_time = None
+    if body.ma_period is not None:
+        if alert.condition_type == "strategy_a_breakout" and body.ma_period not in {30, 60, 99, 120}:
+            raise HTTPException(status_code=400, detail="策略A均线仅支持 MA30、MA60、MA99、MA120")
+        alert.ma_period = body.ma_period
+        alert.last_triggered_signal_time = None
+    if body.repeating is not None:
+        alert.repeating = body.repeating
     alert.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     await db.commit()
     await db.refresh(alert)
