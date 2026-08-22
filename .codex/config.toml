@@ -1,0 +1,7 @@
+# Allow normal work inside this project without prompting. Codex will request
+# approval before commands need access outside the workspace sandbox.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true

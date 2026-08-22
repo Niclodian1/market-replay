@@ -4,13 +4,15 @@ A full-stack web application for replaying and analyzing historical market data,
 
 ## Features
 
-- **Multi-asset search** — stocks, ETFs, indices, crypto (powered by Yahoo Finance, no API key required)
+- **Multi-asset search** — stocks, ETFs, indices, crypto spot, crypto perpetuals, and equity perpetuals
 - **Interactive candlestick charts** — 4-panel layout: Candlestick + MA20/MA60, Volume, RSI(14), MACD(12,26,9)
 - **Dynamic historical loading** — scroll left to automatically load earlier candles
 - **Log scale** — toggle logarithmic price axis
 - **Replay mode** — pick a start date, then step candle-by-candle or auto-play at adjustable speed (80ms–2s per candle)
 - **Replay notes** — record trend view, support/resistance, entry idea, stop-loss/take-profit, and summary per candle, stored in PostgreSQL
 - **Watchlist** — add symbols with one click, persisted to the database
+- **Signal monitoring** — dynamic watchlist plans, 15m/1h/4h/1d closed-bar checks, parallel MA/MACD/structure detectors, and durable delivery
+- **Daily market report** — 08:00 crypto, A-share, U.S. stock, and commodity report by email, with a focused Discord summary
 
 ## Tech Stack
 
@@ -19,7 +21,7 @@ A full-stack web application for replaying and analyzing historical market data,
 | Frontend  | Next.js 14 (App Router), TypeScript, Tailwind CSS, TradingView Lightweight Charts v4, React Query v5, Zustand |
 | Backend   | FastAPI, SQLAlchemy 2.0 (async), asyncpg, Pydantic v2 |
 | Database  | PostgreSQL 16 |
-| Data      | Local crypto parquet + OKX + Yahoo Finance (`yfinance`) — see **Data Sources** below |
+| Data      | Binance Spot/USD-M, Hyperliquid, local Binance parquet, Dukascopy, and Yahoo Finance — see **Data Sources** below |
 | Container | Docker Compose |
 
 ## Quick Start
@@ -60,7 +62,7 @@ market-replay/
 │   │   ├── core/             # Config, indicator calculations
 │   │   ├── db/               # SQLAlchemy engine & session
 │   │   ├── models/           # ORM models (User, Watchlist, ReplayNote)
-│   │   ├── providers/        # Data sources: local_crypto (parquet+OKX), binance (OKX), yahoo_finance
+│   │   ├── providers/        # Binance, Hyperliquid, local crypto parquet, Dukascopy, Yahoo Finance
 │   │   └── schemas/          # Pydantic request/response models
 │   └── requirements.txt
 └── frontend/
@@ -85,6 +87,11 @@ market-replay/
 |--------|------|-------------|
 | GET | `/api/health` | Health check with DB ping |
 | GET | `/api/market/search?q=` | Symbol search |
+| GET | `/api/market/capabilities` | Supported sources, products, and timeframes |
+| GET/POST | `/api/monitoring/plans` | Dynamic-watchlist monitor plans |
+| GET/POST | `/api/monitoring/channels` | Server-side notification channels |
+| GET | `/api/monitoring/events` | Durable, deduplicated signal events |
+| POST | `/api/monitoring/run-now` | Run all active monitor plans immediately |
 | GET | `/api/market/quote?symbol=` | Real-time quote |
 | GET | `/api/market/candles?symbol=&timeframe=&outputsize=&before=` | OHLCV data |
 | GET | `/api/watchlist` | List watchlist |
@@ -101,9 +108,13 @@ Market data is routed per symbol/timeframe by `backend/app/providers/` and `core
 
 | Symbol / timeframe | Source | Notes |
 |--------------------|--------|-------|
-| Crypto **with a local parquet** (`1h` / `4h` / `1day`) | **Local hybrid** (`local_crypto.py`) | parquet history as the base + OKX to fill the gap from the parquet cutoff to now |
-| Other crypto, `1h` / `4h` | **OKX** (`binance.py`, public API, no key) | history back to ~2018 |
-| Everything else (stocks, ETFs, indices, weekly crypto, …) | **Yahoo Finance** (`yfinance`, no key) | |
+| `BTC-USD`, `ETH-USD`, etc. | **Binance Spot** | Official public API; native `15min` through `1week` candles |
+| `BINANCE:BTCUSDT` | **Binance USD-M Futures** | Crypto perpetual OHLCV, mark/index price, funding, and open interest |
+| `BINANCE:AAPLUSDT` | **Binance TradFi Perpetual** | Equity perpetual; intentionally distinct from the `AAPL` stock product |
+| `HL:*` perpetuals, including HIP-3 markets such as `HL:XYZ:AAPL` | **Hyperliquid** | Quotes, derivatives metrics, recent OHLCV, and WebSocket mids across all perp DEXs |
+| Crypto **with a local parquet** (`1h` / `4h` / `1day`) | **Binance single-market hybrid** (`local_crypto.py`) | Binance parquet history + Binance Spot tail; volumes are never spliced across exchanges |
+| `XAUUSD` | **Dukascopy** | Spot-gold daily candles |
+| Stocks, ETFs, and indices | **Yahoo Finance** (`yfinance`, no key) | Intraday history is subject to upstream window limits |
 
 ### Local crypto data (hybrid)
 
@@ -114,8 +125,8 @@ Pre-downloaded Binance OHLCV lives in `data/crypto/{SYMBOL}_{tf}.parquet`:
 | `BTCUSDT`, `ETHUSDT` | `1h`, `4h`, `1d` | 2017-08 → present |
 
 - **Symbol mapping** — `BTC-USD` / `BTC/USD` / `BTC-USDT` all normalize to `BTCUSDT`.
-- **Why hybrid** — parquet gives instant, reproducible, offline-capable history (no rate limits); OKX is only queried for the recent tail since the parquet cutoff, so charts/backtests never go stale. If OKX is unreachable (offline / rate-limited), it degrades gracefully to parquet-only.
-- **Coverage gaps** — `15min` and `1week` have no parquet and fall back to the remote sources above; symbols other than BTC/ETH fall back to OKX (1h/4h) or Yahoo.
+- **Why hybrid** — parquet gives instant, reproducible, offline-capable history; Binance Spot fills only the recent tail from the same market. If Binance is unreachable, it degrades gracefully to parquet-only.
+- **Coverage gaps** — `15min` and `1week` have no parquet and use Binance Spot directly. Other crypto symbols also use Binance Spot rather than Yahoo.
 - **Adding more symbols** — drop a `{SYMBOL}USDT_{1h,4h,1d}.parquet` (columns: `open_time` UTC, `open/high/low/close/volume`) into `data/crypto/` and it's picked up automatically.
 
 The local hybrid feeds both the **chart/indicator/analysis** endpoints (`get_time_series`, via `pick_series_provider`) and the **backtest candle store** (`get_full_history` / `get_time_series_since`, which sync into the `market_candles` PostgreSQL table).
@@ -126,8 +137,31 @@ The local hybrid feeds both the **chart/indicator/analysis** endpoints (`get_tim
 
 > **Note:** 4h is not natively supported by Yahoo Finance — the backend aggregates 1h candles into 4-hour UTC-aligned windows.
 
+## Signal monitoring
+
+Monitor plans dynamically follow the user's watchlist. Each plan can select any
+combination of `15min`, `1h`, `4h`, and `1day` (4h by default), plus any
+combination of the following independent (OR) detectors. Every symbol/timeframe
+pair is evaluated and deduplicated independently:
+
+- **MA breakout/retest** — ATR-normalised candle strength with 5/10-bar volume evidence.
+- **MACD momentum** — separate first-deceleration observation and confirmed price/area divergence events.
+- **Structure** — causally confirmed swing points, three-touch trendlines, ATR fit tolerance, convergence, and close breakout.
+
+Every event is written to `alert_events` before external delivery. Notification
+destinations live in `notification_channels`; plans inherit the default channel
+or reference an override. Discord is implemented now. Feishu and email can be
+added as new sender adapters without changing signal detectors or monitor plans.
+Discord embeds use green for long signals, red for short signals, amber for a
+same-bar mixed batch, and show a symbol-specific logo or generated ticker badge.
+
+Product identity is never changed as a fallback: `AAPL` remains the stock,
+`BINANCE:AAPLUSDT` is a Binance TradFi perpetual, and `HL:XYZ:AAPL` is a
+Hyperliquid perpetual.
+
 ## Notes
 
 - Single-user application. All data is stored under a default user (no authentication required).
 - Market data is fetched live from Yahoo Finance. Rate limits may apply for rapid sequential requests.
 - Tables are auto-created on first startup — no migration tool needed for development.
+- Daily-report rules, SMTP configuration, formulas, data fallbacks, and maintenance steps are documented in [`email_alter.md`](email_alter.md).

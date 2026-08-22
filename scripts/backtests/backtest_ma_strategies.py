@@ -1,13 +1,16 @@
 """
-均线策略回测（两种策略对比）
-策略 A：单均线突破（参考 backtest_ma_breakout.py）
-策略 B：MA120 之上的均线回调入场
-MA 参数：10, 20, 30, 55, 60, 99, 120
+第一阶段均线突破策略回测。
+
+固定品种：BTC、AAPL、XAUUSD、贵州茅台；固定参数：MA30/60/99/120。
+策略 A：单均线突破（参考 backtest_ma_breakout.py），允许并行多笔持仓，
+每笔持仓独立维护止损与盈亏。
 """
 
 import datetime
 import os
 from pathlib import Path
+import asyncio
+import sys
 import yfinance as yf
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -16,26 +19,9 @@ from openpyxl.utils import get_column_letter
 # ── 品种 ──────────────────────────────────────────────────────────────────────
 SYMBOLS = {
     "BTC-USD":   "BTC",
-    "ETH-USD":   "ETH",
     "AAPL":      "Apple",
-    "MSFT":      "Microsoft",
-    "NVDA":      "NVIDIA",
-    "GOOGL":     "Alphabet",
-    "AMZN":      "Amazon",
-    "META":      "Meta",
-    "TSLA":      "Tesla",
-    "AVGO":      "Broadcom",
-    "BRK-B":     "Berkshire",
-    "JPM":       "JPMorgan",
-    "0700.HK":   "腾讯",
-    "9988.HK":   "阿里巴巴",
-    "1810.HK":   "小米",
+    "XAUUSD":    "现货黄金",
     "600519.SS": "贵州茅台",
-    "002460.SZ": "赣锋锂业",
-    "002594.SZ": "比亚迪",
-    "603259.SS": "药明康德",
-    "600941.SS": "中国移动",
-    "601398.SS": "工商银行",
 }
 
 FEE_RATE = 0.001
@@ -45,10 +31,11 @@ COST     = FEE_RATE + SLIPPAGE
 BODY_RISE_MIN     = 0.03
 BREAKEVEN_TRIGGER = 0.04
 
-MA_PERIODS = [10, 20, 30, 55, 60, 99, 120]
+MA_PERIODS = [30, 60, 99, 120]
 TREND_MA   = 120  # 策略 B 的趋势过滤均线
 
 END_DATE = datetime.date.today().isoformat()
+CRYPTO_SYMBOLS = {"BTC-USD"}
 
 
 # ── 工具：滚动均线 / RSI ──────────────────────────────────────────────────────
@@ -251,61 +238,159 @@ def summarize(n, realized, trade_rets, trade_log, curve, dates, closes):
         return None
     total_return = realized * 100
     n_trades = len(trade_rets)
-    wins     = [r for r in trade_rets if r >= -0.003]
+    wins     = [r for r in trade_rets if r > 0]
+    losses   = [r for r in trade_rets if r <= 0]
     win_rate = len(wins) / n_trades * 100
     max_profit = max(trade_rets) * 100
     avg_profit = (sum(wins) / len(wins) * 100) if wins else 0.0
 
+    # curve 是“每笔 100% 名义本金、逐笔收益相加”的独立交易曲线，不是账户净值。
+    # 因此回撤使用累计收益的百分点差，而不是除以可能小于零的虚拟净值。
     peak, max_dd = curve[0], 0.0
     for v in curve:
         if v > peak:
             peak = v
-        dd = (peak - v) / peak * 100
+        dd = (peak - v) * 100
         if dd > max_dd:
             max_dd = dd
 
     rr_values = [t[5] for t in trade_log if t[5] is not None]
     avg_rr = (sum(rr_values) / len(rr_values)) if rr_values else None
+    expectancy = sum(trade_rets) / n_trades * 100
+    avg_loss = (sum(losses) / len(losses) * 100) if losses else 0.0
+    gross_profit = sum(wins)
+    gross_loss = abs(sum(losses))
+    profit_factor = gross_profit / gross_loss if gross_loss > 0 else None
 
     return {
         "n": n, "total_return": total_return, "n_trades": n_trades,
         "max_drawdown": max_dd, "win_rate": win_rate,
         "max_profit": max_profit, "avg_profit": avg_profit, "avg_rr": avg_rr,
+        "avg_loss": avg_loss, "expectancy": expectancy,
+        "profit_factor": profit_factor,
+        "aggregation_method": "sum_of_independent_trade_returns",
         "trade_log": trade_log, "dates": dates, "closes": closes,
     }
 
 
 # ── 数据下载 + 双策略调用 ────────────────────────────────────────────────────
 
-def backtest_symbol(ticker):
-    print(f"  下载数据: {ticker} ...", end=" ", flush=True)
+def _load_crypto_candles(ticker, timeframe):
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "backend"))
+    from app.providers.local_crypto import LocalCryptoProvider
+
+    candles = asyncio.run(LocalCryptoProvider().get_full_history(ticker, timeframe))
+    if not candles:
+        return None
+    return {
+        "dates": [c["time"] for c in candles],
+        "opens": [c["open"] for c in candles],
+        "highs": [c["high"] for c in candles],
+        "lows": [c["low"] for c in candles],
+        "closes": [c["close"] for c in candles],
+        "volumes": [c.get("volume", 0) for c in candles],
+    }
+
+
+def _load_yfinance_daily(ticker):
     df = yf.download(ticker, period="max", auto_adjust=True, progress=False)
-    if df.empty or len(df) < max(MA_PERIODS) + 10:
+    if df.empty:
+        return None
+    return {
+        "dates": df.index.tolist(),
+        "opens": df["Open"].squeeze().tolist(),
+        "highs": df["High"].squeeze().tolist(),
+        "lows": df["Low"].squeeze().tolist(),
+        "closes": df["Close"].squeeze().tolist(),
+        "volumes": df["Volume"].squeeze().fillna(0).tolist() if "Volume" in df else [0] * len(df),
+    }
+
+
+def _completed_daily_source(ticker, source):
+    """Normalise timestamps and remove a still-forming final daily candle."""
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "backend"))
+    from app.core.ma_opportunities import completed_daily_candles
+
+    def timestamp(value):
+        return int(value.timestamp()) if hasattr(value, "timestamp") else int(value)
+
+    candles = [
+        {
+            "time": timestamp(source["dates"][i]),
+            "open": source["opens"][i],
+            "high": source["highs"][i],
+            "low": source["lows"][i],
+            "close": source["closes"][i],
+            "volume": source.get("volumes", [0] * len(source["dates"]))[i],
+        }
+        for i in range(len(source["dates"]))
+    ]
+    completed = completed_daily_candles(ticker, candles)
+    return {
+        "dates": [c["time"] for c in completed],
+        "opens": [c["open"] for c in completed],
+        "highs": [c["high"] for c in completed],
+        "lows": [c["low"] for c in completed],
+        "closes": [c["close"] for c in completed],
+        "volumes": [c.get("volume", 0) for c in completed],
+    }
+
+
+def backtest_symbol(ticker, timeframe="1day"):
+    print(f"  下载数据: {ticker} {timeframe} ...", end=" ", flush=True)
+    if ticker == "XAUUSD" and timeframe == "1day":
+        root = Path(__file__).resolve().parents[2]
+        sys.path.insert(0, str(root / "backend"))
+        from app.providers.dukascopy import get_xau_provider
+        candles = asyncio.run(get_xau_provider().get_full_history(ticker, timeframe))
+        ohlc_src = {
+            "dates": [c["time"] for c in candles],
+            "opens": [c["open"] for c in candles],
+            "highs": [c["high"] for c in candles],
+            "lows": [c["low"] for c in candles],
+            "closes": [c["close"] for c in candles],
+            "volumes": [c.get("volume", 0) for c in candles],
+        }
+        data_source = "Dukascopy XAUUSD Bid"
+    elif ticker in CRYPTO_SYMBOLS and timeframe in ("1day", "4h"):
+        ohlc_src = _load_crypto_candles(ticker, timeframe)
+        data_source = "Binance历史 + OKX增量"
+    elif timeframe == "1day":
+        ohlc_src = _load_yfinance_daily(ticker)
+        data_source = "Yahoo Finance"
+    else:
+        print("该周期无数据源，跳过")
+        return None
+    if ohlc_src and timeframe == "1day":
+        ohlc_src = _completed_daily_source(ticker, ohlc_src)
+    if not ohlc_src or len(ohlc_src["closes"]) < max(MA_PERIODS) + 10:
         print("无数据，跳过")
         return None
-    closes = df["Close"].squeeze().tolist()
-    highs  = df["High"].squeeze().tolist()
-    lows   = df["Low"].squeeze().tolist()
-    opens  = df["Open"].squeeze().tolist()
-    dates  = df.index.tolist()
-    print(f"{len(df)} 条日线  ({str(dates[0])[:10]} ~ {str(dates[-1])[:10]})")
+    closes = ohlc_src["closes"]
+    highs  = ohlc_src["highs"]
+    lows   = ohlc_src["lows"]
+    opens  = ohlc_src["opens"]
+    volumes = ohlc_src.get("volumes", [0] * len(closes))
+    dates  = ohlc_src["dates"]
+    print(f"{len(closes)} 条K线  ({str(dates[0])[:10]} ~ {str(dates[-1])[:10]})")
 
-    trend_sma = rolling_sma(closes, TREND_MA)
-    rsi_vals  = rolling_rsi(closes)
     sma_by_n  = {n: rolling_sma(closes, n) for n in MA_PERIODS}
 
     out = {"breakout": [], "pullback": []}
     for n in MA_PERIODS:
         r = run_breakout(closes, lows, opens, dates, n)
         if r: out["breakout"].append(r)
-        r = run_pullback(closes, lows, opens, dates, n, trend_sma, rsi_vals)
-        if r: out["pullback"].append(r)
 
     out["breakout_best"] = max(out["breakout"], key=lambda x: x["total_return"]) if out["breakout"] else None
-    out["pullback_best"] = max(out["pullback"], key=lambda x: x["total_return"]) if out["pullback"] else None
+    out["pullback_best"] = None
     out["ohlc"] = {
-        "dates": dates, "opens": opens, "highs": highs, "lows": lows, "closes": closes,
-        "sma_by_n": sma_by_n, "trend_sma": trend_sma,
+        "dates": dates, "opens": opens, "highs": highs, "lows": lows,
+        "closes": closes, "volumes": volumes,
+        "sma_by_n": sma_by_n, "trend_sma": rolling_sma(closes, TREND_MA),
+        "data_source": data_source,
+        "adjusted": ticker in {"AAPL", "600519.SS"},
     }
     return out
 
@@ -574,15 +659,17 @@ def write_trade_sheet(wb, sym, results, best_n, prefix):
 
 # ── 主流程 ────────────────────────────────────────────────────────────────────
 
-def main(only_symbol=None, skip_excel=False, skip_html=False):
-    targets = [only_symbol] if only_symbol else list(SYMBOLS.keys())
+def main(only_symbol=None, skip_excel=False, skip_html=False, timeframe="1day"):
+    if timeframe not in ("1day", "4h"):
+        raise SystemExit("未知周期：仅支持 1day / 4h")
+    targets = [only_symbol] if only_symbol else (list(CRYPTO_SYMBOLS) if timeframe == "4h" else list(SYMBOLS.keys()))
     if only_symbol and only_symbol not in SYMBOLS:
         raise SystemExit(f"未知品种：{only_symbol}（合法范围：{', '.join(SYMBOLS)})")
 
     all_results = {}
     for sym in targets:
         print(f"\n[{sym}]")
-        data = backtest_symbol(sym)
+        data = backtest_symbol(sym, timeframe=timeframe)
         all_results[sym] = data
         if data:
             for key, label in [("breakout_best", "突破"), ("pullback_best", "回调")]:
@@ -596,7 +683,7 @@ def main(only_symbol=None, skip_excel=False, skip_html=False):
 
     # ── Excel：仅在全量回测时输出（单品种增量更新跳过） ──
     _SCRIPT_DIR = Path(__file__).resolve().parent
-    if not skip_excel and not only_symbol:
+    if timeframe == "1day" and not skip_excel and not only_symbol:
         out_path = str(_SCRIPT_DIR / "data" / "ma_strategies_backtest.xlsx")
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         print("\n生成 Excel ...")
@@ -617,7 +704,7 @@ def main(only_symbol=None, skip_excel=False, skip_html=False):
 
     # ── 导出 JSON 供前端 /ma-strategies 页面读取 ──
     from backtest_json_export import export_json, write_manifest
-    json_dir = str(_SCRIPT_DIR / "backend" / "data" / "ma_strategies")
+    json_dir = str(Path(__file__).resolve().parents[2] / "backend" / "data" / ("ma_strategies" if timeframe == "1day" else f"ma_strategies_{timeframe}"))
     os.makedirs(json_dir, exist_ok=True)
     print(f"\n导出 JSON → {json_dir}")
     for sym, data in all_results.items():
@@ -638,7 +725,7 @@ def main(only_symbol=None, skip_excel=False, skip_html=False):
         write_manifest(SYMBOLS, json_dir)
     print(f"✅ 已导出 JSON 到 {json_dir}/")
 
-    if skip_html or only_symbol:
+    if skip_html or only_symbol or timeframe != "1day":
         return
 
     # ── 交互式 HTML 图表（可选保留，与网站集成无关） ──
@@ -667,7 +754,8 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--symbol", help="只回测该品种（默认全部）")
+    parser.add_argument("--timeframe", choices=["1day", "4h"], default="1day", help="回测周期")
     parser.add_argument("--no-excel", action="store_true", help="跳过 Excel 输出")
     parser.add_argument("--no-html", action="store_true", help="跳过 plotly HTML 输出")
     args = parser.parse_args()
-    main(only_symbol=args.symbol, skip_excel=args.no_excel, skip_html=args.no_html)
+    main(only_symbol=args.symbol, skip_excel=args.no_excel, skip_html=args.no_html, timeframe=args.timeframe)

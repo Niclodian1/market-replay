@@ -36,6 +36,7 @@ def _build_candles(ohlc):
     highs  = ohlc["highs"]
     lows   = ohlc["lows"]
     closes = ohlc["closes"]
+    volumes = ohlc.get("volumes") or [0] * len(dates)
     out = []
     for i in range(len(dates)):
         out.append({
@@ -44,7 +45,7 @@ def _build_candles(ohlc):
             "high":  _safe(highs[i]),
             "low":   _safe(lows[i]),
             "close": _safe(closes[i]),
-            "volume": 0,
+            "volume": _safe(volumes[i]),
         })
     return out
 
@@ -91,6 +92,10 @@ def _build_strategy_block(results, ohlc, best_n):
                 "max_profit":   round(r["max_profit"], 4),
                 "avg_profit":   round(r["avg_profit"], 4),
                 "avg_rr":       round(r["avg_rr"], 4) if r["avg_rr"] is not None else None,
+                "avg_loss":     round(r.get("avg_loss", 0), 4),
+                "expectancy":   round(r.get("expectancy", 0), 4),
+                "profit_factor": round(r["profit_factor"], 4) if r.get("profit_factor") is not None else None,
+                "aggregation_method": r.get("aggregation_method", "sum_of_independent_trade_returns"),
                 "is_best":      (best_n is not None and n == best_n),
             },
             "trades": trades_out,
@@ -104,6 +109,13 @@ def export_json(sym, name, ohlc, breakout, pullback, out_path,
         "symbol": sym,
         "name": name,
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
+        "data_source": ohlc.get("data_source", "unknown"),
+        "adjusted": bool(ohlc.get("adjusted", False)),
+        "bar_count": len(ohlc["dates"]),
+        "data_range": {
+            "start": _to_unix(ohlc["dates"][0]) if ohlc["dates"] else None,
+            "end": _to_unix(ohlc["dates"][-1]) if ohlc["dates"] else None,
+        },
         "candles": _build_candles(ohlc),
         "trend_ma": _build_line(ohlc["trend_sma"], ohlc["dates"]),
         "ma_lines": {

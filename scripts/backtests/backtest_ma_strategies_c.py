@@ -45,6 +45,14 @@ from backtest_ma_strategies import (  # noqa: E402
     ALT_FILL, WHITE_FILL, WIN_FILL, LOSS_FILL,
 )
 from backtest_json_export import _to_unix, _build_candles, _build_line  # noqa: E402
+from backtest_ma_strategies_3x import (  # noqa: E402
+    LEVERAGE_LEVELS,
+    _new_trade as _new_leveraged_trade,
+    _process_trade as _process_leveraged_trade,
+    _unrealized_pnl,
+    _force_close as _force_close_leveraged,
+    summarize_3x,
+)
 
 # ── 配置 ─────────────────────────────────────────────────────────────────────
 SYMBOLS = {"BTC-USD": "BTC", "ETH-USD": "ETH"}
@@ -158,6 +166,54 @@ def run_variant(closes, opens, lows, dates, sma_by_n, crossed_by_bar, target_k):
     return summarize(target_k, realized, trade_rets, trade_log, curve, dates, closes)
 
 
+def run_variant_leveraged(closes, opens, lows, dates, sma_by_n, crossed_by_bar, target_k, leverage):
+    open_trades = []
+    trade_rets, trade_log, curve = [], [], []
+    realized = 0.0
+    n = len(closes)
+
+    for i in range(n):
+        c, lo = closes[i], lows[i]
+
+        still = []
+        for trade in open_trades:
+            ma_exit_val = sma_by_n[trade["exit_ma_period"]][i]
+            closed = _process_leveraged_trade(trade, i, c, lo, ma_exit_val, leverage, trade_rets, trade_log)
+            if closed:
+                realized += trade_log[-1][2]
+            else:
+                still.append(trade)
+        open_trades = still
+
+        crossed = crossed_by_bar[i]
+        if len(crossed) == target_k:
+            op = opens[i]
+            body_rise = (c / op - 1) if op and op > 0 else 0
+            if body_rise > BODY_RISE_MIN:
+                trade = _new_leveraged_trade(i, c, lo, leverage)
+                trade["exit_ma_period"] = min(crossed)
+                trade["crossed"] = sorted(crossed)
+                open_trades.append(trade)
+
+        unreal = sum(_unrealized_pnl(t["sub_positions"], c) for t in open_trades)
+        curve.append(1.0 + realized + unreal)
+
+    realized += _force_close_leveraged(open_trades, closes, trade_rets, trade_log, leverage)
+    if curve:
+        curve[-1] = 1.0 + realized
+
+    result = summarize_3x(target_k, leverage, realized, trade_rets, trade_log, curve, dates, closes)
+    if result:
+        # Add C-specific metadata to each trade log entry while keeping the 3x tuple layout.
+        enriched = []
+        for tlog in result["trade_log"]:
+            ei = tlog[0]
+            crossed = crossed_by_bar[ei]
+            enriched.append((*tlog, min(crossed), tuple(sorted(crossed))))
+        result["trade_log"] = enriched
+    return result
+
+
 def _compute_crossed_by_bar(closes, sma_by_n):
     """每根 K 线上穿的均线集合（来自 MA_POOL）。"""
     n = len(closes)
@@ -173,7 +229,7 @@ def _compute_crossed_by_bar(closes, sma_by_n):
     return out
 
 
-def backtest_symbol_tf(symbol, tf):
+def backtest_symbol_tf(symbol, tf, leverage=None):
     candles = load_candles(symbol, tf)
     if not candles or len(candles) < max(MA_POOL) + 10:
         print(f"  [{symbol} {tf}] 数据不足，跳过")
@@ -190,7 +246,10 @@ def backtest_symbol_tf(symbol, tf):
 
     results = {}
     for k in VARIANTS:
-        r = run_variant(closes, opens, lows, times, sma_by_n, crossed_by_bar, k)
+        if leverage:
+            r = run_variant_leveraged(closes, opens, lows, times, sma_by_n, crossed_by_bar, k, leverage)
+        else:
+            r = run_variant(closes, opens, lows, times, sma_by_n, crossed_by_bar, k)
         results[k] = r
 
     best_k = None
@@ -245,7 +304,58 @@ def _build_variant_block(r, ohlc, is_best):
     }
 
 
-def export_symbol_tf_json(symbol, tf, data, out_path):
+def _build_variant_block_leveraged(r, ohlc, is_best):
+    dates = ohlc["dates"]
+    closes = ohlc["closes"]
+    trades_out = []
+    for tlog in r["trade_log"]:
+        ei, xi, ret, reason, sl, rr, max_ret, lev, events, exit_ma, crossed = tlog
+        entry_px = closes[ei] * (1 + COST)
+        exit_px = sl * (1 - COST) if reason in ("止损", "保本") else closes[xi] * (1 - COST)
+        events_out = []
+        for ev in events:
+            item = {
+                "time": _to_unix(dates[ev["bar_idx"]]),
+                "type": ev["type"],
+                "price": round(float(ev["price"]), 6),
+                "size": round(float(ev["size"]), 4) if ev.get("size") is not None else None,
+            }
+            if ev.get("reason"):
+                item["reason"] = ev["reason"]
+            events_out.append(item)
+        trades_out.append({
+            "entry_time": _to_unix(dates[ei]),
+            "exit_time": _to_unix(dates[xi]),
+            "entry_price": round(entry_px, 6),
+            "exit_price": round(exit_px, 6),
+            "stop_loss": round(sl, 6),
+            "pnl_pct": round(ret * 100, 4),
+            "max_profit_pct": round(max_ret * 100, 4),
+            "rr": round(rr, 4) if rr is not None else None,
+            "exit_reason": reason,
+            "leverage": lev,
+            "n_adds": sum(1 for e in events if e["type"] == "add"),
+            "events": events_out,
+            "exit_ma": exit_ma,
+            "crossed": list(crossed),
+        })
+    return {
+        "stats": {
+            "total_return": round(r["total_return"], 4),
+            "n_trades": r["n_trades"],
+            "win_rate": round(r["win_rate"], 4),
+            "max_drawdown": round(r["max_drawdown"], 4),
+            "max_profit": round(r["max_profit"], 4),
+            "avg_profit": round(r["avg_profit"], 4),
+            "avg_rr": round(r["avg_rr"], 4) if r["avg_rr"] is not None else None,
+            "is_best": is_best,
+            "leverage": r.get("leverage"),
+        },
+        "trades": trades_out,
+    }
+
+
+def export_symbol_tf_json(symbol, tf, data, out_path, leverage=None):
     import json
     ohlc = data["ohlc"]
     best_k = data["best_k"]
@@ -253,7 +363,8 @@ def export_symbol_tf_json(symbol, tf, data, out_path):
     for k in VARIANTS:
         r = data["results"].get(k)
         if r:
-            variants[variant_label(k)] = _build_variant_block(r, ohlc, is_best=(k == best_k))
+            builder = _build_variant_block_leveraged if leverage else _build_variant_block
+            variants[variant_label(k)] = builder(r, ohlc, is_best=(k == best_k))
         else:
             variants[variant_label(k)] = {
                 "stats": {"total_return": 0, "n_trades": 0, "win_rate": 0, "max_drawdown": 0,
@@ -264,6 +375,7 @@ def export_symbol_tf_json(symbol, tf, data, out_path):
         "symbol": symbol,
         "name": SYMBOLS.get(symbol, symbol),
         "timeframe": tf,
+        "leverage": leverage,
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "candles": _build_candles(ohlc),
         "ma_lines": {str(m): _build_line(line, ohlc["dates"]) for m, line in ohlc["sma_by_n"].items()},
@@ -273,15 +385,16 @@ def export_symbol_tf_json(symbol, tf, data, out_path):
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
 
 
-def write_manifest():
+def write_manifest(json_dir=JSON_DIR, leverage=None):
     import json
     payload = {
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "symbols": [{"code": code, "name": name} for code, name in SYMBOLS.items()],
         "timeframes": TIMEFRAMES,
         "variants": [variant_label(k) for k in VARIANTS],
+        "leverage": leverage,
     }
-    with open(JSON_DIR / "_manifest.json", "w", encoding="utf-8") as f:
+    with open(json_dir / "_manifest.json", "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
@@ -442,28 +555,32 @@ def write_trade_sheet_c(wb, symbol, tf, data):
 
 # ── 主流程 ───────────────────────────────────────────────────────────────────
 
-def main(only_symbol=None, only_tf=None, skip_excel=False):
+def main(only_symbol=None, only_tf=None, skip_excel=False, leverage=None):
     if only_symbol and only_symbol not in SYMBOLS:
         raise SystemExit(f"未知品种：{only_symbol}（合法范围：{', '.join(SYMBOLS)})")
     if only_tf and only_tf not in TIMEFRAMES:
         raise SystemExit(f"未知周期：{only_tf}（合法范围：{', '.join(TIMEFRAMES)})")
+    if leverage is not None and leverage not in LEVERAGE_LEVELS:
+        raise SystemExit(f"未知杠杆：{leverage}（合法范围：{', '.join(map(str, LEVERAGE_LEVELS))})")
 
     symbols = [only_symbol] if only_symbol else list(SYMBOLS.keys())
     tfs = [only_tf] if only_tf else TIMEFRAMES
 
-    os.makedirs(JSON_DIR, exist_ok=True)
+    json_dir = JSON_DIR if leverage is None else ROOT / "backend" / "data" / f"ma_strategies_c_{leverage}x"
+    os.makedirs(json_dir, exist_ok=True)
     all_results = {}
 
     for symbol in symbols:
         print(f"\n[{symbol}]")
         for tf in tfs:
-            print(f"  下载 + 回测 {tf} ...", flush=True)
-            data = backtest_symbol_tf(symbol, tf)
+            lev_label = "" if leverage is None else f" {leverage}x"
+            print(f"  下载 + 回测 {tf}{lev_label} ...", flush=True)
+            data = backtest_symbol_tf(symbol, tf, leverage=leverage)
             all_results[(symbol, tf)] = data
             if not data:
                 continue
             safe = symbol.replace("/", "-")
-            export_symbol_tf_json(symbol, tf, data, JSON_DIR / f"{safe}_{tf}.json")
+            export_symbol_tf_json(symbol, tf, data, json_dir / f"{safe}_{tf}.json", leverage=leverage)
             for k in VARIANTS:
                 r = data["results"].get(k)
                 star = " ★" if k == data["best_k"] else ""
@@ -477,13 +594,13 @@ def main(only_symbol=None, only_tf=None, skip_excel=False):
 
     # manifest 仅全量回测时刷新
     if not only_symbol and not only_tf:
-        write_manifest()
-        print(f"\n✅ 已导出 JSON + manifest 到 {JSON_DIR}/")
+        write_manifest(json_dir=json_dir, leverage=leverage)
+        print(f"\n✅ 已导出 JSON + manifest 到 {json_dir}/")
     else:
-        print(f"\n✅ 已导出 JSON 到 {JSON_DIR}/")
+        print(f"\n✅ 已导出 JSON 到 {json_dir}/")
 
     # Excel 仅全量回测时生成
-    if not skip_excel and not only_symbol and not only_tf:
+    if not leverage and not skip_excel and not only_symbol and not only_tf:
         os.makedirs(XLSX_PATH.parent, exist_ok=True)
         print("\n生成 Excel ...")
         wb = openpyxl.Workbook()
@@ -500,6 +617,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--symbol", help="只回测该品种（默认 BTC/ETH 全部）")
     parser.add_argument("--timeframe", help="只回测该周期（1day/4h/1h，默认全部）")
+    parser.add_argument("--leverage", type=int, choices=LEVERAGE_LEVELS, help="生成指定杠杆的策略 C JSON")
     parser.add_argument("--no-excel", action="store_true", help="跳过 Excel 输出")
     args = parser.parse_args()
-    main(only_symbol=args.symbol, only_tf=args.timeframe, skip_excel=args.no_excel)
+    main(only_symbol=args.symbol, only_tf=args.timeframe, skip_excel=args.no_excel, leverage=args.leverage)

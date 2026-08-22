@@ -9,6 +9,7 @@ Excel 对比：1x（原策略保本 4%）vs 2x vs 3x
 import datetime
 import os
 import sys
+import asyncio
 from pathlib import Path
 
 import yfinance as yf
@@ -24,6 +25,7 @@ from backtest_ma_strategies import (
     rolling_sma, rolling_rsi,
     run_breakout, run_pullback,
     summarize,
+    CRYPTO_SYMBOLS,
 )
 
 # ── 常量 ─────────────────────────────────────────────────────────────────────
@@ -289,18 +291,54 @@ def run_leveraged_pullback(closes, lows, opens, dates, n, trend_sma, rsi_vals, l
 
 # ── 数据下载 + 六策略调用 ─────────────────────────────────────────────────
 
-def backtest_symbol_3x(ticker):
-    print(f"  下载数据: {ticker} ...", end=" ", flush=True)
+def _load_crypto_candles(ticker, timeframe):
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "backend"))
+    from app.providers.local_crypto import LocalCryptoProvider
+
+    candles = asyncio.run(LocalCryptoProvider().get_full_history(ticker, timeframe))
+    if not candles:
+        return None
+    return {
+        "dates": [c["time"] for c in candles],
+        "opens": [c["open"] for c in candles],
+        "highs": [c["high"] for c in candles],
+        "lows": [c["low"] for c in candles],
+        "closes": [c["close"] for c in candles],
+    }
+
+
+def _load_yfinance_daily(ticker):
     df = yf.download(ticker, period="max", auto_adjust=True, progress=False)
-    if df.empty or len(df) < max(MA_PERIODS) + 10:
+    if df.empty:
+        return None
+    return {
+        "dates": df.index.tolist(),
+        "opens": df["Open"].squeeze().tolist(),
+        "highs": df["High"].squeeze().tolist(),
+        "lows": df["Low"].squeeze().tolist(),
+        "closes": df["Close"].squeeze().tolist(),
+    }
+
+
+def backtest_symbol_3x(ticker, timeframe="1day"):
+    print(f"  下载数据: {ticker} {timeframe} ...", end=" ", flush=True)
+    if timeframe == "1day":
+        ohlc_src = _load_yfinance_daily(ticker)
+    elif timeframe == "4h" and ticker in CRYPTO_SYMBOLS:
+        ohlc_src = _load_crypto_candles(ticker, timeframe)
+    else:
+        print("该周期无数据源，跳过")
+        return None
+    if not ohlc_src or len(ohlc_src["closes"]) < max(MA_PERIODS) + 10:
         print("无数据，跳过")
         return None
-    closes = df["Close"].squeeze().tolist()
-    highs  = df["High"].squeeze().tolist()
-    lows   = df["Low"].squeeze().tolist()
-    opens  = df["Open"].squeeze().tolist()
-    dates  = df.index.tolist()
-    print(f"{len(df)} 条日线  ({str(dates[0])[:10]} ~ {str(dates[-1])[:10]})")
+    closes = ohlc_src["closes"]
+    highs  = ohlc_src["highs"]
+    lows   = ohlc_src["lows"]
+    opens  = ohlc_src["opens"]
+    dates  = ohlc_src["dates"]
+    print(f"{len(closes)} 条K线  ({str(dates[0])[:10]} ~ {str(dates[-1])[:10]})")
 
     trend_sma = rolling_sma(closes, TREND_MA)
     rsi_vals  = rolling_rsi(closes)
@@ -607,15 +645,17 @@ def write_trade_detail_sheet(wb, all_results, strat_key, lev, sheet_label):
 
 # ── 主流程 ───────────────────────────────────────────────────────────────────
 
-def main(only_symbol=None, only_leverage=None, skip_excel=False):
-    targets = [only_symbol] if only_symbol else list(SYMBOLS.keys())
+def main(only_symbol=None, only_leverage=None, skip_excel=False, timeframe="1day"):
+    if timeframe not in ("1day", "4h"):
+        raise SystemExit("未知周期：仅支持 1day / 4h")
+    targets = [only_symbol] if only_symbol else (list(CRYPTO_SYMBOLS) if timeframe == "4h" else list(SYMBOLS.keys()))
     if only_symbol and only_symbol not in SYMBOLS:
         raise SystemExit(f"未知品种：{only_symbol}（合法范围：{', '.join(SYMBOLS)})")
 
     all_results = {}
     for sym in targets:
         print(f"\n[{sym}]")
-        data = backtest_symbol_3x(sym)
+        data = backtest_symbol_3x(sym, timeframe=timeframe)
         all_results[sym] = data
         if data:
             for strat in ("breakout", "pullback"):
@@ -640,7 +680,8 @@ def main(only_symbol=None, only_leverage=None, skip_excel=False):
     # ── JSON 导出（供前端读取） ─────────────────────────────────────────────
     from backtest_json_export_3x import export_json_3x, write_manifest_3x
     for lev in (LEVERAGE_LEVELS if not only_leverage else [only_leverage]):
-        json_dir = str(_REPO / "backend" / "data" / f"ma_strategies_{lev}x")
+        dir_name = f"ma_strategies_{lev}x" if timeframe == "1day" else f"ma_strategies_{lev}x_{timeframe}"
+        json_dir = str(_REPO.parent.parent / "backend" / "data" / dir_name)
         os.makedirs(json_dir, exist_ok=True)
         print(f"\n导出 {lev}x JSON → {json_dir}")
         for sym, data in all_results.items():
@@ -663,7 +704,7 @@ def main(only_symbol=None, only_leverage=None, skip_excel=False):
         print(f"✅ 已导出 {lev}x JSON")
 
     # ── Excel（全量才输出） ────────────────────────────────────────────────
-    if skip_excel or only_symbol:
+    if skip_excel or only_symbol or timeframe != "1day":
         return
 
     out_path = str(_REPO / "data" / "ma_strategies_3x_backtest.xlsx")
@@ -689,6 +730,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--symbol",   help="只回测该品种")
     parser.add_argument("--leverage", type=int, choices=[2, 3], help="只导出指定杠杆的 JSON")
+    parser.add_argument("--timeframe", choices=["1day", "4h"], default="1day", help="回测周期")
     parser.add_argument("--no-excel", action="store_true")
     args = parser.parse_args()
-    main(only_symbol=args.symbol, only_leverage=args.leverage, skip_excel=args.no_excel)
+    main(only_symbol=args.symbol, only_leverage=args.leverage, skip_excel=args.no_excel, timeframe=args.timeframe)
