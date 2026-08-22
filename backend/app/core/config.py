@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     )
 
     DATABASE_URL: str = "postgresql+asyncpg://marketuser:marketpass@postgres:5432/marketreplay"
+    # True: 启动时 create_all+补列（旧行为）；False: schema 完全交给 alembic 管理
+    DB_AUTO_DDL: bool = True
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
     DEBUG: bool = False
     # 单用户登录密码；为空表示未配置，/api/auth/login 返回 503（不设弱默认值）

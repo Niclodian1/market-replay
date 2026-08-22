@@ -15,3 +15,6 @@ psycopg2-binary>=2.9.9
 apscheduler>=3.10.0
 akshare>=1.17.0
 matplotlib>=3.8.0
+
+# DB schema 迁移
+alembic>=1.13
