@@ -20,26 +20,7 @@ from dataclasses import dataclass, field
 #  基础指标
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _atr(highs: list[float], lows: list[float], closes: list[float], period: int = 14) -> list[float | None]:
-    n = len(highs)
-    result: list[float | None] = [None] * n
-    if n < 2:
-        return result
-    tr = [highs[0] - lows[0]]
-    for i in range(1, n):
-        tr.append(max(
-            highs[i] - lows[i],
-            abs(highs[i] - closes[i - 1]),
-            abs(lows[i] - closes[i - 1]),
-        ))
-    if n < period:
-        return result
-    avg = sum(tr[:period]) / period
-    result[period - 1] = avg
-    for i in range(period, n):
-        avg = (avg * (period - 1) + tr[i]) / period
-        result[i] = avg
-    return result
+from app.core.indicators import _atr  # noqa: E402
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
