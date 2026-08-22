@@ -1,326 +1,124 @@
 # Market Replay - 行情复盘助手
 
+> 更新：2026-08-22。早期版本概览与优化建议已归档进 git 历史（4 月版），
+> 本版反映告警体系 V2（M0-M3B）落地后的现状。
+
 ## 项目简介
 
-Market Replay 是一款面向个人交易者的全栈行情复盘与量化回测工具，旨在帮助用户回顾历史行情、验证交易策略、记录复盘笔记，并通过告警系统实时监控市场动态。
+Market Replay 是一款面向个人交易者的全栈行情复盘、量化回测与告警平台。
+在原有「图表 / 复盘 / 回测 / 告警」闭环之上，2026 年 8 月完成了告警体系 V2 重构：
+统一市场状态引擎（MarketState）、多周期融合决策、缠论信号接入、
+影子运行时（shadow runtime）与结果标注体系。
 
-项目采用前后端分离架构，支持 Docker 一键部署，数据源使用免费的 Yahoo Finance，覆盖美股、ETF、指数、加密货币等多种标的。
+架构文档索引见 `docs/architecture/`：
 
----
+| 文档 | 内容 |
+|---|---|
+| ALERT_V2_ROADMAP.md | V2 里程碑总路线（M0-M3 状态） |
+| MARKET_STATE_V1.md | 统一市场状态模型（趋势/波动/K线质量/量能） |
+| MULTI_TIMEFRAME_V1.md | 周/日/4H 角色融合与门控 |
+| OUTCOME_LABELING_V1.md / M3_SHADOW_RUNTIME_V1.md | 影子事件标注与运行时 |
+| MTF_BTC_BACKTEST_V1.md | 4H 入场位置 A/B 对照事件研究 |
 
 ## 技术架构
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Frontend (Next.js 14)                 │
-│  App Router · TypeScript · Tailwind CSS · Zustand       │
-│  TradingView Lightweight Charts · React Query v5        │
-├─────────────────────────────────────────────────────────┤
-│                    Backend (FastAPI)                     │
-│  SQLAlchemy 2.0 (async) · asyncpg · Pydantic v2        │
-│  APScheduler (告警定时任务)                               │
-├─────────────────────────────────────────────────────────┤
-│                 PostgreSQL 16 · Docker Compose           │
-├─────────────────────────────────────────────────────────┤
-│              Yahoo Finance (yfinance, 免费无需 API Key)   │
-└─────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                 Frontend (Next.js 14 App Router)            │
+│  TypeScript · Tailwind · Zustand · React Query v5           │
+│  lightweight-charts · 缠论叠加/统计 · MA 策略组件组           │
+├────────────────────────────────────────────────────────────┤
+│                 Backend (FastAPI + SQLAlchemy 2 async)      │
+│  market_state(统一状态) → multi_timeframe(融合)              │
+│  monitor_engine(V1 告警) / m3_shadow_runtime(V2 影子)        │
+│  chanlun_service(fenxing 管线) · daily_report_* 日报         │
+│  strategy_backtest_engine · matrix_backtest · signal_detectors│
+│  APScheduler 调度 · Discord/飞书/邮件/站内通知                │
+├────────────────────────────────────────────────────────────┤
+│        PostgreSQL 16 (Alembic 迁移) · Docker Compose         │
+├────────────────────────────────────────────────────────────┤
+│  数据源: Binance · Hyperliquid(WS) · Yahoo · Dukascopy ·     │
+│         Twelve Data · akshare(A股/宏观)                      │
+└────────────────────────────────────────────────────────────┘
 ```
 
-### 前端核心依赖
+### 因果性契约（全系统硬约束）
 
-| 库 | 用途 |
+时刻 t 的任何状态/信号只允许依赖 `candles[:t+1]`；摆动点需右侧确认
+（`idx + pivot <= t`）；信号只记在确认 bar，禁止回写历史。
+由 `tests/test_asof_causality.py`、逐前缀一致性测试与 golden digest 保护。
+
+## 后端核心模块（app/core/）
+
+| 模块 | 职责 |
 |---|---|
-| Next.js 14 (App Router) | 页面路由与 SSR 框架 |
-| lightweight-charts v4 | TradingView 蜡烛图渲染 |
-| @tanstack/react-query v5 | 服务端状态管理与数据缓存 |
-| zustand | 客户端全局状态（自选、主题、MA周期等） |
-| axios | HTTP 请求 |
-| date-fns | 日期格式化 |
+| `market_state.py` + `market_state_adapters.py` | 统一 MarketState 引擎；旧 regime/trend/日报口径经适配层收口，golden parity 测试锁定行为 |
+| `multi_timeframe.py` | 周(Context)/日(Setup)/4H(Trigger) 角色融合，产出带完整审计的 FusionDecision |
+| `monitor_engine.py` + `signals/monitor_signals.py` | 生产 V1 告警（ma/macd/structure），只消费最新已完成 bar |
+| `m3_shadow_runtime.py` | V2 影子事件：decision → label → 完成态状态机（DB CHECK 强约束） |
+| `outcome_labeling.py` / `mtf_historical_backtest.py` | 影子结果三重标注、多周期历史回测研究 |
+| `chanlun_service.py` / `triangle.py` / `divergence_detectors.py` | 缠论信号（依赖仓库根 `fenxing/` 管线）、三角收敛、背驰检测 |
+| `daily_report_{analysis,sources,service,delivery}.py` | 每日多市场日报（生成→渲染→邮件/飞书投递），运维手册 docs/runbooks/DAILY_EMAIL_REPORT.md |
+| `strategy_backtest_engine.py` / `backtest_engine.py` | 策略回测（快慢双路径等价）与通用回测 |
+| `signal_detectors.py` / `signals/strategy_detectors.py` | 信号检测原语与策略探测器 |
+| `notification_channels.py` / `discord_webhook.py` / `feishu_webhook.py` | 多渠道通知路由与投递状态机 |
 
-### 后端核心依赖
+数据源 provider 在 `app/providers/`（binance/hyperliquid/yahoo_finance/
+dukascopy/local_crypto），行情源路由规则见 `tests/test_market_source_routing.py`。
 
-| 库 | 用途 |
-|---|---|
-| FastAPI | 异步 Web 框架 |
-| SQLAlchemy 2.0 + asyncpg | 异步 ORM 与 PostgreSQL 驱动 |
-| yfinance | Yahoo Finance 数据拉取 |
-| APScheduler | 告警条件定时检查 |
-| httpx | 异步 HTTP 客户端（Discord Webhook） |
+## 前端主要页面
 
----
+- `/chart/[symbol]`：蜡烛图 + MA/RSI/MACD + 缠论 overlay（画线、对数坐标）
+- `/replay/[symbol]`：逐根 K 线复盘播放器 + 笔记
+- `/alerts`、`/watchlist`、首页看板（指数/加密/恐慌指数/宏观倒计时）
+- `/ma-strategies*`、`/strategy-lab`、`/strategy-overview`：MA 策略族与策略实验台
+- `/macro`：宏观日历
 
-## 功能模块详解
+前端算法库 `lib/chanlunStats.ts`、`lib/chanlunStrategy.ts` 与后端/fenxing 口径
+保持一致，由 `frontend/tests/`（node:test）守护。
 
-### 1. 行情图表 (`/chart/[symbol]`)
+## 数据模型（13 表）
 
-- **蜡烛图**：基于 TradingView Lightweight Charts，支持明暗主题
-- **技术指标**：
-  - 自定义 MA 均线（最多 6 条，周期可编辑）
-  - RSI (14)
-  - MACD (12, 26, 9)
-  - 成交量柱状图（叠加在主图底部）
-- **画线工具**：水平线、趋势线、通道线、斐波那契回撤，支持自定义颜色、选中高亮、右键删除
-- **对数坐标**：一键切换 Log Scale
-- **动态加载**：滚动到左侧边缘自动加载更早的历史数据
-- **多周期**：15min / 1H / 4H / 1D / 1W（4H 由后端将 1H 数据聚合生成）
+`market_candles, users, watchlists, replay_notes, alerts, chanlun_signals,
+notification_channels, monitor_plans, alert_events, daily_reports,
+m3_shadow_runtime, m3_shadow_events, hot_product_snapshots`
 
-### 2. 复盘模式 (`/replay/[symbol]`)
+schema 由 Alembic 管理（基线迁移 `0001_baseline`）；
+`DB_AUTO_DDL=false` 可切换为纯迁移模式。流程见
+`docs/runbooks/DATABASE_MIGRATIONS.md`。
 
-- 选择历史起点日期，从该时间点开始逐根 K 线推进
-- 支持自动播放（80ms~2s 可调速度）和手动前进/后退
-- 进度条可视化显示复盘进度
-- 右侧面板可实时记录复盘笔记：
-  - 趋势判断（多/空/震荡）
-  - 支撑位 / 阻力位
-  - 入场思路、止损、止盈
-  - 总结备注
+## API 概览（前缀 /api）
 
-### 3. 策略回测 (`/backtest`)
+health · market · indicators · watchlist · replay/notes · alerts · monitoring ·
+auth/login · backtest · chanlun · analysis · macro · strategy-lab ·
+ma-strategies(-3x/-c/-unified)
 
-- **5 种内置策略**：
-  - MA 双均线交叉（金叉买入 / 死叉卖出）
-  - RSI 超买超卖（反弹/回落信号）
-  - MACD 金叉死叉
-  - 收盘价突破均线（MA Breakout）
-  - MACD 背离检测（顶底背离）
-- **多指标 AND 组合**：可同时选择多个指标，所有指标同时满足时才触发信号
-- **回测统计指标**：
-  - 总收益率 / 年化收益率
-  - 最大回撤
-  - 夏普比率
-  - 胜率 / 盈亏笔数
-  - 超额收益 Alpha（vs Buy & Hold）
-- **权益曲线图**：策略收益 vs 买入持有收益对比
-- **交易明细表**：每笔交易的入场/出场/盈亏/最大浮盈浮亏
+## 工程设施
 
-### 4. 告警监控 (`/alerts`)
+- **测试**：后端 pytest 650+ 用例（因果性/golden parity/契约测试），
+  前端 node:test 23 用例；全部单元化，CI 无需真实 DB/网络
+- **Lint**：ruff（Python，零告警）+ ESLint next/core-web-vitals
+- **CI**：`.github/workflows/ci.yml` — backend(ruff+pytest) + frontend(tsc+lint+test)
+- **pre-commit**：空白/大文件/私钥检测 + ruff --fix + 前端 tsc
+- **依赖**：`requirements.lock.txt` 锁定构建；升级改 requirements.txt 后重新解析
+- **备份/恢复**：`scripts/ops/alert_backup.sh` / `alert_restore.sh`
+  （verify/drill/原子事务恢复），runbook 见 docs/runbooks/
 
-- **6 种告警条件**：
-  - 价格突破/跌破阈值
-  - RSI 超买/超卖
-  - MA20/MA60 均线金叉/死叉
-  - 收盘价上穿自定义周期均线
-- **通知方式**：Discord Webhook（支持保存常用 Webhook 地址）
-- **反复告警**：触发后自动重置，下次满足条件继续通知
-- 后端通过 APScheduler 定时轮询评估
-
-### 5. 自选列表 (`/watchlist`)
-
-- 搜索添加标的（支持模糊搜索股票/ETF/指数/加密货币）
-- 首页看板展示自选行情实时报价
-- 侧边栏快捷查看
-
-### 6. 首页看板 (`/`)
-
-- 指数行情：S&P500、Nasdaq 100、道琼斯
-- 加密货币：BTC、ETH、SOL
-- 加密贪婪恐慌指数（来自 alternative.me）
-- VIX 恐慌指数
-- 近期宏观事件倒计时（静态维护）
-- 活跃告警统计
-- 最近复盘笔记
-
-### 7. 数据层
-
-- **内存缓存**：报价 30s TTL，K线 60s TTL，搜索 300s TTL
-- **数据库持久化**：K线数据通过 `MarketCandle` 模型存入 PostgreSQL，支持增量同步
-- **4H 聚合**：Yahoo Finance 不直接支持 4H 周期，后端拉取 1H 数据按 UTC 4 小时窗口聚合
-
----
-
-## 数据模型
-
-| 模型 | 说明 | 核心字段 |
-|---|---|---|
-| `MarketCandle` | K线数据持久化 | symbol, timeframe, time, OHLCV |
-| `User` | 用户（当前为单用户） | username, password_hash |
-| `Watchlist` | 自选列表 | user_id, symbol, name, asset_type |
-| `ReplayNote` | 复盘笔记 | symbol, timeframe, trend_view, support/resistance, entry_idea, stop_loss, take_profit |
-| `Alert` | 告警规则 | symbol, condition_type, threshold, discord_webhook_url, repeating, is_triggered |
-
----
-
-## API 端点
-
-| 模块 | 路径前缀 | 主要功能 |
-|---|---|---|
-| 健康检查 | `/api/health` | 数据库连通性检测 |
-| 行情 | `/api/market` | 搜索、报价、K线数据 |
-| 技术指标 | `/api/indicators` | 服务端指标计算 |
-| 自选列表 | `/api/watchlist` | CRUD |
-| 复盘笔记 | `/api/replay/notes` | CRUD + 按标的筛选 |
-| 告警 | `/api/alerts` | CRUD + Webhook 测试 |
-| 回测 | `/api/backtest` | 运行回测 + 数据范围查询 |
-
----
-
-## 部署方式
+## 部署
 
 ```bash
-# Docker 一键启动（PostgreSQL + Backend + Frontend）
-docker compose up -d
-
-# 访问
-# 前端: http://localhost:3000
+docker compose up -d          # postgres + backend(8000) + frontend(3000)
 # API 文档: http://localhost:8000/docs
 ```
 
----
+镜像为生产命令（uvicorn 无 --reload / npm build+start）；
+compose 中以 command 覆盖保留开发热重载。
 
-## 优化建议
+## 已知债务与方向
 
-### 一、交易策略优化
-
-#### 1. 缺少止损止盈机制
-当前回测引擎采用纯信号驱动：买入信号开仓 → 卖出信号平仓，中间没有任何风控措施。实际交易中，止损/止盈是最基本的风险管理手段。
-
-**建议**：
-- 为回测引擎增加固定百分比止损（如 -5%）和止盈（如 +15%）参数
-- 支持移动止损（Trailing Stop），在浮盈达到一定比例后将止损上移至成本价
-- 增加最大持仓时间限制，超时未触发止盈/止损则强制平仓
-
-#### 2. 仓位管理过于简单
-当前策略全仓买入、全仓卖出（`position = capital / price`），不考虑仓位分配。
-
-**建议**：
-- 支持固定比例仓位（如每次只投入总资金的 20%）
-- 支持金字塔加仓（信号确认后逐步加仓）
-- 考虑引入凯利公式或等比例资金管理
-- 支持多标的组合回测，而非单一标的
-
-#### 3. 策略类型较为基础
-当前 5 种策略均为经典趋势跟踪类策略，在震荡市中表现普遍较差。
-
-**建议**：
-- 增加布林带（Bollinger Bands）策略 —— 适合震荡行情的均值回归
-- 增加 ATR（Average True Range）波动率过滤器 —— 低波动时不开仓，避免震荡市反复止损
-- 增加成交量确认 —— 放量突破有效性更高
-- 考虑引入多时间框架确认机制（如日线趋势方向 + 4H 入场信号）
-
-#### 4. 回测结果缺少关键风险指标
-当前输出了夏普比率、最大回撤、胜率等，但缺少一些对评价策略稳健性重要的指标。
-
-**建议**：
-- 增加 **Sortino Ratio**（只惩罚下行波动，比夏普更合理）
-- 增加 **Calmar Ratio**（年化收益 / 最大回撤）
-- 增加 **最大连续亏损次数** 和 **最大连续亏损金额**
-- 增加 **盈亏比**（平均盈利 / 平均亏损）
-- 增加 **回撤恢复时间**（最大回撤后多久回到前高）
-
-#### 5. 缺少滑点与手续费模拟
-回测以收盘价精确成交，未考虑真实市场中的交易摩擦。
-
-**建议**：
-- 增加固定滑点参数（如 0.1%）
-- 增加手续费参数（如 0.05% 单边）
-- 高频策略（15min/1H）对摩擦成本更敏感，需要差异化设置
-
-#### 6. AND 组合逻辑较为死板
-当前多指标只支持 AND（所有指标同时满足），实际使用中需要更灵活的组合。
-
-**建议**：
-- 支持 OR 逻辑（任一指标触发）
-- 支持权重投票机制（如 3 个指标中 2 个同意即开仓）
-- 支持指标作为过滤器而非信号源（如 RSI > 50 作为做多的前置条件，而非独立信号）
-
----
-
-### 二、软件功能优化
-
-#### 1. 认证与多用户支持
-当前是单用户应用，`APP_PASSWORD: str = "admin123"` 硬编码在配置中，且密码以明文形式出现。
-
-**建议**：
-- 实现 JWT Token 认证，支持注册/登录
-- 密码使用 bcrypt 哈希存储
-- 前端登录页已存在（`/login`），需与后端认证 API 对接
-- 如果保持单用户模式，至少应从环境变量读取密码，不在代码中硬编码
-
-#### 2. 告警系统的健壮性
-告警通过 APScheduler 轮询实现，只支持 Discord Webhook 通知。
-
-**建议**：
-- 增加告警历史记录表，记录每次触发的详情（当前只更新 `triggered_at`，无法回溯历史）
-- 支持更多通知渠道：Telegram Bot、邮件、Slack Webhook
-- 告警评估失败时增加重试机制和失败通知
-- 考虑将轮询改为事件驱动（如在数据更新时触发检查，而非定时轮询）
-- 前端缺少告警触发历史的查看界面
-
-#### 3. 数据缓存策略可改进
-当前使用简单的字典内存缓存（`_Cache` 类），无大小限制。
-
-**建议**：
-- 增加最大缓存条目限制或 LRU 淘汰策略，防止长时间运行后内存无限增长
-- 对于 K 线历史数据，优先从数据库读取，减少对 Yahoo Finance 的重复请求
-- 考虑使用 Redis 作为缓存层，支持跨进程共享
-
-#### 4. 宏观事件日历为静态数据
-首页的宏观事件（非农、CPI、FOMC 等）是前端硬编码的。
-
-**建议**：
-- 后端提供经济日历 API，从外部数据源（如 investing.com 的公开 API）自动获取
-- 或者提供后台管理界面让用户自行维护
-- 事件过期后自动隐藏或标记为"已公布"，显示实际值 vs 预期值
-
-#### 5. 前端代码组织
-部分页面组件较大（如 `CandlestickChart.tsx` 超过 800 行），且内联样式较多。
-
-**建议**：
-- 将画线工具逻辑拆分为独立的 hook（如 `useChartDrawings`）
-- 内联 `style` 属性改为 Tailwind 类名或 CSS Modules，提升可维护性
-- `SymbolCombobox` 组件在告警页和回测页各写了一遍，应抽取为共享组件
-
-#### 6. 错误处理与用户反馈
-Yahoo Finance 免费接口不稳定，容易出现超时或限频。
-
-**建议**：
-- 前端增加全局 Error Boundary，避免单个接口异常导致整页白屏
-- 后端 Yahoo Finance 请求增加重试策略（指数退避）
-- 数据加载失败时提供明确的错误提示和重试按钮
-- 考虑增加备用数据源（如已有的 `twelve_data.py` 和 `binance.py` Provider 模板）
-
-#### 7. 性能优化
-- 首页同时请求 3 个指数 + 3 个加密货币 + VIX + 恐慌指数 + 自选列表报价，并发请求量较大
-- 回测页面在大数据量（5000+ 根 K 线）下，前端指标计算可能卡顿
-
-**建议**：
-- 后端提供批量报价 API（一次请求返回多个标的），减少并发
-- 将回测指标计算结果缓存（相同参数不重复计算）
-- 前端指标计算考虑使用 Web Worker，避免阻塞主线程
-- 图表数据量大时考虑采样/降精度显示
-
-#### 8. 数据库迁移
-当前使用 `create_all` 自动建表 + 手动 `ALTER TABLE` 补列，不适合生产环境。
-
-**建议**：
-- 引入 Alembic 作为数据库迁移工具
-- 去掉 `main.py` 中的手动 DDL 语句
-- 编写初始迁移脚本，使部署流程标准化
-
-#### 9. 测试覆盖
-当前项目没有自动化测试。
-
-**建议**：
-- 后端：使用 pytest + httpx 编写 API 集成测试，至少覆盖回测引擎的核心逻辑
-- 前端：使用 Vitest + React Testing Library 测试关键组件
-- 回测引擎的信号生成逻辑最适合单元测试，输入确定、输出可验证
-
-#### 10. 复盘笔记增强
-当前复盘笔记为纯文本/数字字段，缺少与图表的关联。
-
-**建议**：
-- 支持将画线工具的标注（支撑位、阻力位、趋势线）与笔记关联保存
-- 笔记列表页增加按时间/标的/趋势判断的筛选和搜索
-- 支持笔记中插入截图或图表快照
-- 增加笔记模板功能（预设字段，减少重复录入）
-- 增加复盘统计：分析历史笔记中的判断准确率（如看多/看空 vs 实际走势）
-
----
-
-## 总结
-
-Market Replay 已经具备了行情查看、技术分析、历史复盘、策略回测、告警监控的完整功能闭环，作为个人交易辅助工具已经相当实用。主要的优化方向集中在：
-
-1. **策略维度**：增加风控机制（止损止盈）、丰富策略类型（震荡策略、多时间框架）、完善风险指标、考虑交易摩擦
-2. **工程维度**：完善认证系统、引入数据库迁移、增加自动化测试、优化前端代码组织
-3. **体验维度**：增强错误处理、优化数据加载性能、丰富复盘笔记功能、告警历史可追溯
+- 三套旧状态口径已收口到 MarketState 适配层，monitor 尚未迁移到融合决策
+  （M3C 对照报告与人工切换待做）
+- `app/core/` 存在 8 个 800+ 行模块（最大 m3_shadow_runtime 1522 行），
+  拆分需配合 golden 测试单独排期
+- `fenxing/` 为缠论运行时依赖（已入库），长期应重构为正式 Python 包
+- scripts/backtests 下六个同族 MA 回测脚本待参数化合并
