@@ -128,8 +128,8 @@ test('背驰买后同向 MACD 柱放大 → exitReason=macd', () => {
 
 test('forming / 无 confirmedT 的点不进入回测（禁止按极值 t 成交）', () => {
   const stats = computeChanlunStats(candles, [
-    { t: T0 + 2 * H, ct: T0 + 2 * H, p: 0, k: '一买', mode: 'stroke', state: 'forming', confirmedT: null },
-    { t: T0 + 5 * H, ct: T0 + 5 * H, p: 0, k: '一卖', mode: 'stroke', state: 'confirmed', confirmedT: T0 + 5 * H },
+    { t: T0 + 2 * H, p: 0, k: '一买', mode: 'stroke', state: 'forming', confirmedT: null },
+    { t: T0 + 5 * H, p: 0, k: '一卖', mode: 'stroke', state: 'confirmed', confirmedT: T0 + 5 * H },
   ])
   assert.equal(stats.total, 0)
   assert.equal(stats.openTrades.length, 0)
