@@ -420,20 +420,14 @@ def test_cross_line_definition():
     # Construct a simple case where we can precisely control the behavior
     h_idx = [0, 10, 20]
     h_val = [110.0, 107.0, 104.0]
-    l_idx = [0, 10, 20]
-    l_val = [90.0, 91.0, 93.0]
 
     up_fit = _fit_with_quality(h_idx, h_val)
-    lo_fit = _fit_with_quality(l_idx, l_val)
 
     up_slope = up_fit["slope"]
     up_int = up_fit["intercept"]
-    lo_slope = lo_fit["slope"]
-    lo_int = lo_fit["intercept"]
 
     # At bar 25: compute line values
     up_25 = up_slope * 25 + up_int
-    lo_25 = lo_slope * 25 + lo_int
 
     # Close at 25: above upper line
     close_25 = up_25 + 1.0

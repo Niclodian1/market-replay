@@ -9,7 +9,6 @@ import argparse
 import asyncio
 import json
 import math
-import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -673,7 +672,6 @@ def write_report(
         )
     breakdown_md = "\n".join(breakdown_lines)
 
-    sdev = rows["development_single_selected"]
     shold = rows["holdout_single_selected"]
     bhold = rows["holdout_single_baseline"]
     lhold = rows["holdout_legacy_parallel_selected"]

@@ -59,7 +59,7 @@ import asyncio
 import json
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Protocol
 
 from sqlalchemy import exists, func, select, update
@@ -1136,7 +1136,7 @@ def _rec_from_row(row: Any) -> ShadowRecord:
 
 def list_decision_retry_due_stmt(now: int, limit: int, max_attempts: int):
     """decision 失败行到期重试查询（可测 SQL 结构；max_attempts 来自 core）。"""
-    from sqlalchemy import and_, or_
+    from sqlalchemy import or_
 
     return (
         select(M3ShadowEvent)

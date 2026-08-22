@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 import time as _time
-from datetime import datetime, timezone
 
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession

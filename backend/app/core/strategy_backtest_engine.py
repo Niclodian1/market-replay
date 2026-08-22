@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Optional
 
 from app.core.indicators import _sma, _atr, _macd
 from app.core.regime_classifier import (
@@ -26,11 +25,8 @@ from app.core.regime_classifier import (
 from app.core.position_sizing import (
     AccountConfig,
     SignalOrder,
-    AllocationResult,
     allocate_exposure,
-    STRATEGY_RISK_BUDGET,
     EXIT_RULES,
-    PRIORITY_MAP,
     build_signal_order,
 )
 from app.core.signals.strategy_detectors import (
@@ -173,7 +169,6 @@ class StrategyBacktester:
         highs  = [float(c["high"])  for c in candles]
         lows   = [float(c["low"])   for c in candles]
         times  = [int(c["time"])    for c in candles]
-        opens  = [float(c["open"])  for c in candles]
         n = len(candles)
 
         # 预计算指标
@@ -717,7 +712,6 @@ class StrategyBacktester:
         ann = _annualized(total_return, n_days)
         max_dd = _max_drawdown(equity)
         sharpe = _sharpe_ratio(equity)
-        buy_hold = (closes[-1] - closes[0]) / closes[0] * 100
 
         winning = [t for t in trades if t.pnl_pct >= 0]
         losing = [t for t in trades if t.pnl_pct < 0]

@@ -5,7 +5,7 @@ import logging
 import time
 from datetime import datetime, timezone
 
-from app.core.indicators import _sma, _rsi, _ema, _macd, _bollinger
+from app.core.indicators import _sma, _rsi, _macd, _bollinger
 from app.core.price_action import detect_pinbar, detect_engulfing, detect_w_bottom
 from app.core.sr_levels import signals_sr_breakout
 from app.core.discord_webhook import send_discord_alert

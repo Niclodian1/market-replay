@@ -23,11 +23,8 @@ import csv
 import datetime as _dt
 import itertools
 import json
-import math
-import os
 import sys
 from pathlib import Path
-from typing import Any
 
 _REPO = Path(__file__).resolve().parent
 sys.path.insert(0, str(_REPO))
@@ -35,7 +32,6 @@ sys.path.insert(0, str(_REPO))
 from backtest_ma_strategies import (  # noqa: E402
     SYMBOLS, MA_PERIODS, TREND_MA, COST, BODY_RISE_MIN,
     rolling_sma, rolling_rsi,
-    run_breakout, run_pullback,
 )
 from backtest_ma_strategies_3x import (  # noqa: E402
     run_leveraged_breakout, run_leveraged_pullback,

@@ -295,7 +295,6 @@ def _closed_daily_candles(count: int = 60) -> list[dict]:
 
 def test_monitor_daily_candles_use_multi_source_fallback(monkeypatch):
     """日线监控必须走 DailyReportSources（多源回退），而不是单一 provider。"""
-    daily_rows = _closed_daily_candles()
     fallback_rows = [
         {**row, "_report_source_symbol": "BINANCE:AAPLUSDT"}
         for row in _closed_daily_candles()

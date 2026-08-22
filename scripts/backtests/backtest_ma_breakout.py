@@ -472,7 +472,7 @@ def write_trade_sheet(wb, sym, results, best_n):
     widths = [14, 14, 10, 16, 16, 15, 15, 12, 8]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
-    ws.freeze_panes = f"A2"
+    ws.freeze_panes = "A2"
 
 
 # ── 主流程 ────────────────────────────────────────────────────────────────────

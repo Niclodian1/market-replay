@@ -14,7 +14,6 @@ fenxing 为单一代码源（sys.path 指向仓库根 /fenxing），此处只 im
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import sys

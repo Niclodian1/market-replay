@@ -45,7 +45,6 @@ def compute_correlation_matrix(
     返回 { symbols, matrix }。
     """
     symbols = sorted(symbol_closes.keys())
-    n = len(symbols)
 
     returns_map: dict[str, dict[int, float]] = {}
     for sym in symbols:

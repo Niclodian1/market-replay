@@ -498,7 +498,7 @@ def _validate_candidate(
         # Fallback to relative width
         mid_price = sum(closes[t_left:t_right + 1]) / max(1, formation_bars)
         if mid_price > 0 and w0 / mid_price > 0.30:
-            return False, f"W0/mid > 30% (no ATR available)"
+            return False, "W0/mid > 30% (no ATR available)"
 
     # ── 7. Convergence ratio ──
     w1 = (up_slope * t_right + up_int) - (lo_slope * t_right + lo_int)
@@ -545,13 +545,13 @@ def _validate_candidate(
             return False, f"touches ({n_h}H/{n_l}L) < required"
         # Stricter quality for 2-touch
         if up_fit["r2"] < 0.90 or lo_fit["r2"] < 0.90:
-            return False, f"2-touch mode: R² must be ≥ 0.90"
+            return False, "2-touch mode: R² must be ≥ 0.90"
         if atr_val is not None and atr_val > 0:
             strict_threshold = 0.25 * atr_val
             if up_fit["max_residual"] > strict_threshold:
-                return False, f"2-touch mode: upper residual too large"
+                return False, "2-touch mode: upper residual too large"
             if lo_fit["max_residual"] > strict_threshold:
-                return False, f"2-touch mode: lower residual too large"
+                return False, "2-touch mode: lower residual too large"
 
     # ── 11. Alternation (soft check: touches must not all be on one side) ──
     all_h_indices = set(h_indices)

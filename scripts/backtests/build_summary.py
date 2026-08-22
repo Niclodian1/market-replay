@@ -2,7 +2,6 @@
 汇总页面 —— 交易总览表格 + 图表嵌入。
 """
 import json
-import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -204,7 +203,7 @@ tr:hover {{ background: rgba(233,69,96,0.05); }}
         et = datetime.fromtimestamp(t["entry_time"], tz=timezone.utc).strftime("%Y-%m-%d")
         xt = datetime.fromtimestamp(t["exit_time"], tz=timezone.utc).strftime("%Y-%m-%d") if t["exit_time"] else "?"
         pnl_class = "positive" if t["pnl_pct"] >= 0 else "negative"
-        dir_badge = f'<span class="badge badge-long">多</span>' if t["direction"] == "long" else f'<span class="badge badge-short">空</span>'
+        dir_badge = '<span class="badge badge-long">多</span>' if t["direction"] == "long" else '<span class="badge badge-short">空</span>'
         strat_badge = f'<span class="badge badge-{t["strategy"]}">{t["strategy"]}</span>'
 
         html += f"""<tr data-symbol="{t['_symbol']}" data-strategy="{t['strategy']}" data-direction="{t['direction']}" data-result="{'win' if t['pnl_pct'] >= 0 else 'loss'}">

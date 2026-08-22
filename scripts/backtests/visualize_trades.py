@@ -19,11 +19,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import pandas as pd
 
 from app.providers.local_crypto import LocalCryptoProvider
 from app.providers.yahoo_finance import YahooFinanceProvider
-from app.core.strategy_backtest_engine import StrategyBacktester, AccountConfig, TradeRecord
+from app.core.strategy_backtest_engine import StrategyBacktester, AccountConfig
 from app.core.regime_classifier import precompute_regime_arrays
 
 OUTPUT_DIR = Path(__file__).resolve().parents[2] / "reports"
@@ -84,7 +83,6 @@ def make_chart(symbol, tf, candles, trades, regimes, equity_curve):
     opens = [c["open"] for c in candles]
     highs = [c["high"] for c in candles]
     lows = [c["low"] for c in candles]
-    volumes = [c["volume"] for c in candles]
 
     # MA 计算
     from app.core.indicators import _sma

@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 
 from app.providers.local_crypto import LocalCryptoProvider
 from app.providers.yahoo_finance import YahooFinanceProvider
-from app.core.trend_classifier import classify, get_regime_label, swing_points
+from app.core.trend_classifier import classify
 from app.core.signal_detectors import compute_all_signals, SIGNAL_LABELS
 from app.core.matrix_backtest import MatrixBacktester, REGIME_LABELS
 
@@ -398,11 +398,11 @@ def main():
             continue
 
         # 趋势分类
-        print(f"  趋势分类...")
+        print("  趋势分类...")
         regimes = classify(candles)
 
         # 信号检测
-        print(f"  信号检测...")
+        print("  信号检测...")
         signals_map = compute_all_signals(candles)
 
         # 统计信号频次
@@ -415,7 +415,7 @@ def main():
         print(f"  状态分布: {dict(regime_dist)}")
 
         # 矩阵回测
-        print(f"  回测中...")
+        print("  回测中...")
         report = tester.run(candles, signals_map, regimes, symbol, tf)
         elapsed = time.time() - t0
 
@@ -456,7 +456,7 @@ def main():
         all_matrix_data.append(matrix_data)
 
     # — 生成 HTML —
-    print(f"\n生成报告...")
+    print("\n生成报告...")
     html = build_html(all_reports, all_matrix_data)
     html_path = OUTPUT_DIR / "signal_matrix.html"
     with open(html_path, "w", encoding="utf-8") as f:

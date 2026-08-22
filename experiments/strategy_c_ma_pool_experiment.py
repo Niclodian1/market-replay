@@ -27,10 +27,8 @@ _REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO / "scripts" / "backtests"))
 
 # 导入 C 脚本会自动把 backend / scripts 目录挂到 sys.path 上
-import backtest_ma_strategies_c as C  # noqa: E402
 from backtest_ma_strategies_c import (  # noqa: E402
-    load_candles, run_variant, summarize,
-    COST, FEE_RATE, SLIPPAGE, BODY_RISE_MIN, MA_EXIT_PCT,
+    load_candles, run_variant, COST, FEE_RATE, SLIPPAGE, BODY_RISE_MIN, MA_EXIT_PCT,
     _cell, _hdr, color_ret,
     HEADER_FILL, SUBHDR_FILL, BEST_FILL, SEC_FILL, COL_FILL,
     ALT_FILL, WHITE_FILL, WIN_FILL, LOSS_FILL,

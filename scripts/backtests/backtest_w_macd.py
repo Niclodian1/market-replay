@@ -17,7 +17,7 @@ import json
 import math
 import os
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -558,7 +558,6 @@ def export_trade_charts(candles: list[dict], trades: list[Trade], tf: str, out_p
 
     # 每笔交易生成一组 trace（默认全部 visible=False，按钮切换）
     n_traces_per_trade = 7  # candle, markers, stop-line, target-line, hist, dif, dea
-    base_traces_count = 0  # 不放公共底图，每笔独立窗口
 
     trade_meta: list[dict] = []
 

@@ -1,7 +1,9 @@
 """
 真实数据回测 —— BTC/ETH/AAPL/GOOGL × 1day/4h × 三类策略组合。
 """
-import asyncio, sys, time
+import asyncio
+import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
@@ -110,7 +112,7 @@ def main():
 
     # ── 跨品种汇总 ──
     print(f"\n{'='*90}")
-    print(f"  跨品种汇总")
+    print("  跨品种汇总")
     print(f"{'='*90}")
     print(f"  {'品种·周期':<20} {'收益':>8} {'回撤':>6} {'夏普':>6} {'胜率':>6} {'交易':>5} | "
           f"{'趋势':>12} {'动能':>12} {'反转':>12}")

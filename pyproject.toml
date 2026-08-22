@@ -1,0 +1,36 @@
+[project]
+name = "market-replay"
+version = "0.1.0"
+description = "行情复盘助手 — 告警/回测/日报一体化平台"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [
+    ".venv",
+    "__pycache__",
+    "fenxing",
+    "backend/tmp_parquet",
+    "data",
+    "reports",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "W605", "B006", "B008"]
+ignore = [
+    "E741",  # 歧义单字母变量名在指标计算代码中常见
+    "E701",  # 冒号后单行语句：scripts 历史风格，暂不强制
+    "E702",
+    "B008",  # FastAPI 的 db=Depends(get_db) 是惯用法
+]
+# __init__ 再导出与测试/脚本中的"未用导入"、sys.path 注入式导入属有意行为
+per-file-ignores = { "**/app/models/__init__.py" = ["F401"], "**/tests/**" = ["F401", "B008", "E402"], "**/scripts/**" = ["E402"], "**/experiments/**" = ["E402"], "**/app/core/chanlun_service.py" = ["E402"] }
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+addopts = "-ra"
+filterwarnings = [
+    "ignore::DeprecationWarning:akshare.*",
+    "ignore::DeprecationWarning:yfinance.*",
+]

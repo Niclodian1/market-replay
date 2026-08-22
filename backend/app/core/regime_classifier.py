@@ -17,7 +17,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from app.core.indicators import _adx, _atr_percentile, _ma_alignment
 
 
 # ── 阈值 ──────────────────────────────────────────────────────────────────────

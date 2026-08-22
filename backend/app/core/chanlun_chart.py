@@ -95,8 +95,6 @@ def render_chanlun_png(
     pivots = pivots or []
     ma_lines = ma_lines or []
     closes = [float(c["close"]) for c in candles]
-    highs = [float(c["high"]) for c in candles]
-    lows = [float(c["low"]) for c in candles]
 
     fig = plt.figure(figsize=(width / 100, height / 100), dpi=110, facecolor=_BG)
     gs = fig.add_gridspec(3, 1, height_ratios=[3, 1, 1], hspace=0.35,

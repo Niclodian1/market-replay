@@ -4,7 +4,6 @@
 """
 from __future__ import annotations
 
-from typing import Optional
 
 
 def _find_swing_points(candles: list[dict], lookback: int = 5) -> list[tuple[int, float, str]]:

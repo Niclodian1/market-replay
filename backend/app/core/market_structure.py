@@ -63,15 +63,7 @@ def detect_structure_breaks(
     last_lh: Optional[dict] = None
     last_hl: Optional[dict] = None
 
-    swing_by_index: dict[int, dict] = {s["index"]: s for s in labeled_swings}
-
     for c in candles:
-        idx = None
-        for s in labeled_swings:
-            if s["time"] == c["time"]:
-                idx = s["index"]
-                break
-
         for s in labeled_swings:
             if s["time"] > c["time"]:
                 break

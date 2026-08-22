@@ -5,10 +5,9 @@ from __future__ import annotations
 
 import bisect
 import math
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
-from app.core.indicators import _sma, _ema, _rsi as _rsi_series, _macd, _bollinger, _atr
+from app.core.indicators import _sma, _atr
 from app.core.elder_impulse import elder_impulse
 from app.core.price_action import detect_pinbar, detect_engulfing, detect_w_bottom
 from app.core.sr_levels import signals_sr_breakout
@@ -626,20 +625,15 @@ def run_mtf_backtest(
 
         # 过滤后的信号用于开仓
         long_signals = raw_long[:]
-        short_signals = raw_short[:]
 
         # 趋势过滤
-        if trend_dir == 1:
-            short_signals = []
-        elif trend_dir == -1:
+        if trend_dir == -1:
             long_signals = []
 
         # Impulse 过滤
         color = impulse_colors[i]
         if color == 'red':
             long_signals = []
-        elif color == 'green':
-            short_signals = []
 
         # 开仓: 每个有效入场信号单独开一笔，不再因为已有持仓而跳过新机会。
         if long_signals:

@@ -7,7 +7,6 @@
 仅做实验，不改动前后端代码，结果写入 分段加仓策略.md
 """
 import json
-import os
 import sys
 import datetime
 from pathlib import Path
@@ -18,7 +17,7 @@ sys.path.insert(0, str(REPO))
 
 from backtest_ma_strategies import (
     SYMBOLS as ALL_SYMBOLS, MA_PERIODS, TREND_MA, COST, BODY_RISE_MIN,
-    rolling_sma, rolling_rsi, summarize, run_breakout, run_pullback,
+    rolling_sma, rolling_rsi, summarize,
 )
 
 # ── 实验配置 ───────────────────────────────────────────────────────────────
@@ -290,7 +289,7 @@ def write_report(table, path):
     lines = []
     lines.append("# 分段加仓策略实验报告\n")
     lines.append(f"_生成时间：{datetime.date.today().isoformat()}_  ")
-    lines.append(f"_数据来源：`backend/data/ma_strategies/*.json` 缓存_\n")
+    lines.append("_数据来源：`backend/data/ma_strategies/*.json` 缓存_\n")
 
     lines.append("## 1. 实验目的\n")
     lines.append("在 `backtest_ma_strategies_3x.py` 的"
@@ -376,7 +375,7 @@ def write_report(table, path):
     top = ranked[0]
     tag_top = "∞" if top[0] >= 1e8 else f"{top[0]*100:.0f}%"
     lines.append("")
-    lines.append(f"### 结论\n")
+    lines.append("### 结论\n")
     lines.append(f"**综合最优阈值 X ≈ {tag_top}**（综合 score = {top[1][0]:.2f}）。\n")
     lines.append("**解读**：")
     lines.append("")

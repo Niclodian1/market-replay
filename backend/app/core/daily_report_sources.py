@@ -403,7 +403,7 @@ class DailyReportSources:
                 rows: list[dict] = []
                 for row in frame.to_dict("records"):
                     code = str(row.get("代码") or "")
-                    if not code or not code[0] in "03468":
+                    if not code or code[0] not in "03468":
                         continue
                     rows.append({
                         "symbol": normalize_a_share_symbol(code),

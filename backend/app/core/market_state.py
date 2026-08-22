@@ -24,7 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from app.core.indicators import _adx, _atr, _atr_percentile, _sma

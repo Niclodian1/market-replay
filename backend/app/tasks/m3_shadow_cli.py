@@ -20,11 +20,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 
-from app.core.config import settings
 from app.core.m3_shadow_runtime import (
-    DEFAULT_MAX_ATTEMPTS,
-    DEFAULT_RETRY_DELAY_SECONDS,
-    HEARTBEAT_ID,
     ShadowCore,
     SourceEvent,
     SqlShadowRepo,
@@ -32,7 +28,6 @@ from app.core.m3_shadow_runtime import (
     compute_label_record,
     compute_progress,
     production_market_loader,
-    run_cycle_safe,
     run_production_cycle,
 )
 from app.db.session import AsyncSessionLocal
@@ -40,10 +35,7 @@ from app.models.models import AlertEvent
 from app.schemas.m3_shadow_runtime import (
     HeartbeatOut,
     ShadowCountsOut,
-    ShadowEventRow,
     ShadowStatusOut,
-    canonical_json,
-    sanitize_error,
 )
 
 def _ts(epoch: int | None) -> str:

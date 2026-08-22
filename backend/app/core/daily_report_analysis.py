@@ -11,12 +11,10 @@ from app.core.indicators import _atr, _macd, _sma
 from app.core.signal_strength import evaluate_signal_strength, signal_type_label
 from app.core.signals.monitor_signals import detect_ma_events, detect_macd_events
 from app.schemas.daily_report import (
-    CalendarEventItem,
     ChanlunChapter,
     ChanlunSymbolSummary,
     DailyReportPayload,
     InstrumentAnalysis,
-    MarketSection,
     OpportunityItem,
 )
 

@@ -55,7 +55,6 @@ def generate_calendar(days_back: int = 7, days_ahead: int = 60) -> list[dict]:
 
     # FOMC
     for fomc_date in KNOWN_FOMC_2025 + KNOWN_FOMC_2026:
-        d = datetime.strptime(fomc_date, "%Y-%m-%d").date()
         bjt_date = _fomc_bjt_date(fomc_date)
         bjt_d = datetime.strptime(bjt_date, "%Y-%m-%d").date()
         if start <= bjt_d <= end:

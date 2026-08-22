@@ -6,7 +6,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
-from typing import Iterable
+from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, or_, select

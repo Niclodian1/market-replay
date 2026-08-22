@@ -13,7 +13,7 @@ from app.providers.binance import (
     is_crypto_symbol,
     to_binance_futures_symbol,
 )
-from app.schemas.market import SearchResponse, QuoteResponse, CandlesResponse, BatchQuoteResponse
+from app.schemas.market import SearchResponse, QuoteResponse, CandlesResponse
 
 router = APIRouter()
 
@@ -201,7 +201,7 @@ async def get_quote(
                 raise ValueError(f"{symbol} 是 Binance USD-M 永续代码，数据源必须使用 Binance Futures")
             return await asyncio.wait_for(get_binance_futures_provider().get_quote(symbol), timeout=12)
         if requested_source == "binance_futures":
-            raise ValueError(f"Binance 永续标的必须使用 BINANCE: 前缀，例如 BINANCE:BTCUSDT")
+            raise ValueError("Binance 永续标的必须使用 BINANCE: 前缀，例如 BINANCE:BTCUSDT")
         if requested_source == "binance_spot":
             if not is_crypto_symbol(symbol):
                 raise ValueError("Binance Spot 仅支持加密现货代码，例如 BTC-USD")

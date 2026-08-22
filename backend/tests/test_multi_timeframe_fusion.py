@@ -413,7 +413,6 @@ def test_schema_json_config_replay():
     assert d1.to_dict()["config_hash"] == d2.to_dict()["config_hash"]
     # 配置变更 → hash 变化
     other = MarketStateConfig(vol_percentile_lookback=12)
-    d3 = run(trigger=make_trigger(), candles=make_candles())
     from app.core.multi_timeframe import evaluate as _evaluate
     d4 = _evaluate("BTCUSDT", make_candles(), AS_OF, make_trigger(), other)
     assert d4.to_dict()["config_hash"]["market_state"] != out1["config_hash"]["market_state"]

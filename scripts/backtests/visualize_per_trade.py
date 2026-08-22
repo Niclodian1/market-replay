@@ -2,7 +2,6 @@
 逐笔交易可视化 —— 每笔交易独立图表，支持翻页浏览。
 """
 import asyncio
-import json
 import sys
 from pathlib import Path
 from datetime import datetime, timezone
@@ -308,7 +307,7 @@ def main():
         print(f"── {symbol} · {tf} ──")
         candles = load_data(symbol, tf, source)
         if len(candles) < 150:
-            print(f"  ⚠ 数据不足")
+            print("  ⚠ 数据不足")
             continue
 
         report = tester.run(candles, symbol, tf)
