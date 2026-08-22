@@ -2,7 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname, useParams } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { useAppStore } from '@/store/useAppStore'
+import { getOpportunityNotifications } from '@/lib/api'
+import type { OpportunityNotificationsResponse } from '@/types'
 
 const NAV_ITEMS = [
   {
@@ -52,45 +55,21 @@ const NAV_ITEMS = [
     ),
   },
   {
-    key: 'opportunities', href: '/opportunities', label: '机会',
-    icon: (
-      <svg className="ico" viewBox="0 0 24 24">
-        <path d="M4 14l5-5 4 4 7-7" />
-        <path d="M16 6h4v4" />
-        <path d="M5 20h14" />
-      </svg>
-    ),
-  },
-  {
-    key: 'strategies', href: '/strategies', label: '策略库',
-    icon: (
-      <svg className="ico" viewBox="0 0 24 24">
-        <path d="M4 5h6v14H4z" />
-        <path d="M14 5h6v14h-6z" />
-        <path d="M7 8h0M17 8h0M7 12h0M17 12h0M7 16h0M17 16h0" />
-      </svg>
-    ),
-  },
-  {
-    key: 'fundamentals', href: '/fundamentals', label: '商业模式',
-    icon: (
-      <svg className="ico" viewBox="0 0 24 24">
-        <path d="M4 19V5" />
-        <path d="M8 19V9" />
-        <path d="M12 19V7" />
-        <path d="M16 19v-5" />
-        <path d="M20 19V4" />
-        <path d="M3 19h18" />
-      </svg>
-    ),
-  },
-  {
     key: 'backtest', href: '/backtest', label: '回测',
     icon: (
       <svg className="ico" viewBox="0 0 24 24">
         <path d="M9 3h6" />
         <path d="M10 3v6l-5 9a2 2 0 002 3h10a2 2 0 002-3l-5-9V3" />
         <path d="M8 15h8" />
+      </svg>
+    ),
+  },
+  {
+    key: 'strategy-overview', href: '/strategy-overview', label: '策略总览',
+    icon: (
+      <svg className="ico" viewBox="0 0 24 24">
+        <path d="M4 5h16M4 12h16M4 19h16" />
+        <path d="M8 3v4M14 10v4M18 17v4" />
       </svg>
     ),
   },
@@ -109,27 +88,6 @@ const NAV_ITEMS = [
     icon: (
       <svg className="ico" viewBox="0 0 24 24">
         <path d="M3 17l4-4 4 3 6-7 4 3" />
-        <path d="M3 21h18" />
-      </svg>
-    ),
-  },
-  {
-    key: 'ma-strategies-pro', href: '/ma-strategies-pro', label: '加仓策略',
-    icon: (
-      <svg className="ico" viewBox="0 0 24 24">
-        <path d="M3 17l4-4 4 3 6-7 4 3" />
-        <path d="M3 21h18" />
-        <circle cx="7" cy="13" r="1.4" fill="currentColor" strokeWidth="0" />
-        <circle cx="11" cy="16" r="1.4" fill="currentColor" strokeWidth="0" />
-      </svg>
-    ),
-  },
-  {
-    key: 'ma-strategies-c', href: '/ma-strategies-c', label: '策略C',
-    icon: (
-      <svg className="ico" viewBox="0 0 24 24">
-        <path d="M3 16l5-5 4 3 5-6" />
-        <path d="M3 20l5-4 4 2 5-5" />
         <path d="M3 21h18" />
       </svg>
     ),
@@ -159,6 +117,11 @@ export function Rail() {
   const pathname = usePathname()
   const params = useParams()
   const currentSymbol = useAppStore(s => s.currentSymbol)
+  const { data: notificationData } = useQuery<OpportunityNotificationsResponse>({
+    queryKey: ['opportunity-notifications'],
+    queryFn: () => getOpportunityNotifications(20),
+    refetchInterval: 60_000,
+  })
 
   const getHref = (item: typeof NAV_ITEMS[0]) => {
     if (item.href) return item.href
@@ -193,6 +156,13 @@ export function Rail() {
           title={item.label}
         >
           {item.icon}
+          {item.key === 'alerts' && (notificationData?.unread ?? 0) > 0 && (
+            <span style={{
+              position: 'absolute', top: 5, right: 4, minWidth: 14, height: 14, padding: '0 3px',
+              display: 'grid', placeItems: 'center', borderRadius: 7, background: 'var(--down)', color: '#fff',
+              fontSize: 8, lineHeight: 1, fontFamily: 'var(--font-mono)', border: '1px solid var(--bg-1)',
+            }}>{Math.min(notificationData?.unread ?? 0, 99)}</span>
+          )}
         </Link>
       ))}
 

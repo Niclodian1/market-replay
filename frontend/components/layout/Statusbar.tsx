@@ -31,7 +31,7 @@ export function Statusbar() {
       <span className="mr-status-sep">·</span>
       <span>Market Replay</span>
       <span className="mr-status-sep">·</span>
-      <span>数据来源 Yahoo Finance</span>
+      <span>数据来源 Yahoo Finance · Hyperliquid</span>
       <div style={{ flex: 1 }} />
       <span suppressHydrationWarning>{today}</span>
     </div>

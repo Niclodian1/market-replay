@@ -3,16 +3,19 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAlerts, createAlert, updateAlert, deleteAlert, testAlertWebhook } from '@/lib/api'
-import { fetchThresholds, updateThresholds } from '@/lib/api/opportunities'
 import type { Alert, AlertCreate, AlertCondition } from '@/types'
 import { SymbolCombobox } from '@/components/SymbolCombobox'
+import { OpportunityNotificationFeed } from '@/components/alerts/OpportunityNotificationFeed'
+import { MonitorPlans } from '@/components/alerts/MonitorPlans'
 
 const CONDITION_OPTIONS: { value: AlertCondition; label: string; needsThreshold: boolean; thresholdHint: string; needsMaPeriod: boolean }[] = [
+  { value: 'strategy_a_breakout', label: '策略A（日线均线突破 + 实体涨幅>3%）', needsThreshold: false, thresholdHint: '', needsMaPeriod: true },
   { value: 'price_above',      label: '价格突破（上穿阈值）',          needsThreshold: true,  thresholdHint: '目标价格',           needsMaPeriod: false },
   { value: 'price_below',      label: '价格跌破（下穿阈值）',          needsThreshold: true,  thresholdHint: '目标价格',           needsMaPeriod: false },
   { value: 'ma_cross',         label: '均线交叉（MA20/MA60 金叉死叉）', needsThreshold: false, thresholdHint: '',                  needsMaPeriod: false },
   { value: 'rsi',              label: 'RSI 超买超卖',                needsThreshold: true,  thresholdHint: '超买阈值 (如 70)',    needsMaPeriod: false },
   { value: 'macd',             label: 'MACD 交叉',                  needsThreshold: false, thresholdHint: '',                  needsMaPeriod: false },
+  { value: 'macd_momentum',    label: 'MACD 动量首次衰减 / 背离候选', needsThreshold: false, thresholdHint: '',                  needsMaPeriod: false },
   { value: 'ma_breakout',      label: '价格突破均线（自定义周期）',      needsThreshold: false, thresholdHint: '',                  needsMaPeriod: true  },
   { value: 'macd_divergence',  label: 'MACD 背离',                  needsThreshold: false, thresholdHint: '',                  needsMaPeriod: false },
   { value: 'bollinger',        label: '布林带触及',                   needsThreshold: false, thresholdHint: '',                  needsMaPeriod: false },
@@ -25,11 +28,13 @@ const CONDITION_OPTIONS: { value: AlertCondition; label: string; needsThreshold:
 const TIMEFRAME_OPTIONS = ['15min', '1h', '4h', '1day', '1week']
 
 const CONDITION_LABELS: Record<AlertCondition, string> = {
+  strategy_a_breakout: '策略A突破',
   price_above:      '价格 ↑',
   price_below:      '价格 ↓',
   ma_cross:         '均线交叉',
   rsi:              'RSI',
   macd:             'MACD',
+  macd_momentum:    'MACD动量',
   ma_breakout:      '突破MA',
   macd_divergence:  'MACD背离',
   bollinger:        '布林带',
@@ -47,7 +52,9 @@ function conditionColor(cond: AlertCondition): string {
     ma_cross:        '#34d399',
     rsi:             '#f59e0b',
     macd:            'var(--accent)',
+    macd_momentum:   '#8b5cf6',
     ma_breakout:     '#34d399',
+    strategy_a_breakout: '#22c55e',
     macd_divergence: '#a78bfa',
     bollinger:       '#60a5fa',
     sr_breakout:     '#fb923c',
@@ -256,7 +263,16 @@ function AlertForm({ onClose }: { onClose: () => void }) {
       <div style={{ marginBottom: 12 }}>
         <label style={labelStyle}>触发条件 *</label>
         <select style={selectStyle} value={form.condition_type}
-          onChange={e => setForm(f => ({ ...f, condition_type: e.target.value as AlertCondition, threshold: undefined, ma_period: 20 }))}>
+          onChange={e => {
+            const condition = e.target.value as AlertCondition
+            setForm(f => ({
+              ...f,
+              condition_type: condition,
+              threshold: undefined,
+              ma_period: condition === 'strategy_a_breakout' ? 30 : 20,
+              timeframe: condition === 'strategy_a_breakout' ? '1day' : f.timeframe,
+            }))
+          }}>
           {CONDITION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
@@ -273,14 +289,21 @@ function AlertForm({ onClose }: { onClose: () => void }) {
         {condOpt?.needsMaPeriod && (
           <div>
             <label style={labelStyle}>均线周期 * <span style={{ color: 'var(--fg-3)', fontWeight: 400, textTransform: 'none' }}>（如 20 / 60 / 120）</span></label>
-            <input className="mr-input mono" type="number" style={{ width: '100%' }} placeholder="20" min={2}
-              value={form.ma_period ?? 20}
-              onChange={e => setForm(f => ({ ...f, ma_period: parseInt(e.target.value) || 20 }))} />
+            {form.condition_type === 'strategy_a_breakout' ? (
+              <select style={selectStyle} value={form.ma_period ?? 30}
+                onChange={e => setForm(f => ({ ...f, ma_period: Number(e.target.value) }))}>
+                {[30, 60, 99, 120].map(period => <option key={period} value={period}>MA{period}</option>)}
+              </select>
+            ) : (
+              <input className="mr-input mono" type="number" style={{ width: '100%' }} placeholder="20" min={2}
+                value={form.ma_period ?? 20}
+                onChange={e => setForm(f => ({ ...f, ma_period: parseInt(e.target.value) || 20 }))} />
+            )}
           </div>
         )}
         <div>
           <label style={labelStyle}>监控周期</label>
-          <select style={selectStyle} value={form.timeframe}
+          <select style={selectStyle} value={form.timeframe} disabled={form.condition_type === 'strategy_a_breakout'}
             onChange={e => setForm(f => ({ ...f, timeframe: e.target.value }))}>
             {TIMEFRAME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -406,7 +429,7 @@ function AlertCard({ alert }: { alert: Alert }) {
             </div>
           )}
 
-          {alert.condition_type === 'ma_breakout' && (
+          {['ma_breakout', 'strategy_a_breakout'].includes(alert.condition_type) && (
             <div className="mono" style={{ fontSize: 10.5, color: 'var(--fg-3)' }}>
               均线 <span style={{ color: 'var(--fg-1)' }}>MA{alert.ma_period ?? 20}</span>
             </div>
@@ -450,82 +473,6 @@ function AlertCard({ alert }: { alert: Alert }) {
   )
 }
 
-function RecommenderSettings() {
-  const queryClient = useQueryClient()
-  const { data } = useQuery({
-    queryKey: ['recommender-thresholds'],
-    queryFn: fetchThresholds,
-  })
-  const [draft, setDraft] = useState(data)
-
-  useEffect(() => {
-    if (data) setDraft(data)
-  }, [data])
-
-  const mutation = useMutation({
-    mutationFn: updateThresholds,
-    onSuccess: saved => {
-      setDraft(saved)
-      queryClient.invalidateQueries({ queryKey: ['recommender-thresholds'] })
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
-    },
-  })
-
-  if (!draft) {
-    return <div className="panel" style={{ padding: 14, color: 'var(--fg-2)', marginBottom: 16 }}>加载推荐器阈值...</div>
-  }
-
-  const setNumber = (key: keyof typeof draft, value: number) => setDraft({ ...draft, [key]: value })
-
-  return (
-    <div className="panel" style={{ padding: 14, marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div>
-          <div className="section-title">Recommender Settings</div>
-          <div style={{ fontSize: 12, color: 'var(--fg-2)', marginTop: 4 }}>机会管道使用这些阈值过滤 edge 和置信度</div>
-        </div>
-        <button className="btn small primary" disabled={mutation.isPending} onClick={() => mutation.mutate(draft)}>
-          {mutation.isPending ? '保存中...' : '保存阈值'}
-        </button>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        <ThresholdSlider label="Min winrate" value={draft.min_winrate} min={0.5} max={0.7} step={0.01} format={v => `${Math.round(v * 100)}%`} onChange={v => setNumber('min_winrate', v)} />
-        <ThresholdSlider label="Min sample" value={draft.min_sample} min={10} max={100} step={1} format={v => `${Math.round(v)}`} onChange={v => setNumber('min_sample', Math.round(v))} />
-        <ThresholdSlider label="Min score" value={draft.min_score} min={0.4} max={0.9} step={0.01} format={v => `${Math.round(v * 100)}`} onChange={v => setNumber('min_score', v)} />
-        <ThresholdSlider label="Max open/symbol" value={draft.max_open_per_symbol} min={1} max={5} step={1} format={v => `${Math.round(v)}`} onChange={v => setNumber('max_open_per_symbol', Math.round(v))} />
-      </div>
-    </div>
-  )
-}
-
-function ThresholdSlider({
-  label,
-  value,
-  min,
-  max,
-  step,
-  format,
-  onChange,
-}: {
-  label: string
-  value: number
-  min: number
-  max: number
-  step: number
-  format: (v: number) => string
-  onChange: (v: number) => void
-}) {
-  return (
-    <label style={{ display: 'block' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--fg-2)', fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>
-        <span>{label}</span>
-        <span className="mono" style={{ color: 'var(--fg-0)' }}>{format(value)}</span>
-      </div>
-      <input style={{ width: '100%' }} type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} />
-    </label>
-  )
-}
-
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function AlertsPage() {
@@ -552,20 +499,31 @@ export default function AlertsPage() {
       <div className="page-inner">
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
-            <div className="section-title">策略告警</div>
+            <div className="section-title">机会通知与自定义告警</div>
             <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, color: 'var(--fg-0)' }}>
-              {data ? `${alerts.length} 条告警` : '…'}
+              {data ? `${alerts.length} 条自定义规则` : '…'}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 2 }}>设置条件触发时通过 Discord 自动通知</div>
+            <div style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 2 }}>自动扫描机会、站内留痕，并可靠投递到 Discord</div>
           </div>
-          <button className={`btn${showForm ? ' ghost' : ' primary'}`} onClick={() => setShowForm(v => !v)}>
-            {showForm ? '取消' : '+ 新建告警'}
-          </button>
         </div>
 
-        <RecommenderSettings />
+        <MonitorPlans />
 
-        {showForm && <AlertForm onClose={() => setShowForm(false)} />}
+        <details style={{ borderTop: '1px solid var(--line-1)', paddingTop: 14 }}>
+          <summary style={{ cursor: 'pointer', color: 'var(--fg-2)', fontSize: 11.5, fontWeight: 650, marginBottom: 14 }}>
+            基础价格告警与高级实验性策略
+          </summary>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+            <button className={`btn small${showForm ? ' ghost' : ''}`} onClick={() => setShowForm(v => !v)}>
+              {showForm ? '取消' : '+ 新建单项告警'}
+            </button>
+          </div>
+
+          {showForm && <AlertForm onClose={() => setShowForm(false)} />}
+
+          <OpportunityNotificationFeed />
+
+          <div className="section-title" style={{ marginBottom: 12 }}>旧版自定义告警规则</div>
 
         {isLoading && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, gap: 12, color: 'var(--fg-2)' }}>
@@ -620,6 +578,7 @@ export default function AlertsPage() {
             {paused.map(a => <AlertCard key={a.id} alert={a} />)}
           </div>
         )}
+        </details>
       </div>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }

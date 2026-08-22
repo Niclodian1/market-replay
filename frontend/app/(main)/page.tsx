@@ -3,10 +3,10 @@
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useRef, useState, useEffect } from 'react'
-import { getQuote, getQuotes, getAlerts, getWatchlist, getReplayNotes, getEconomicCalendar } from '@/lib/api'
-import { useOpportunities } from '@/lib/api/opportunities'
+import { getQuotes, getAlerts, getWatchlist, getReplayNotes, getEconomicCalendar } from '@/lib/api'
 import { useMemo } from 'react'
 import type { Quote, Alert, WatchlistItem, ReplayNote, EconomicEvent } from '@/types'
+import DailyRecommendations from '@/components/DailyRecommendations'
 
 function fmtPrice(v: number): string {
   if (v >= 10000) return v.toLocaleString(undefined, { maximumFractionDigits: 0 })
@@ -21,17 +21,8 @@ const CONDITION_LABELS: Record<string, string> = {
   ma_cross_up: '均线金叉', ma_cross_down: '均线死叉',
 }
 
-function QuoteMiniCard({ symbol, quote: externalQuote }: { symbol: string; quote?: Quote | null }) {
-  const { data: fetchedData, isLoading: fetchLoading } = useQuery<Quote>({
-    queryKey: ['quote', symbol],
-    queryFn: () => getQuote(symbol),
-    refetchInterval: 30_000,
-    staleTime: 20_000,
-    retry: 2,
-    enabled: !externalQuote,
-  })
-  const data = externalQuote ?? fetchedData
-  const isLoading = externalQuote === undefined ? fetchLoading : !externalQuote
+function QuoteMiniCard({ symbol, quote, isLoading }: { symbol: string; quote?: Quote | null; isLoading: boolean }) {
+  const data = quote
   const up = (data?.change_percent ?? 0) >= 0
   const prevPrice = useRef<number | null>(null)
   const [flashClass, setFlashClass] = useState('')
@@ -61,7 +52,7 @@ function QuoteMiniCard({ symbol, quote: externalQuote }: { symbol: string; quote
       ) : data ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="mono" style={{ fontWeight: 700, fontSize: 12, color: 'var(--fg-0)' }}>{symbol}</div>
+            <div className="mono" style={{ fontWeight: 700, fontSize: 12, color: 'var(--fg-0)' }}>{data.display_symbol || symbol}</div>
             {data.name && <div style={{ fontSize: 10.5, color: 'var(--fg-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.name}</div>}
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -98,7 +89,7 @@ function getNextMacroEvent(events: EconomicEvent[]): { name: string; bjt: string
   }
   return null
 }
-const CRYPTO_SYMBOLS = ['BTC-USD', 'ETH-USD', 'SOL-USD']
+const CRYPTO_SYMBOLS = ['HL:BTC', 'HL:ETH', 'HL:SOL']
 
 function fngColor(v: number): string {
   if (v <= 25) return 'var(--down)'
@@ -149,9 +140,11 @@ export default function DashboardPage() {
 
   const { data: fngData } = useQuery({
     queryKey: ['fng'],
-    queryFn: () => fetch('https://api.alternative.me/fng/?limit=1').then(r => r.json()),
+    queryFn: () => fetch('https://api.alternative.me/fng/?limit=1', {
+      signal: AbortSignal.timeout(4_000),
+    }).then(r => r.json()),
     staleTime: 5 * 60_000,
-    retry: 1,
+    retry: 0,
   })
   const fng = fngData?.data?.[0]
 
@@ -162,40 +155,59 @@ export default function DashboardPage() {
   })
   const calendarEvents = calendarData?.events ?? []
 
-  const allQuoteSymbols = useMemo(() => {
-    const syms = [...INDEX_SYMBOLS, ...CRYPTO_SYMBOLS, '^VIX']
-    watchlist.slice(0, 6).forEach(w => {
-      if (!syms.includes(w.symbol)) syms.push(w.symbol)
-    })
-    return syms
-  }, [watchlist])
+  const yahooQuoteSymbols = useMemo(() => [...INDEX_SYMBOLS, '^VIX'], [])
+  const hyperliquidQuoteSymbols = useMemo(() => [...CRYPTO_SYMBOLS], [])
+  const watchlistQuoteSymbols = useMemo(() => watchlist.map(w => w.symbol), [watchlist])
 
-  const { data: batchData } = useQuery<{ quotes: (Quote | null)[] }>({
-    queryKey: ['batch-quotes', allQuoteSymbols.join(',')],
-    queryFn: () => getQuotes(allQuoteSymbols),
-    refetchInterval: 30_000,
-    staleTime: 20_000,
-    retry: 2,
-    enabled: allQuoteSymbols.length > 0,
+  const { data: yahooBatch, isLoading: yahooQuotesLoading } = useQuery<{ quotes: (Quote | null)[] }>({
+    queryKey: ['batch-quotes-yahoo', yahooQuoteSymbols.join(',')],
+    queryFn: () => getQuotes(yahooQuoteSymbols),
+    refetchInterval: 60_000,
+    staleTime: 60_000,
+    retry: 0,
+    enabled: yahooQuoteSymbols.length > 0,
+  })
+
+  const { data: hyperliquidBatch, isLoading: hyperliquidQuotesLoading } = useQuery<{ quotes: (Quote | null)[] }>({
+    queryKey: ['batch-quotes-hyperliquid', hyperliquidQuoteSymbols.join(',')],
+    queryFn: () => getQuotes(hyperliquidQuoteSymbols),
+    refetchInterval: 60_000,
+    staleTime: 60_000,
+    retry: 0,
+    enabled: hyperliquidQuoteSymbols.length > 0,
+  })
+
+  const { data: watchlistBatch, isLoading: watchlistQuotesLoading } = useQuery<{ quotes: (Quote | null)[] }>({
+    queryKey: ['batch-quotes-watchlist', watchlistQuoteSymbols.join(',')],
+    queryFn: () => getQuotes(watchlistQuoteSymbols),
+    refetchInterval: 60_000,
+    staleTime: 60_000,
+    retry: 0,
+    enabled: watchlistQuoteSymbols.length > 0,
   })
 
   const quotesMap = useMemo(() => {
     const map = new Map<string, Quote>()
-    if (batchData?.quotes) {
-      allQuoteSymbols.forEach((sym, i) => {
-        const q = batchData.quotes[i]
+    const append = (symbols: string[], quotes?: (Quote | null)[]) => {
+      if (!quotes) return
+      symbols.forEach((sym, i) => {
+        const q = quotes[i]
         if (q) map.set(sym, q)
       })
     }
+    append(yahooQuoteSymbols, yahooBatch?.quotes)
+    append(hyperliquidQuoteSymbols, hyperliquidBatch?.quotes)
+    append(watchlistQuoteSymbols, watchlistBatch?.quotes)
     return map
-  }, [batchData, allQuoteSymbols])
+  }, [yahooBatch, hyperliquidBatch, watchlistBatch, yahooQuoteSymbols, hyperliquidQuoteSymbols, watchlistQuoteSymbols])
+
+  const isQuoteLoading = (symbol: string, isWatchlist = false) => isWatchlist
+    ? watchlistQuotesLoading
+    : symbol.toUpperCase().startsWith('HL:') ? hyperliquidQuotesLoading : yahooQuotesLoading
 
   const vixData = quotesMap.get('^VIX') ?? null
 
   const nextEvent = getNextMacroEvent(calendarEvents)
-  const { data: opportunitiesData } = useOpportunities({ status: 'open', min_score: 0.7, limit: 5 })
-  const topOpportunities = opportunitiesData?.items ?? []
-
   return (
     <div className="page">
       <div className="page-inner">
@@ -293,11 +305,11 @@ export default function DashboardPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
           <div className="panel" style={{ overflow: 'hidden' }}>
             <div className="panel-header"><span>指数行情</span></div>
-            {INDEX_SYMBOLS.map(s => <QuoteMiniCard key={s} symbol={s} quote={quotesMap.get(s)} />)}
+            {INDEX_SYMBOLS.map(s => <QuoteMiniCard key={s} symbol={s} quote={quotesMap.get(s)} isLoading={isQuoteLoading(s)} />)}
           </div>
           <div className="panel" style={{ overflow: 'hidden' }}>
             <div className="panel-header"><span>加密货币</span></div>
-            {CRYPTO_SYMBOLS.map(s => <QuoteMiniCard key={s} symbol={s} quote={quotesMap.get(s)} />)}
+            {CRYPTO_SYMBOLS.map(s => <QuoteMiniCard key={s} symbol={s} quote={quotesMap.get(s)} isLoading={isQuoteLoading(s)} />)}
           </div>
           <div className="panel" style={{ overflow: 'hidden' }}>
             <div className="panel-header">
@@ -307,35 +319,15 @@ export default function DashboardPage() {
             {watchlist.length === 0 ? (
               <div style={{ padding: 14, color: 'var(--fg-3)', fontSize: 11, textAlign: 'center' }}>暂无自选，在左侧添加</div>
             ) : (
-              watchlist.slice(0, 6).map(item => <QuoteMiniCard key={item.id} symbol={item.symbol} quote={quotesMap.get(item.symbol)} />)
+              watchlist.slice(0, 6).map(item => <QuoteMiniCard key={item.id} symbol={item.symbol} quote={quotesMap.get(item.symbol)} isLoading={isQuoteLoading(item.symbol, true)} />)
             )}
           </div>
         </div>
 
-        {/* Opportunities + Alerts + Notes */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
-          <div className="panel" style={{ overflow: 'hidden' }}>
-            <div className="panel-header">
-              <span>高分机会</span>
-              <Link href="/opportunities" className="btn small ghost">全部 →</Link>
-            </div>
-            {topOpportunities.length === 0 ? (
-              <div style={{ padding: 14, color: 'var(--fg-3)', fontSize: 11, textAlign: 'center' }}>暂无高置信机会</div>
-            ) : topOpportunities.map(o => (
-              <Link key={o.id} href={`/opportunities`} style={{ padding: '9px 12px', borderBottom: '1px solid var(--line-1)', display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-                <span className={`chip ${o.direction === 'long' ? 'up' : 'down'}`} style={{ minWidth: 48, justifyContent: 'center' }}>
-                  {Math.round(o.score * 100)}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="mono" style={{ fontSize: 12, color: 'var(--fg-0)', fontWeight: 700 }}>{o.symbol} · {o.timeframe.toUpperCase()}</div>
-                  <div className="mono" style={{ fontSize: 10.5, color: 'var(--fg-2)' }}>
-                    胜率 {o.edge_stat ? `${(o.edge_stat.win_rate * 100).toFixed(1)}%` : '-'} · 期望 {o.edge_stat?.expectancy.toFixed(2) ?? '-'}R
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+        <DailyRecommendations />
 
+        {/* Alerts + Notes */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           <div className="panel" style={{ overflow: 'hidden' }}>
             <div className="panel-header">
               <span>告警监控</span>
@@ -392,7 +384,7 @@ export default function DashboardPage() {
             { title: '行情图表', desc: '蜡烛图、自定义 MA、RSI、MACD，画线工具', href: '/chart/AAPL', color: 'var(--info)' },
             { title: '复盘模式', desc: '从历史起点逐根 K 线推进，记录复盘笔记', href: '/replay/AAPL', color: 'var(--up)' },
             { title: '策略回测', desc: 'MA 双均线、RSI、MACD 策略量化回测', href: '/backtest', color: 'var(--accent)' },
-            { title: '策略库', desc: '浏览所有策略卡片，查看每个策略在哪些品种上表现最好', href: '/strategies', color: 'var(--ma60)' },
+            { title: '策略实验台', desc: '运行统一策略并对比不同品种与周期的表现', href: '/strategy-lab', color: 'var(--ma60)' },
           ].map(f => (
             <Link key={f.title} href={f.href}
               style={{ display: 'block', padding: '14px 16px', background: 'var(--bg-1)', border: '1px solid var(--line-1)', borderRadius: 6, textDecoration: 'none', transition: 'border-color .15s, background .15s' }}

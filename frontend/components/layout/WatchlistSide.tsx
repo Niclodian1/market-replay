@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getWatchlist, deleteWatchlist, getQuote, addWatchlist, searchSymbols } from '@/lib/api'
+import { getWatchlist, deleteWatchlist, getQuotes, addWatchlist, searchSymbols } from '@/lib/api'
 import type { WatchlistItem, Quote, SearchResult } from '@/types'
 
 function fmtPrice(v: number): string {
@@ -13,17 +13,9 @@ function fmtPrice(v: number): string {
   return v.toFixed(6)
 }
 
-function WatchRow({ item, active, onRemove }: { item: WatchlistItem; active: boolean; onRemove: () => void }) {
+function WatchRow({ item, quote, active, onRemove }: { item: WatchlistItem; quote?: Quote | null; active: boolean; onRemove: () => void }) {
   const router = useRouter()
   const pathname = usePathname()
-
-  const { data: quote } = useQuery<Quote>({
-    queryKey: ['quote', item.symbol],
-    queryFn: () => getQuote(item.symbol),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-    retry: 2,
-  })
 
   const up = (quote?.change_percent ?? 0) >= 0
 
@@ -161,9 +153,9 @@ function AddSearch({ onAdd }: { onAdd: (s: string, n: string, t: string) => void
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--line-1)' }}
               className="mr-search-result"
             >
-              <span className="mono" style={{ fontWeight: 700, color: 'var(--fg-0)', fontSize: 12, minWidth: 60 }}>{r.symbol}</span>
+              <span className="mono" style={{ fontWeight: 700, color: 'var(--fg-0)', fontSize: 12, minWidth: 60 }}>{r.display_symbol || r.symbol}</span>
               <span style={{ flex: 1, fontSize: 11, color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-              <span className="chip" style={{ fontSize: 9 }}>{r.exchange}</span>
+              <span className="chip" style={{ fontSize: 9 }} title="数据来源">{r.source_label}</span>
             </div>
           ))}
           {results.length === 0 && !isFetching && (
@@ -203,6 +195,22 @@ export function WatchlistSide() {
     staleTime: 30_000,
   })
   const items = data?.items ?? []
+  const quoteSymbols = useMemo(() => items.map(item => item.symbol), [items])
+  const { data: quoteBatch } = useQuery<{ quotes: (Quote | null)[] }>({
+    queryKey: ['batch-quotes-watchlist', quoteSymbols.join(',')],
+    queryFn: () => getQuotes(quoteSymbols),
+    refetchInterval: 60_000,
+    staleTime: 60_000,
+    retry: 0,
+    enabled: quoteSymbols.length > 0,
+  })
+  const quotesMap = useMemo(() => {
+    const map = new Map<string, Quote>()
+    quoteBatch?.quotes.forEach((quote, index) => {
+      if (quote) map.set(quoteSymbols[index], quote)
+    })
+    return map
+  }, [quoteBatch, quoteSymbols])
 
   const removeMut = useMutation({
     mutationFn: (id: number) => deleteWatchlist(id),
@@ -251,6 +259,7 @@ export function WatchlistSide() {
               <WatchRow
                 key={item.id}
                 item={item}
+                quote={quotesMap.get(item.symbol)}
                 active={item.symbol === activeSymbol}
                 onRemove={() => removeMut.mutate(item.id)}
               />
@@ -262,6 +271,7 @@ export function WatchlistSide() {
           <WatchRow
             key={item.id}
             item={item}
+            quote={quotesMap.get(item.symbol)}
             active={item.symbol === activeSymbol}
             onRemove={() => removeMut.mutate(item.id)}
           />

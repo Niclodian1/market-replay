@@ -11,6 +11,8 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   etf:    { label: 'ETF',  color: 'text-purple-500 dark:text-purple-400' },
   index:  { label: '指数', color: 'text-yellow-600 dark:text-yellow-400' },
   crypto: { label: '加密', color: 'text-orange-500 dark:text-orange-400' },
+  perpetual: { label: '永续', color: 'text-emerald-500 dark:text-emerald-400' },
+  equity_perpetual: { label: '美股永续', color: 'text-cyan-500 dark:text-cyan-400' },
 }
 
 export function SymbolSearch() {
@@ -128,12 +130,15 @@ export function SymbolSearch() {
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-semibold text-sm text-gray-900 dark:text-gray-100">{item.symbol}</span>
+                    <span className="font-mono font-semibold text-sm text-gray-900 dark:text-gray-100">{item.display_symbol || item.symbol}</span>
                     <span className={`text-xs ${typeInfo.color}`}>{typeInfo.label}</span>
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-500 truncate mt-0.5">{item.name}</div>
                 </div>
-                <div className="shrink-0 text-xs text-gray-400 dark:text-gray-600">{item.exchange}</div>
+                <div className="shrink-0 text-right">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{item.source_label}</div>
+                  <div className="text-[10px] text-gray-400 dark:text-gray-600">数据来源</div>
+                </div>
               </button>
             )
           })}

@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getCandles, getQuote, addWatchlist, getWatchlist } from '@/lib/api'
-import { useOpportunity } from '@/lib/api/opportunities'
+import { getCandles, getQuote, addWatchlist, getWatchlist, normalizeMarketDataSource, analyzeChanlun } from '@/lib/api'
 import { calculateIndicators, elderImpulse } from '@/lib/indicators'
 import { CandlestickChart } from '@/components/chart/CandlestickChart'
-import { TradePlanOverlay } from '@/components/chart/TradePlanOverlay'
 import { useAppStore } from '@/store/useAppStore'
 import type { Timeframe, Candle, Indicators, WatchlistItem, ImpulseColor } from '@/types'
+import { useHyperliquidStream } from '@/hooks/useHyperliquidStream'
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: '15m', value: '15min' },
@@ -18,6 +18,9 @@ const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: '1D',  value: '1day' },
   { label: '1W',  value: '1week'},
 ]
+
+// 继论分析后端仅支持 1day/4h/1h（fenxing 多级别联动映射）
+const CHANLUN_TIMEFRAMES: Timeframe[] = ['1day', '4h', '1h']
 
 const EMPTY_IND: Indicators = { ma_lines: [], rsi: [], macd: [] }
 
@@ -28,9 +31,18 @@ function fmtPrice(v: number): string {
   return v.toFixed(6)
 }
 
-export default function ChartPage({ params, searchParams }: { params: { symbol: string }; searchParams?: { planId?: string } }) {
+function fmtCompact(v: number): string {
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(1)}K`
+  return `$${v.toFixed(0)}`
+}
+
+export default function ChartPage({ params }: { params: { symbol: string } }) {
   const symbol = decodeURIComponent(params.symbol)
-  const planId = Number(searchParams?.planId)
+  const searchParams = useSearchParams()
+  const source = normalizeMarketDataSource(searchParams.get('source'))
+  const sourceQuery = source === 'auto' ? '' : `?source=${source}`
 
   const [timeframe, setTimeframe]         = useState<Timeframe>('1day')
   const [logScale, setLogScale]           = useState(false)
@@ -39,6 +51,8 @@ export default function ChartPage({ params, searchParams }: { params: { symbol: 
   const [hasMore, setHasMore]             = useState(true)
   const [addedMsg, setAddedMsg]           = useState('')
   const [isFullscreen, setIsFullscreen]   = useState(false)
+  // 继论：图表内任一图层首次开启时置 true，触发按需分析
+  const [chanlunOn, setChanlunOn] = useState(false)
 
   const loadingMoreRef = useRef(false)
   const queryClient = useQueryClient()
@@ -58,27 +72,32 @@ export default function ChartPage({ params, searchParams }: { params: { symbol: 
     setAllCandles([])
     setHasMore(true)
     loadingMoreRef.current = false
-  }, [symbol, timeframe])
+  }, [symbol, timeframe, source])
 
   const { data: initialData, isLoading: candlesLoading, isError: candlesError, error: candlesErr } = useQuery({
-    queryKey: ['candles', symbol, timeframe],
-    queryFn: () => getCandles(symbol, timeframe, 500),
-    retry: 1,
+    queryKey: ['candles', symbol, timeframe, source],
+    queryFn: () => getCandles(symbol, timeframe, 1000, undefined, source),
+    staleTime: 60_000,
+    retry: 0,
   })
 
   useEffect(() => {
     if (initialData?.candles?.length) {
       setAllCandles(initialData.candles)
-      setHasMore(initialData.candles.length >= 490)
+      setHasMore(initialData.candles.length >= 990)
     }
   }, [initialData])
 
   const { data: quote } = useQuery({
-    queryKey: ['quote', symbol],
-    queryFn: () => getQuote(symbol),
-    refetchInterval: 30_000,
-    retry: 1,
+    queryKey: ['quote', symbol, source],
+    queryFn: () => getQuote(symbol, source),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    retry: 0,
   })
+  useHyperliquidStream([
+    quote?.provider_symbol || (symbol.toUpperCase().startsWith('HL:') ? symbol : ''),
+  ])
 
   const { data: watchlistData } = useQuery<{ items: WatchlistItem[] }>({
     queryKey: ['watchlist'],
@@ -87,11 +106,12 @@ export default function ChartPage({ params, searchParams }: { params: { symbol: 
   })
   const isInWatchlist = watchlistData?.items.some(w => w.symbol === symbol) ?? false
 
-  const { data: opportunityData } = useOpportunity(Number.isFinite(planId) ? planId : NaN)
-  const tradePlan = opportunityData?.symbol === symbol ? opportunityData.trade_plan : null
-
   const addMutation = useMutation({
-    mutationFn: () => addWatchlist({ symbol, name: quote?.name || symbol, asset_type: 'stock' }),
+    mutationFn: () => addWatchlist({
+      symbol,
+      name: quote?.name || symbol,
+      asset_type: quote?.source === 'hyperliquid' || quote?.source === 'binance_futures' ? 'perpetual' : 'stock',
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['watchlist'] })
       setAddedMsg('已加入自选')
@@ -113,13 +133,25 @@ export default function ChartPage({ params, searchParams }: { params: { symbol: 
     [allCandles, impulseEnabled]
   )
 
+  // 继论分析（按需）：数据范围变化（翻到更早历史）时自动重算
+  const chanlunDataRange = allCandles.length
+    ? `${allCandles[0]?.time}-${allCandles[allCandles.length - 1]?.time}-${allCandles.length}`
+    : ''
+  const { data: chanlun, isFetching: chanlunLoading } = useQuery({
+    queryKey: ['chanlun', symbol, timeframe, chanlunDataRange],
+    queryFn: () => analyzeChanlun(symbol, timeframe, allCandles),
+    enabled: chanlunOn && allCandles.length >= 20,
+    staleTime: 60_000,
+    retry: 0,
+  })
+
   const loadMoreCandles = useCallback(async () => {
     if (loadingMoreRef.current || !hasMore || !allCandles.length) return
     loadingMoreRef.current = true
     setIsLoadingMore(true)
     const before = allCandles[0].time
     try {
-      const data = await getCandles(symbol, timeframe, 500, before)
+      const data = await getCandles(symbol, timeframe, 1000, before, source)
       const newCandles: Candle[] = data?.candles ?? []
       if (!newCandles.length) { setHasMore(false); return }
       setAllCandles(prev => {
@@ -128,14 +160,14 @@ export default function ChartPage({ params, searchParams }: { params: { symbol: 
         if (!fresh.length) { setHasMore(false); return prev }
         return [...fresh, ...prev]
       })
-      if (newCandles.length < 490) setHasMore(false)
+      if (newCandles.length < 990) setHasMore(false)
     } catch (e) {
       console.error('loadMore failed', e)
     } finally {
       loadingMoreRef.current = false
       setIsLoadingMore(false)
     }
-  }, [allCandles, hasMore, symbol, timeframe])
+  }, [allCandles, hasMore, symbol, timeframe, source])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -160,8 +192,9 @@ export default function ChartPage({ params, searchParams }: { params: { symbol: 
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <span className="mono" style={{ fontSize: 22, fontWeight: 700, color: 'var(--fg-0)', letterSpacing: '-0.01em' }}>{symbol}</span>
+              <span className="mono" style={{ fontSize: 22, fontWeight: 700, color: 'var(--fg-0)', letterSpacing: '-0.01em' }}>{quote?.display_symbol || symbol}</span>
               {quote?.name && <span style={{ color: 'var(--fg-2)', fontSize: 12 }}>{quote.name}</span>}
+              {quote?.source_label && <span className="chip" style={{ fontSize: 9 }} title="数据来源">{quote.source_label}</span>}
             </div>
             {quote && (
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
@@ -195,6 +228,22 @@ export default function ChartPage({ params, searchParams }: { params: { symbol: 
             </div>
           )}
 
+          {quote?.source === 'hyperliquid' && (
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              {[
+                { l: '资金费率', v: quote.funding_rate == null ? '—' : `${(quote.funding_rate * 100).toFixed(4)}%` },
+                { l: '持仓价值', v: quote.open_interest_value == null ? '—' : fmtCompact(quote.open_interest_value) },
+                { l: '24H成交额', v: quote.day_notional_volume == null ? '—' : fmtCompact(quote.day_notional_volume) },
+                { l: '最高杠杆', v: quote.max_leverage ? `${quote.max_leverage}x` : '—' },
+              ].map(item => (
+                <div key={item.l} className="stat">
+                  <div className="stat-label">{item.l}</div>
+                  <div className="mono" style={{ fontSize: 13, color: 'var(--fg-0)' }}>{item.v}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ flex: 1 }} />
 
           <div style={{ display: 'flex', gap: 6 }}>
@@ -209,7 +258,7 @@ export default function ChartPage({ params, searchParams }: { params: { symbol: 
               </svg>
               {addedMsg || (isInWatchlist ? '已自选' : '加入自选')}
             </button>
-            <Link href={`/replay/${encodeURIComponent(symbol)}`} className="btn primary">
+            <Link href={`/replay/${encodeURIComponent(symbol)}${sourceQuery}`} className="btn primary">
               <svg className="ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="9" /><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none" />
               </svg>
@@ -278,20 +327,23 @@ export default function ChartPage({ params, searchParams }: { params: { symbol: 
           </div>
         )}
         {allCandles.length > 0 && (
-          <>
-            <CandlestickChart
-              candles={allCandles}
-              indicators={indicators}
-              logScale={logScale}
-              maPeriods={maPeriods}
-              onMaPeriodsChange={setMaPeriods}
-              isLoadingMore={isLoadingMore}
-              onScrollToLeft={loadMoreCandles}
-              impulseColors={impulseColors}
-              tradePlan={tradePlan}
-            />
-            <TradePlanOverlay tradePlan={tradePlan} />
-          </>
+          <CandlestickChart
+            candles={allCandles}
+            indicators={indicators}
+            logScale={logScale}
+            maPeriods={maPeriods}
+            onMaPeriodsChange={setMaPeriods}
+            isLoadingMore={isLoadingMore}
+            onScrollToLeft={loadMoreCandles}
+            impulseColors={impulseColors}
+            chanlun={chanlun}
+            chanlunLoading={chanlunOn && chanlunLoading}
+            onChanlunRequest={
+              CHANLUN_TIMEFRAMES.includes(timeframe)
+                ? () => setChanlunOn(true)
+                : undefined
+            }
+          />
         )}
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

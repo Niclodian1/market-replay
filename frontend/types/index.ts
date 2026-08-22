@@ -12,26 +12,41 @@ export interface Candle {
 
 export interface Quote {
   symbol: string
+  provider_symbol?: string
+  display_symbol?: string
   name: string
   price: number
   change: number
   change_percent: number
   volume: number
   market_cap?: number
+  day_notional_volume?: number
+  funding_rate?: number
+  open_interest?: number
+  open_interest_value?: number
+  mark_price?: number
+  oracle_price?: number
+  max_leverage?: number
+  source?: string
+  source_label?: string
   /** ISO 8601 字符串，UTC */
   timestamp: string
 }
 
 export interface SearchResult {
   symbol: string
+  display_symbol?: string
   name: string
-  /** stock | etf | index | crypto */
+  /** stock | etf | index | crypto | perpetual */
   type: string
   exchange: string
   currency: string
+  source: string
+  source_label: string
 }
 
 export type Timeframe = '15min' | '1h' | '4h' | '1day' | '1week'
+export type MarketDataSource = 'auto' | 'hyperliquid' | 'yahoo' | 'binance_spot' | 'binance_futures'
 
 // ===== 技术指标 =====
 
@@ -82,6 +97,53 @@ export interface WatchlistCreate {
   asset_type: string
 }
 
+export type MarketState = 'bullish' | 'bearish' | 'sideways' | null
+
+export interface WatchlistOpportunity {
+  strategy: 'A' | 'B' | 'C'
+  parameters: string[]
+  timeframe: '1day'
+  signal_time: number
+}
+
+export interface WatchlistInsight {
+  symbol: string
+  current_state: MarketState
+  opportunities: WatchlistOpportunity[]
+  error: string | null
+}
+
+export interface WatchlistInsightsResponse {
+  generated_at: string
+  timeframe: '1day'
+  items: WatchlistInsight[]
+}
+
+export interface WatchlistRecommendation {
+  symbol: string
+  name: string
+  asset_type: string
+  market: 'us_equity' | 'crypto' | 'cross_asset'
+  market_label: string
+  tags: string[]
+  reasons: string[]
+  score: number
+  price: number
+  change_percent: number
+  notional_volume: number
+  source?: string
+  source_label?: string
+}
+
+export interface WatchlistRecommendationsResponse {
+  generated_at: string
+  items: WatchlistRecommendation[]
+  scanned_count: number
+  available_count: number
+  max_items: number
+  note: string
+}
+
 // ===== 复盘笔记 =====
 
 export interface ReplayNote {
@@ -120,7 +182,7 @@ export interface ReplayNoteCreate {
 
 export type AlertCondition =
   | 'price_above' | 'price_below'
-  | 'ma_cross' | 'rsi' | 'macd' | 'ma_breakout'
+  | 'ma_cross' | 'rsi' | 'macd' | 'ma_breakout' | 'strategy_a_breakout' | 'macd_momentum'
   | 'macd_divergence' | 'bollinger'
   | 'sr_breakout' | 'pinbar' | 'engulfing'
   | 'w_bottom'
@@ -138,6 +200,7 @@ export interface Alert {
   is_active: boolean
   is_triggered: boolean
   triggered_at: string | null
+  last_triggered_signal_time?: number | null
   created_at: string
   updated_at: string
 }
@@ -153,9 +216,112 @@ export interface AlertCreate {
   repeating?: boolean
 }
 
+export type MonitorStrategy = 'ma' | 'macd' | 'structure'
+export type MonitorTimeframe = '15min' | '1h' | '4h' | '1day'
+
+export interface NotificationChannel {
+  id: number
+  name: string
+  kind: 'discord' | 'feishu' | 'email'
+  source?: 'database' | 'environment'
+  masked_endpoint: string
+  settings: {
+    smtp_host?: string
+    smtp_port?: number
+    smtp_username?: string
+    smtp_use_tls?: boolean
+    smtp_use_ssl?: boolean
+    from_address?: string
+    to_addresses?: string
+    has_password?: boolean
+  }
+  is_default: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface MonitorPlan {
+  id: number
+  name: string
+  target_scope: 'watchlist'
+  timeframes: MonitorTimeframe[]
+  /** @deprecated First selected timeframe, retained for older clients. */
+  timeframe: MonitorTimeframe
+  strategies: MonitorStrategy[]
+  parameters: Record<string, unknown>
+  channel_id: number | null
+  channel_name: string | null
+  repeating: boolean
+  is_active: boolean
+  last_run_at: string | null
+  last_error: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface MonitorAlertEvent {
+  id: number
+  plan_id: number
+  symbol: string
+  timeframe: string
+  strategy: MonitorStrategy
+  event_type: string
+  direction: 'long' | 'short'
+  severity: 'watch' | 'signal' | 'confirmed'
+  signal_time: number
+  reference_price: number
+  payload: Record<string, unknown> & { summary?: string }
+  status: 'pending' | 'sent' | 'failed' | 'in_app_only'
+  attempts: number
+  sent_at: string | null
+  last_error: string | null
+  is_read: boolean
+  created_at: string
+}
+
+export type OpportunityDeliveryStatus = 'pending' | 'sent' | 'failed' | 'in_app_only'
+
+export interface OpportunityNotification {
+  id: number
+  symbol: string
+  strategy: string
+  timeframe: string
+  signal_time: number
+  parameters: string
+  title: string
+  description: string
+  data_source: string | null
+  status: OpportunityDeliveryStatus
+  attempts: number
+  next_retry_at: string | null
+  sent_at: string | null
+  last_error: string | null
+  is_read: boolean
+  simulated: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface OpportunityNotificationsResponse {
+  items: OpportunityNotification[]
+  total: number
+  unread: number
+}
+
+export interface OpportunityNotificationSummary {
+  enabled: boolean
+  discord_configured: boolean
+  symbols: string[]
+  ma_periods: number[]
+  timeframe: string
+  counts: Record<string, number>
+  schedules: { symbol: string; time: string; timezone: string; days: string }[]
+}
+
 // ===== 回测 =====
 
-export type StrategyId = 'ma_cross' | 'rsi' | 'macd' | 'ma_breakout' | 'macd_divergence' | 'bollinger' | 'atr_filter' | 'volume_filter'
+export type StrategyId = 'ma_cross' | 'rsi' | 'macd' | 'ma_breakout' | 'macd_divergence' | 'macd_momentum' | 'bollinger' | 'atr_filter' | 'volume_filter'
 
 export type ConditionRole = 'signal' | 'filter'
 export type CombineMode = 'and' | 'or' | 'majority'
@@ -274,177 +440,6 @@ export interface MtfBacktestResult {
   candles: Candle[]
 }
 
-// ===== 自我感知机会系统 =====
-
-export interface EdgeStat {
-  id: number
-  symbol: string
-  timeframe: string
-  combo_hash: string
-  combo_spec: {
-    entry?: string[]
-    exit?: string[]
-    mode?: string
-    [key: string]: unknown
-  }
-  direction: 'long' | 'short'
-  sample_size: number
-  wins: number
-  win_rate: number
-  avg_r: number
-  expectancy: number
-  sharpe_like: number
-  wilson_lower: number
-  window_start_ts: number
-  window_end_ts: number
-  last_updated: string
-}
-
-export interface TradePlan {
-  id: number
-  opportunity_id: number
-  entry: number
-  stop_loss: number
-  take_profit: number
-  rr_ratio: number
-  size_r: number
-  rationale: string
-  valid_until_ts: number
-  created_at: string
-}
-
-export interface Opportunity {
-  id: number
-  symbol: string
-  timeframe: string
-  direction: 'long' | 'short'
-  combo_hash: string
-  confluence_payload: {
-    signals?: Array<{ name: string; tf?: string; timeframe?: string; score?: number }>
-    multi_tf_aligned?: boolean
-    [key: string]: unknown
-  }
-  score: number
-  status: 'open' | 'triggered' | 'expired' | 'closed' | string
-  created_at: string
-  closed_at: string | null
-  realized_r: number | null
-  edge_stat: EdgeStat | null
-  trade_plan: TradePlan | null
-}
-
-export interface OpportunitiesResponse {
-  items: Opportunity[]
-  total: number
-}
-
-export interface OppFilters {
-  status?: string
-  min_score?: number
-  symbol?: string
-  limit?: number
-  offset?: number
-}
-
-export interface RecommenderThresholds {
-  min_winrate: number
-  min_sample: number
-  min_score: number
-  max_open_per_symbol: number
-}
-
-// ===== 策略库 =====
-
-export interface StrategyCard {
-  id: string
-  name: string
-  category: 'indicator' | 'pattern' | 'structure' | 'combo'
-  description: string
-  logic: string
-  direction_support: string[]
-  params_schema: Record<string, unknown>
-  coverage: number
-  avg_win_rate: number | null
-  top_symbol: string | null
-  latest_backtest: StrategyBacktestSummary | null
-}
-
-export interface StrategySymbolPerf {
-  symbol: string
-  timeframe: string
-  direction: 'long' | 'short'
-  sample_size: number
-  win_rate: number
-  avg_r: number
-  expectancy: number
-  max_drawdown: number
-  last_fired_at: string | null
-  confidence: 'low' | 'mid' | 'high'
-  source: 'edge' | 'backtest'
-  latest_backtest_run_id: number | null
-}
-
-export interface StrategyDetail {
-  card: StrategyCard
-  rows: StrategySymbolPerf[]
-  sort_by: string
-  sort_dir: 'asc' | 'desc'
-  generated_at: string
-}
-
-export interface StrategyTrade {
-  symbol: string
-  timeframe: string
-  direction: 'long' | 'short'
-  signal_name: string
-  entry_time: string
-  entry_price: number
-  exit_time: string | null
-  exit_price: number | null
-  outcome: string | null
-  realized_r: number | null
-  pnl_pct: number | null
-}
-
-export interface StrategyTradesResponse {
-  items: StrategyTrade[]
-  total: number
-}
-
-export interface StrategyBacktestSummary {
-  id: number
-  strategy_id: string
-  strategy_kind: string
-  strategy_name: string
-  symbol: string
-  timeframe: string
-  trend_tf: string | null
-  start_date: string
-  end_date: string
-  total_return_pct: number
-  annualized_return_pct: number
-  max_drawdown_pct: number
-  sharpe_ratio: number
-  win_rate_pct: number
-  total_trades: number
-  winning_trades: number
-  losing_trades: number
-  buy_hold_return_pct: number
-  created_at: string
-}
-
-export interface StrategyBacktestsResponse {
-  items: StrategyBacktestSummary[]
-  total: number
-}
-
-export interface StrategyBacktestTrade extends MtfBacktestTrade {}
-
-export interface StrategyBacktestTradesResponse {
-  items: StrategyBacktestTrade[]
-  total: number
-}
-
 // ===== 宏观数据 =====
 
 export interface EconomicEvent {
@@ -535,6 +530,10 @@ export interface MaStrategyStats {
   max_profit: number
   avg_profit: number
   avg_rr: number | null
+  avg_loss?: number
+  expectancy?: number
+  profit_factor?: number | null
+  aggregation_method?: 'sum_of_independent_trade_returns'
   is_best: boolean
 }
 
@@ -619,6 +618,116 @@ export interface MaStrategyCManifest {
   variants: MaStrategyCVariant[]
 }
 
+// ===== 统一均线策略工作台 =====
+
+export type UnifiedMaStrategy = 'A' | 'B' | 'C'
+export type UnifiedMaTimeframe = '4h' | '1day'
+export type UnifiedMaLeverage = 'none' | '2' | '3'
+
+export interface UnifiedMaCombo {
+  strategy: UnifiedMaStrategy
+  timeframe: UnifiedMaTimeframe
+  leverage: UnifiedMaLeverage
+}
+
+export interface UnifiedMaManifestSymbol {
+  code: string
+  name: string
+  available: UnifiedMaCombo[]
+}
+
+export interface UnifiedMaManifest {
+  generated_at: string
+  symbols: UnifiedMaManifestSymbol[]
+  timeframes: UnifiedMaTimeframe[]
+  strategies: UnifiedMaStrategy[]
+  leverages: UnifiedMaLeverage[]
+}
+
+export type UnifiedMaTrade = (MaStrategyTrade | MaStrategy3xTrade | MaStrategyCTrade) & {
+  leverage?: number | null
+  n_adds?: number
+  events?: TradeEvent[]
+  exit_ma?: number
+  crossed?: number[]
+}
+
+export interface UnifiedMaResultBlock {
+  stats: MaStrategyStats | MaStrategy3xStats
+  trades: UnifiedMaTrade[]
+}
+
+export interface UnifiedMaSymbolData {
+  symbol: string
+  name: string
+  strategy: UnifiedMaStrategy
+  timeframe: UnifiedMaTimeframe
+  leverage: UnifiedMaLeverage
+  generated_at: string
+  data_source?: string
+  adjusted?: boolean
+  bar_count?: number
+  data_range?: { start?: number | null; end?: number | null }
+  candles: Candle[]
+  trend_ma: MaSeriesPoint[]
+  ma_lines: Record<string, MaSeriesPoint[]>
+  parameter_kind: 'ma' | 'variant'
+  options: string[]
+  results: Record<string, UnifiedMaResultBlock>
+}
+
+export interface StrategyOverviewVariant {
+  parameter: string
+  stats: MaStrategyStats
+  last_signal_time: number | null
+  latest_setup: {
+    time: number
+    close: number
+    ma: number
+    body_rise: number
+    crossed: boolean
+    triggered: boolean
+  } | null
+}
+
+export interface StrategyOverviewSymbol {
+  symbol: string
+  name: string
+  data_source: string
+  bar_count: number
+  data_range: { start?: number | null; end?: number | null }
+  strategy: 'A'
+  strategy_name: string
+  sample_count: number
+  sample_count_note: string
+  positive_variants: number
+  variant_count: number
+  weighted_expectancy: number
+  weighted_win_rate: number
+  evidence: '稳定' | '候选' | '观察'
+  preferred_parameter: string | null
+  current_signals: string[]
+  variants: StrategyOverviewVariant[]
+}
+
+export interface StrategyOverviewData {
+  generated_at: string
+  methodology: {
+    ranking: string
+    sample_note: string
+    evidence_note: string
+  }
+  strategies: Array<{
+    id: 'A'
+    name: string
+    description: string
+    parameters: string[]
+    positive_symbol_breadth: Record<string, number>
+  }>
+  symbols: StrategyOverviewSymbol[]
+  ranked_symbols: StrategyOverviewSymbol[]
+}
+
 // ===== 统一策略实验台（strategy-spine 展示层） =====
 export interface StrategyLabCatalogEntry {
   id: string
@@ -667,3 +776,49 @@ export interface StrategyLabRun {
   best_variant: string | null
   variants: StrategyLabVariant[]
 }
+
+// ===== 缠论（图表 overlay） =====
+
+/** 买卖点：k 为 一买/二买/三买/一卖/二卖/三卖，mode 标注级别 */
+export interface ChanlunPoint {
+  t: number
+  p: number
+  k: string
+  mode: 'seg' | 'stroke' | 'fast'
+  state?: string | null
+  tier?: string | null
+  confirmedT?: number | null
+  alertT?: number | null
+  ratio?: number | null
+  trigger?: string | null
+  why?: string | null
+  sub?: string | null
+  upper?: string | null
+}
+
+/** [t_start, price_start, t_end, price_end, dir]，dir=1 上升 / -1 下降 */
+export type ChanlunStroke = [number, number, number, number, number]
+
+/** [t_start, t_end, zd, zg, gg, dd] */
+export type ChanlunPivot = [number, number, number, number, number, number]
+
+export interface ChanlunFractal {
+  time: number
+  price: number
+}
+
+export interface ChanlunLevel {
+  symbol: string
+  timeframe: string
+  strokes: ChanlunStroke[]
+  segments: ChanlunStroke[]
+  pivots_stroke: ChanlunPivot[]
+  pivots_segment: ChanlunPivot[]
+  buy_sell_points: ChanlunPoint[]
+  beichi_points?: ChanlunPoint[]
+  top_fractals: ChanlunFractal[]
+  bot_fractals: ChanlunFractal[]
+  meta?: Record<string, unknown>
+}
+
+export type ChanlunLayerKey = 'stroke' | 'segment' | 'pivot' | 'point' | 'beichi'

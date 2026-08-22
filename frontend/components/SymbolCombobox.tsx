@@ -10,6 +10,7 @@ const DEFAULT_PRESETS = [
   { group: '美股',    items: ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'TSLA', 'META'] },
   { group: 'ETF',     items: ['SPY', 'QQQ', 'GLD', 'TLT'] },
   { group: '加密货币', items: ['BTC-USD', 'ETH-USD', 'SOL-USD', 'BNB-USD'] },
+  { group: '币安永续', items: ['BINANCE:BTCUSDT', 'BINANCE:ETHUSDT', 'BINANCE:AAPLUSDT'] },
 ]
 
 interface SymbolComboboxProps {
@@ -162,12 +163,12 @@ export function SymbolCombobox({
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span className="mono" style={{ fontWeight: 700, color: 'var(--fg-0)', fontSize: 12 }}>{item.symbol}</span>
+                  <span className="mono" style={{ fontWeight: 700, color: 'var(--fg-0)', fontSize: 12 }}>{item.display_symbol || item.symbol}</span>
                   <span style={{ fontSize: 9, color: 'var(--fg-3)' }}>{item.type}</span>
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--fg-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
               </div>
-              <span style={{ fontSize: 10, color: 'var(--fg-3)', flexShrink: 0 }}>{item.exchange}</span>
+              <span className="chip" style={{ fontSize: 9, flexShrink: 0 }} title="数据来源">{item.source_label}</span>
             </div>
           ))}
         </div>

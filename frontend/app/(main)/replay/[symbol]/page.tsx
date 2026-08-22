@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { getCandles } from '@/lib/api'
+import { getCandles, normalizeMarketDataSource } from '@/lib/api'
 import { calculateIndicators, elderImpulse } from '@/lib/indicators'
 import { CandlestickChart } from '@/components/chart/CandlestickChart'
 import { ReplayControls } from '@/components/ReplayControls'
@@ -47,6 +48,9 @@ function fmtDate(ts: number) {
 
 export default function ReplayPage({ params }: { params: { symbol: string } }) {
   const symbol = decodeURIComponent(params.symbol)
+  const searchParams = useSearchParams()
+  const source = normalizeMarketDataSource(searchParams.get('source'))
+  const sourceQuery = source === 'auto' ? '' : `?source=${source}`
 
   const [timeframe,    setTimeframe]   = useState<Timeframe>('1day')
   const [allCandles,   setAllCandles]  = useState<Candle[]>([])
@@ -76,11 +80,11 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
     setAllCandles([])
     setCursorIndex(0)
     setStartIndex(0)
-  }, [symbol, timeframe])
+  }, [symbol, timeframe, source])
 
   const { data: candleData, isLoading, isError, error } = useQuery({
-    queryKey: ['replay-candles', symbol, timeframe],
-    queryFn: () => getCandles(symbol, timeframe, 5000),
+    queryKey: ['replay-candles', symbol, timeframe, source],
+    queryFn: () => getCandles(symbol, timeframe, 5000, undefined, source),
     retry: 1,
     staleTime: 5 * 60_000,
   })
@@ -192,7 +196,7 @@ export default function ReplayPage({ params }: { params: { symbol: string } }) {
           </div>
 
           <button className={`btn small${logScale ? '' : ' ghost'}`} onClick={() => setLogScale(v => !v)}>Log</button>
-          <Link href={`/chart/${encodeURIComponent(symbol)}`} className="btn small ghost">← 图表</Link>
+          <Link href={`/chart/${encodeURIComponent(symbol)}${sourceQuery}`} className="btn small ghost">← 图表</Link>
         </div>
 
         {/* Chart area */}

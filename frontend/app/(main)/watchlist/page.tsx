@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getWatchlist, addWatchlist, deleteWatchlist, searchSymbols, getQuote } from '@/lib/api'
-import type { WatchlistItem, Quote, SearchResult } from '@/types'
+import { getWatchlist, getWatchlistInsights, addWatchlist, deleteWatchlist, searchSymbols, getQuote } from '@/lib/api'
+import type { WatchlistItem, WatchlistInsight, WatchlistInsightsResponse, Quote, SearchResult } from '@/types'
+import { useHyperliquidStream } from '@/hooks/useHyperliquidStream'
 
 // ── Formatters ─────────────────────────────────────────────────────────────────
 
@@ -82,7 +83,28 @@ function SkeletonCell({ w = 60 }: { w?: number }) {
 
 // ── Table Row ──────────────────────────────────────────────────────────────────
 
-function WatchRow({ item, period, onRemove }: { item: WatchlistItem; period: string; onRemove: () => void }) {
+const STATE_LABEL = {
+  bullish: { label: '看涨', color: 'var(--up)', background: 'var(--up-bg)' },
+  bearish: { label: '看跌', color: 'var(--down)', background: 'var(--down-bg)' },
+  sideways: { label: '震荡', color: '#f59e0b', background: 'rgba(245, 158, 11, .12)' },
+} as const
+
+const OPPORTUNITY_LABEL = { A: '突破', B: '回调', C: '多均线' } as const
+const OPPORTUNITY_COLOR = { A: '#22c55e', B: '#f59e0b', C: '#8b5cf6' } as const
+
+function WatchRow({
+  item,
+  insight,
+  insightsLoading,
+  insightsFailed,
+  onRemove,
+}: {
+  item: WatchlistItem
+  insight?: WatchlistInsight
+  insightsLoading: boolean
+  insightsFailed: boolean
+  onRemove: () => void
+}) {
   const [confirming, setConfirming] = useState(false)
 
   const { data: quote, isLoading } = useQuery<Quote>({
@@ -95,6 +117,8 @@ function WatchRow({ item, period, onRemove }: { item: WatchlistItem; period: str
 
   const pct = quote?.change_percent ?? 0
   const up = pct >= 0
+  const hasOpportunity = (insight?.opportunities.length ?? 0) > 0
+  const insightUnavailable = insightsFailed || Boolean(insight?.error) || (!insightsLoading && !insight)
 
   const prevPrice = useRef<number | null>(null)
   const [flashClass, setFlashClass] = useState('')
@@ -113,7 +137,7 @@ function WatchRow({ item, period, onRemove }: { item: WatchlistItem; period: str
   }, [quote?.price])
 
   return (
-    <tr className={flashClass} style={{ borderBottom: '1px solid var(--line-1)' }}
+    <tr className={hasOpportunity ? 'opportunity-row' : ''} style={{ borderBottom: '1px solid var(--line-1)' }}
       onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-2)')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
@@ -132,8 +156,60 @@ function WatchRow({ item, period, onRemove }: { item: WatchlistItem; period: str
         </div>
       </td>
 
-      {/* Price */}
+      {/* Current state */}
       <td style={{ padding: '12px 16px' }}>
+        {insightsLoading ? <SkeletonCell w={58} /> : insightUnavailable ? (
+          <span style={{ color: 'var(--fg-3)', fontSize: 11 }}>暂不可用</span>
+        ) : insight?.current_state ? (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '3px 8px',
+            color: STATE_LABEL[insight.current_state].color,
+            background: STATE_LABEL[insight.current_state].background,
+            fontSize: 11, fontWeight: 700,
+          }}>
+            {STATE_LABEL[insight.current_state].label}
+          </span>
+        ) : (
+          <span style={{ color: 'var(--fg-3)', fontSize: 11 }}>待计算</span>
+        )}
+      </td>
+
+      {/* MA opportunities */}
+      <td style={{ padding: '12px 16px', minWidth: 190 }}>
+        {insightsLoading ? <SkeletonCell w={110} /> : insightUnavailable ? (
+          <span style={{ color: 'var(--fg-3)', fontSize: 11 }}>暂不可用</span>
+        ) : hasOpportunity ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+            {insight!.opportunities.map(opportunity => {
+              const params = opportunity.strategy === 'C'
+                ? opportunity.parameters.join('/')
+                : opportunity.parameters.map(p => `MA${p}`).join('/')
+              return (
+                <span
+                  key={`${opportunity.strategy}-${opportunity.parameters.join('-')}`}
+                  title={`策略${opportunity.strategy} · ${OPPORTUNITY_LABEL[opportunity.strategy]} · ${params}`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    border: `1px solid ${OPPORTUNITY_COLOR[opportunity.strategy]}55`,
+                    background: `${OPPORTUNITY_COLOR[opportunity.strategy]}16`,
+                    color: OPPORTUNITY_COLOR[opportunity.strategy],
+                    borderRadius: 5, padding: '3px 6px', fontSize: 10.5, fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {opportunity.strategy} · {OPPORTUNITY_LABEL[opportunity.strategy]}
+                  <span className="mono" style={{ opacity: .78, fontSize: 9.5 }}>{params}</span>
+                </span>
+              )
+            })}
+          </div>
+        ) : (
+          <span style={{ color: 'var(--fg-3)', fontSize: 12 }}>—</span>
+        )}
+      </td>
+
+      {/* Price */}
+      <td className={flashClass} style={{ padding: '12px 16px' }}>
         {isLoading ? <SkeletonCell w={80} /> : quote ? (
           <div>
             <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--fg-0)', fontFamily: 'var(--font-mono)' }}>
@@ -335,10 +411,10 @@ function AddSearch({ onAdd }: { onAdd: (sym: string, name: string, type: string)
             >
               <SymbolIcon symbol={item.symbol} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, color: 'var(--fg-0)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{item.symbol}</div>
+                <div style={{ fontWeight: 700, color: 'var(--fg-0)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>{item.display_symbol || item.symbol}</div>
                 <div style={{ fontSize: 10.5, color: 'var(--fg-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>{item.name}</div>
               </div>
-              <span className="chip" style={{ fontSize: 9, flexShrink: 0 }}>{item.type}</span>
+              <span className="chip" style={{ fontSize: 9, flexShrink: 0 }} title="数据来源">{item.source_label}</span>
             </div>
           ))}
         </div>
@@ -351,6 +427,8 @@ function AddSearch({ onAdd }: { onAdd: (sym: string, name: string, type: string)
 
 const COL_HEADERS = [
   { label: '名称',     align: 'left'  },
+  { label: '当前状态', align: 'left'  },
+  { label: '交易机会', align: 'left'  },
   { label: '价格',     align: 'left'  },
   { label: '涨跌幅',   align: 'left'  },
   { label: '24H 成交额', align: 'left' },
@@ -381,6 +459,20 @@ export default function WatchlistPage() {
   })
 
   const items: WatchlistItem[] = data?.items ?? []
+  useHyperliquidStream(items.map(item => item.symbol))
+  const symbolsKey = useMemo(() => items.map(item => item.symbol).join(','), [items])
+  const insightsQuery = useQuery<WatchlistInsightsResponse>({
+    queryKey: ['watchlist-insights', symbolsKey],
+    queryFn: getWatchlistInsights,
+    enabled: items.length > 0,
+    refetchInterval: 300_000,
+    staleTime: 300_000,
+    retry: 1,
+  })
+  const insightBySymbol = useMemo(
+    () => new Map((insightsQuery.data?.items ?? []).map(item => [item.symbol, item])),
+    [insightsQuery.data],
+  )
 
   return (
     <div className="page">
@@ -407,7 +499,8 @@ export default function WatchlistPage() {
 
         {/* Table */}
         <div style={{ background: 'var(--bg-1)', border: '1px solid var(--line-1)', borderRadius: 10, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 1120, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--line-1)' }}>
                 {COL_HEADERS.map((col, i) => (
@@ -426,7 +519,7 @@ export default function WatchlistPage() {
                     }}
                   >
                     {col.label}
-                    {i === 2 && (
+                    {i === 4 && (
                       <span style={{
                         marginLeft: 6,
                         fontSize: 9,
@@ -448,7 +541,7 @@ export default function WatchlistPage() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={6} style={{ height: 160, textAlign: 'center' }}>
+                  <td colSpan={8} style={{ height: 160, textAlign: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--fg-2)' }}>
                       <div style={{ width: 22, height: 22, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                       <span className="mono" style={{ fontSize: 12 }}>加载自选…</span>
@@ -459,7 +552,7 @@ export default function WatchlistPage() {
 
               {isError && (
                 <tr>
-                  <td colSpan={6} style={{ height: 140, textAlign: 'center', color: 'var(--down)', fontSize: 13 }}>
+                  <td colSpan={8} style={{ height: 140, textAlign: 'center', color: 'var(--down)', fontSize: 13 }}>
                     加载失败，请检查后端连接
                   </td>
                 </tr>
@@ -467,7 +560,7 @@ export default function WatchlistPage() {
 
               {!isLoading && !isError && items.length === 0 && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={8}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 200, gap: 12 }}>
                       <svg style={{ width: 40, height: 40, color: 'var(--fg-3)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
@@ -485,17 +578,20 @@ export default function WatchlistPage() {
                 <WatchRow
                   key={item.id}
                   item={item}
-                  period={period}
+                  insight={insightBySymbol.get(item.symbol)}
+                  insightsLoading={insightsQuery.isLoading}
+                  insightsFailed={insightsQuery.isError}
                   onRemove={() => deleteMutation.mutate(item.id)}
                 />
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
 
         {items.length > 0 && (
           <div style={{ marginTop: 10, fontSize: 11, color: 'var(--fg-3)', textAlign: 'right' }}>
-            价格每 60 秒自动更新
+            价格每 60 秒更新 · MA 机会每 5 分钟扫描
           </div>
         )}
       </div>
@@ -503,6 +599,14 @@ export default function WatchlistPage() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+        @keyframes opportunity-pulse {
+          0%, 100% { background-color: rgba(34, 197, 94, .035); box-shadow: inset 3px 0 rgba(34, 197, 94, .45); }
+          50% { background-color: rgba(34, 197, 94, .13); box-shadow: inset 3px 0 rgba(34, 197, 94, .95); }
+        }
+        .opportunity-row { animation: opportunity-pulse 1.8s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .opportunity-row { animation: none; background-color: rgba(34, 197, 94, .08); box-shadow: inset 3px 0 rgba(34, 197, 94, .75); }
+        }
       `}</style>
     </div>
   )

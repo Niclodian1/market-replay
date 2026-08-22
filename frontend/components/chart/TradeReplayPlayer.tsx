@@ -10,7 +10,7 @@ import {
   LineStyle,
   PriceScaleMode,
 } from 'lightweight-charts'
-import type { Candle, MaSeriesPoint, MaStrategy3xTrade, MaExitReason } from '@/types'
+import type { Candle, MaSeriesPoint, UnifiedMaTrade, MaExitReason, TradeEvent } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
 
 const EXIT_COLOR: Record<MaExitReason, string> = {
@@ -25,15 +25,24 @@ const CONTEXT_BARS = 30  // 入场前展示的上下文K线数
 type Speed = 1 | 2 | 5 | 10
 
 interface Props {
-  trade: MaStrategy3xTrade
+  trade: UnifiedMaTrade
   candles: Candle[]
   maLine: MaSeriesPoint[]
   trendMa: MaSeriesPoint[]
   maLabel: string
+  timeframe?: string
   onClose: () => void
 }
 
-export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, onClose }: Props) {
+function replayEvents(trade: UnifiedMaTrade): TradeEvent[] {
+  if (trade.events && trade.events.length > 0) return trade.events
+  return [
+    { time: trade.entry_time, type: 'entry', price: trade.entry_price, size: trade.leverage ?? 1 },
+    { time: trade.exit_time, type: 'exit', price: trade.exit_price, size: null, reason: trade.exit_reason },
+  ]
+}
+
+export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, timeframe, onClose }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const chartRef      = useRef<IChartApi | null>(null)
   const candleRef     = useRef<ISeriesApi<'Candlestick'> | null>(null)
@@ -49,6 +58,8 @@ export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, on
 
   const theme = useAppStore(s => s.theme)
   const isDark = theme !== 'light'
+  const events = useMemo(() => replayEvents(trade), [trade])
+  const tradeLeverage = trade.leverage ?? null
 
   // 计算交易涉及的K线子集（含前后上下文）
   const tradeCandles = useMemo(() => {
@@ -72,7 +83,7 @@ export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, on
     if (!c) return 1.0
     // 收集到当前时间点已入场的所有子仓
     const subs: { price: number; size: number }[] = []
-    for (const ev of trade.events) {
+    for (const ev of events) {
       if (ev.time > currentTime) break
       if ((ev.type === 'entry' || ev.type === 'add') && ev.size != null) {
         subs.push({ price: ev.price, size: ev.size })
@@ -81,7 +92,7 @@ export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, on
     if (subs.length === 0) return 1.0
     const pnl = subs.reduce((acc, sp) => acc + sp.size * (c / sp.price - 1), 0)
     return 1.0 + pnl
-  }, [step, tradeCandles, currentTime, trade.events])
+  }, [step, tradeCandles, currentTime, events])
 
   // 当前权益百分比
   const equityPct = (currentEquity - 1) * 100
@@ -91,7 +102,7 @@ export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, on
   const costPrice = useMemo(() => {
     let sumSize = 0
     let sumSizeOverPrice = 0
-    for (const ev of trade.events) {
+    for (const ev of events) {
       if (ev.time > currentTime) break
       if ((ev.type === 'entry' || ev.type === 'add') && ev.size != null && ev.price > 0) {
         sumSize += ev.size
@@ -100,7 +111,7 @@ export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, on
     }
     if (sumSize === 0 || sumSizeOverPrice === 0) return null
     return sumSize / sumSizeOverPrice
-  }, [currentTime, trade.events])
+  }, [currentTime, events])
 
   // 初始化图表
   useEffect(() => {
@@ -205,7 +216,7 @@ export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, on
 
     // 收集已达到时间点的事件标记
     const markers: any[] = []
-    for (const ev of trade.events) {
+    for (const ev of events) {
       if (ev.time > currentTime) break
       if (ev.type === 'entry') {
         markers.push({
@@ -264,7 +275,7 @@ export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, on
       series.removePriceLine(costLineRef.current)
       costLineRef.current = null
     }
-  }, [step, tradeCandles, trade.events, currentTime, costPrice])
+  }, [step, tradeCandles, events, currentTime, costPrice])
 
   // 对数/线性坐标切换
   useEffect(() => {
@@ -305,12 +316,15 @@ export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, on
     }
   }, [step, tradeCandles.length])
 
-  const fmtDate = (ts: number) => new Date(ts * 1000).toISOString().slice(0, 10)
+  const fmtDate = (ts: number) => {
+    const iso = new Date(ts * 1000).toISOString()
+    return timeframe && timeframe !== '1day' ? iso.slice(0, 16).replace('T', ' ') : iso.slice(0, 10)
+  }
   const fmtPct  = (v: number, digits = 2) => (v >= 0 ? '+' : '') + v.toFixed(digits) + '%'
 
   // 加仓次数统计（到当前时间）
-  const addsShown = trade.events.filter(e => e.type === 'add' && e.time <= currentTime).length
-  const totalAdds = trade.events.filter(e => e.type === 'add').length
+  const addsShown = events.filter(e => e.type === 'add' && e.time <= currentTime).length
+  const totalAdds = events.filter(e => e.type === 'add').length
 
   return (
     <div
@@ -338,7 +352,7 @@ export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, on
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}
         >
           <span style={{ fontSize: 13, fontWeight: 700 }}>
-            📽 交易回放  ·  {trade.leverage}x 杠杆  ·  {totalAdds} 次加仓
+            交易回放  ·  {tradeLeverage ? `${tradeLeverage}x 杠杆` : '无杠杆'}  ·  {totalAdds} 次加仓
           </span>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-2)' }}>
@@ -472,7 +486,7 @@ export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, on
           {/* 状态信息 */}
           <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-2)' }}>
             K线 {step + 1}/{tradeCandles.length}
-            {addsShown > 0 && (
+            {totalAdds > 0 && addsShown > 0 && (
               <span style={{ marginLeft: 8, color: '#eab308' }}>已加仓 {addsShown}/{totalAdds} 次</span>
             )}
           </span>
@@ -481,12 +495,12 @@ export function TradeReplayPlayer({ trade, candles, maLine, trendMa, maLabel, on
         {/* ── 图例 ──────────────────────────────────────────────── */}
         <div style={{ padding: '0 12px 12px', display: 'flex', gap: 16, fontSize: 11, color: 'var(--fg-2)', flexWrap: 'wrap' }}>
           <LegendItem color="#22c55e" shape="▲" label="入场" />
-          <LegendItem color="#eab308" shape="●" label="浮盈加仓" />
+          {totalAdds > 0 && <LegendItem color="#eab308" shape="●" label="浮盈加仓" />}
           <LegendItem color={EXIT_COLOR['止损']}    shape="▼" label="止损出场" />
           <LegendItem color={EXIT_COLOR['保本']}    shape="▼" label="保本出场" />
           <LegendItem color={EXIT_COLOR['均线']}    shape="▼" label="跌破均线" />
           <LegendItem color={EXIT_COLOR['强制平仓']} shape="▼" label="强制平仓" />
-          <LegendItem color="#f97316" shape="- -" label="保本价（调和均价）" />
+          <LegendItem color="#f97316" shape="- -" label={tradeLeverage ? '保本价（调和均价）' : '保本价'} />
         </div>
       </div>
     </div>
