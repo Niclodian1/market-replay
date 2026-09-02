@@ -362,7 +362,8 @@ function setupMeasure(){
     const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
     if (cx >= chartEl.clientWidth - rightAxisW()) return null;
     const t = xToTime(cx), pr = cursorPrice(cy);
-    return t == null || pr == null ? null : { t, p: +pr.toFixed(2) };
+    // 价格保留全精度(旧版 toFixed(2) 会把微价币(PEPE≈0.000004)抹成 0, 测距全部失效)
+    return t == null || pr == null ? null : { t, p: pr };
   };
   // capture 阶段拦截 shift+左键, 阻止 lightweight-charts 把它当平移手势
   chartEl.addEventListener('mousedown', e => {

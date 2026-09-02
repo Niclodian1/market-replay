@@ -1763,12 +1763,13 @@ def analyze(bars, epochs, tf):
         "oldPanbeiPointsRaw": o_pb_raw, "oldPanbeiPointsMerged": o_pb_mg,
         "oldBeichiPointsSegmentRaw": o_fa_ps_raw, "oldBeichiPointsSegmentMerged": o_fa_ps_mg,
         "oldPanbeiPointsSegmentRaw": o_pbsg_raw, "oldPanbeiPointsSegmentMerged": o_pbsg_mg,
-        "macdDiff": [round(x, 4) for x in diff],
-        "macdDea": [round(x, 4) for x in dea],
-        "macdHist": [round(x, 4) for x in hist],
-        "macdMergedDiff": [round(x, 4) for x in mdiff],
-        "macdMergedDea": [round(x, 4) for x in mdea],
-        "macdMergedHist": [round(x, 4) for x in mhist],
+        # MACD 导出: 6 位有效数字(fixed 小数位会毁掉微价币 —— PEPE 的 MACD 值在 1e-7 量级, round(·,4) 全部归零)
+        "macdDiff": [float(f"{x:.6g}") for x in diff],
+        "macdDea": [float(f"{x:.6g}") for x in dea],
+        "macdHist": [float(f"{x:.6g}") for x in hist],
+        "macdMergedDiff": [float(f"{x:.6g}") for x in mdiff],
+        "macdMergedDea": [float(f"{x:.6g}") for x in mdea],
+        "macdMergedHist": [float(f"{x:.6g}") for x in mhist],
     }
     # 供联动使用的内部视图(不入 data.js)
     level["_internal"] = {
