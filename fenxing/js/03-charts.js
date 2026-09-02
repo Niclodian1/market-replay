@@ -395,7 +395,8 @@ function setupMeasure(){
     const cs = candlesFor(activeView);
     const dt = cs.length > 1 ? cs[cs.length-1].time - cs[cs.length-2].time : 86400;   // 一根K线秒数
     const nb = Math.max(0, Math.round(Math.abs(pt.t - m.t1) / dt));
-    m.label = `Δ ${dp >= 0 ? '+' : ''}${dp.toFixed(2)} (${fmtRet(dp/m.p1*100)})\n${nb}根K线 · ${humanSpan(Math.abs(pt.t - m.t1))}`;
+    const dd = Math.abs(dp) >= 1 ? 2 : Math.abs(dp) >= 0.01 ? 4 : 8;   // 自适应精度(微价币可用)
+    m.label = `Δ ${dp >= 0 ? '+' : ''}${Math.abs(dp).toFixed(dd)} (${fmtRet(dp/m.p1*100)})\n${nb}根K线 · ${humanSpan(Math.abs(pt.t - m.t1))}`;
     refreshChanOverlay();
   });
   window.addEventListener('keydown', e => {

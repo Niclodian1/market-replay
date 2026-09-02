@@ -30,7 +30,7 @@ let posSeq = 1;
 const posById = id => positions.find(p => p.id === id);
 // 持仓绑定开仓时的品种+周期: 结算/浮盈/止损只在匹配的布局下执行,
 // 否则切品种后 curBar 取到别品种价格 → 入场/出场价混源(天文数字盈亏 bug 的根源)
-const posLayoutOk = pos => pos.sym === currentSym && pos.tf === activeTF;
+const posLayoutOk = pos => (pos.sym === currentSym || pos.sym === DATA.meta.symbol) && pos.tf === activeTF;
 
 function curBar(){
   const cs = candlesFor(activeView);
@@ -306,7 +306,7 @@ function setupJournal(){
     acctAdj(-margin);
     positions.push({
       id: posSeq++,
-      sym: DATA.meta.symbol, tf: activeTF,   // 绑定开仓布局(跨品种结算 bug 防护)
+      sym: currentSym, tf: activeTF,   // 绑定开仓布局(用键名, 与 posLayoutOk/切换逻辑一致)
       side: document.getElementById('jSide').value,
       stop: document.getElementById('jStop').value ? +document.getElementById('jStop').value : null,
       entries: [{
