@@ -33,7 +33,7 @@ const layers = { fractals:false, strokes:false, segments:false, pivots:false, bu
 let tradeMode = 'stroke';   // 回测信号级别: stroke 笔 | segment 线段
 let tradeCfg  = 'enter';    // 回测口径(已定稿: A段=进入段, 中枢延伸=α)
 let selectedTrade = null;   // 当前选中的交易(图表高亮 + 列表选中态)
-let idxMap, markerMap, detailMap;
+let idxMap = {}, markerMap = {}, detailMap = {};   // 预置空对象: 首次 setData 触发的 crosshair 事件早于 buildMaps, 不预置会在事件里炸
 
 // ---- 时间格式化(UTC, 与数据一致) ----
 const p2 = n => String(n).padStart(2,'0');
