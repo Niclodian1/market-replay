@@ -430,15 +430,15 @@ function refreshPositionLines(){
   for (const pos of positions){
     const color = posColor(pos);
     const entry = posAvgEntry(pos);
-    const tag = `#${pos.id} ${pos.side} ${fmt(entry)}`;
+    // 标题只留编号(方向/价格看卡片与轴标): 长文字会压在最新K线区域影响读图
     posPriceLines.push({ pid: pos.id, kind: 'entry', line: candleSeries.createPriceLine({
       price: entry, color, lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: true, title: tag,
+      axisLabelVisible: true, title: `#${pos.id}`,
     })});
     if (pos.stop != null){
       posPriceLines.push({ pid: pos.id, kind: 'stop', line: candleSeries.createPriceLine({
         price: pos.stop, color: t().down, lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,
-        axisLabelVisible: true, title: `#${pos.id} 止损`,
+        axisLabelVisible: true, title: `${pos.id}损`,
       })});
     }
   }
@@ -468,13 +468,16 @@ function openPosPopup(pos, point){
       <button class="btn" data-pp="stop-save">保存</button>
     </div>`;
   posPopupEl.style.display = 'flex';
-  // 定位: 图表内坐标 → 视口坐标, 防溢出
+  // 定位: 弹层放在点击点【左侧】—— 最新K线在图表右缘, 右侧展开会挡住最新走势
   const rc = document.getElementById('chart').getBoundingClientRect();
-  let px = rc.left + point.x + 16, py = rc.top + point.y - 12;
-  px = Math.min(px, window.innerWidth - 230);
-  py = Math.min(py, window.innerHeight - 180);
-  posPopupEl.style.left = Math.max(8, px) + 'px';
-  posPopupEl.style.top = Math.max(8, py) + 'px';
+  const POP_W = 200;
+  let px = rc.left + point.x - 16 - POP_W;
+  if (px < rc.left + 8) px = rc.left + point.x + 16;   // 左侧放不下再回右侧
+  let py = rc.top + point.y - 12;
+  px = Math.max(rc.left + 8, Math.min(px, rc.right - POP_W - 8));
+  py = Math.max(8, Math.min(py, window.innerHeight - 200));
+  posPopupEl.style.left = px + 'px';
+  posPopupEl.style.top = py + 'px';
 }
 
 // 点击命中检测: 视口 y 与各持仓入场/止损线的像素距离 <7px 视为点击该线

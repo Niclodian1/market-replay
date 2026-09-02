@@ -186,6 +186,7 @@ async function enterTrainer(){
 
 function trainerStep(){
   if (!trLocked()) return;
+  closePosPopup();   // 步进时关闭图上弹层, 不遮挡最新K线
   stopPlay();
   stepReplay(1);
   TR.step++;
