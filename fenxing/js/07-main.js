@@ -186,6 +186,19 @@ function alignPanes(){
   setW('volume', volumeChart.priceScale('right').width());
   setW('macd', macdChart.priceScale('right').width());
 }
+// 副图自检: 容器无 canvas 或高度为 0 时提示(定位"副图空白")
+function assertSubPanes(){
+  const v = document.getElementById('volume'), m = document.getElementById('macd');
+  const volOk = !!(v && v.querySelector('canvas')) && v.clientHeight > 20;
+  const macdOk = !!(m && m.querySelector('canvas')) && m.clientHeight > 20;
+  if (!volOk || !macdOk){
+    console.warn('[副图自检] volume=', volOk, 'macd=', macdOk,
+      ' clientH=', v && v.clientHeight, '/', m && m.clientHeight);
+    flashBtn('snapshotBtn', '⚠ 副图异常 重试中…');
+    return false;
+  }
+  return true;
+}
 // 十字光标: 在任一面板悬停, K线/成交量/MACD 三面板同 bar 位置虚线贯穿。
 const onCrossSync = param => {
   syncT = param.time == null ? null : param.time;
@@ -556,6 +569,8 @@ document.getElementById('sideToggleBtn').addEventListener('click', () => {
 });
 
 // ---- 初始化 ----
+window.__INIT_OK = false;
+try {
 document.title = document.title.replace('BTC/USD', DATA.meta.symbol);
 document.getElementById('symbolBadge').textContent = `${DATA.meta.symbol} · ${activeTF}`;
 syncTfTabs();
@@ -631,3 +646,23 @@ if (QP.get('detail')){
     }
   }
 }
+  window.__INIT_OK = true;
+} catch (e){
+  globalThis.__ERRS = globalThis.__ERRS || [];
+  __ERRS.unshift('init: ' + e.message + '\n' + String(e.stack || '').split('\n').slice(1, 5).join('\n'));
+  flashBtn('snapshotBtn', '⚠ init 异常 点此查看');
+  try { applySeries(); alignPanes(); } catch {}
+}
+
+window.addEventListener('load', () => setTimeout(() => {
+  const v = document.getElementById('volume'), m = document.getElementById('macd');
+  const volOk = !!(v && v.querySelector('canvas')) && v.clientHeight > 20;
+  const macdOk = !!(m && m.querySelector('canvas')) && m.clientHeight > 20;
+  if (!window.__INIT_OK || !volOk || !macdOk){
+    const errs = (globalThis.__ERRS && __ERRS.length) ? '\n\n最近错误:\n' + __ERRS.join('\n---\n') : '\n(无捕获错误, 可能为加载/缓存问题, 请强制刷新 Cmd+Shift+R)';
+    alert('页面初始化自检未通过:\n' +
+      'INIT_OK=' + !!window.__INIT_OK + '  成交量副图=' + volOk + '  MACD副图=' + macdOk +
+      '  容器高度=' + (v && v.clientHeight) + '/' + (m && m.clientHeight) + errs +
+      '\n\n请截图此弹窗反馈。');
+  }
+}, 1500));

@@ -127,12 +127,6 @@ chart.timeScale().subscribeVisibleLogicalRangeChange(r => {
     });
   }
 });
-// 练习缩放捕获: 用户滚轮/双指缩放时记录可见宽度, lockViewport 跟随该级别
-// (_lvLocking 标记程序性设置, 避免把锁定值误当成用户缩放)
-chart.timeScale().subscribeVisibleLogicalRangeChange(r => {
-  if (!trLocked() || !r || _lvLocking) return;
-  TR.zoomBars = Math.min(1000, Math.max(30, Math.round(r.to - r.from) - 2));
-});
 
 // ---- 笔/线段/中枢 overlay primitive ----
 function getLayerData(){

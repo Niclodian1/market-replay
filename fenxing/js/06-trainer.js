@@ -27,11 +27,8 @@ function applyBlind(on){
 
 // 练习态锁定三面板滚动/缩放 + 主图时间轴刻度打码; 解锁时恢复库默认
 function trainerChartLock(on){
-  // 练习中禁平移但放开滚轮/双指缩放(handleScale 对象式); TR.zoomBars 记住用户缩放级别
-  const o = on
-    ? { handleScroll: false,
-        handleScale: { axisPressedMouseMove: false, axisDoubleClickReset: false, mouseWheel: true, pinch: true } }
-    : { handleScroll: true, handleScale: true };
+  // 练习中完全锁定: 禁平移+禁缩放(2026-09 用户要求: 只展示练习窗口内的K线, 缩放会露出窗口外历史)
+  const o = on ? { handleScroll: false, handleScale: false } : { handleScroll: true, handleScale: true };
   chart.applyOptions(o); volumeChart.applyOptions(o); macdChart.applyOptions(o);
   chart.timeScale().applyOptions({
     tickMarkFormatter: on
@@ -40,14 +37,14 @@ function trainerChartLock(on){
   });
 }
 
-// 视口锁定: 右缘锚定当前K线, 可见宽度跟随用户缩放级别(TR.zoomBars, 默认 LOOKBACK+5)
+// 视口锁定: 右缘锚定当前K线, 可见宽度 = 回看200根 + 已走步数(+缓冲)
 let _lvLocking = false;
 function lockViewport(){
   if (!trLocked()) return;
   const n = candlesFor(activeView).length;
   if (!n) return;
   const maxW = TR.LOOKBACK + TR.step + 3;                       // 练习窗口总宽 + 缓冲
-  const w = Math.min(Math.max(TR.zoomBars || (TR.LOOKBACK + 5), 30), maxW);
+  const w = Math.min(TR.LOOKBACK + 5, maxW);
   _lvLocking = true;
   chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - w), to: n + 2 });
   requestAnimationFrame(() => { _lvLocking = false; });
@@ -65,14 +62,13 @@ function enforcePracticeBounds(r){
   if (!trLocked() || !r || _lvLocking || !TR.sym) return;   // TR.sym=未进入有效局时不修正
   const left = practiceWindowStart();
   const right = candlesFor('raw').length + 2;
-  const inBounds = r.from >= left - 1.5 && r.to <= right + 0.5 && r.from <= r.to;
-  if (inBounds) return;
-  _lvLocking = true;
-  const noOverlap = r.to < left || r.from > right;
-  const from = noOverlap ? left : Math.max(r.from, left);
-  const to = noOverlap ? right : Math.min(Math.max(r.to, left), Math.max(Math.min(r.to, right), from));
-  chart.timeScale().setVisibleLogicalRange({ from, to: Math.max(to, from) });
-  requestAnimationFrame(() => { _lvLocking = false; });
+  // 强制吸附精确练习窗口: 任何视口变化(缩放/平移/误按键/数据长度突变)都立即弹回
+  // (旧版"越界才修正"无法覆盖零宽视口等退化场景 → barSpacing 被打爆卡在放大态)
+  if (Math.abs(r.from - left) > 0.5 || Math.abs(r.to - right) > 0.5){
+    _lvLocking = true;
+    chart.timeScale().setVisibleLogicalRange({ from: left, to: right });
+    requestAnimationFrame(() => { _lvLocking = false; });
+  }
 }
 chart.timeScale().subscribeVisibleLogicalRangeChange(enforcePracticeBounds);
 
@@ -90,7 +86,7 @@ async function enterTrainer(){
     const mktSel = document.getElementById('trMktSel')?.value || '';
     const tfSel = document.getElementById('trTfSel')?.value || '';
     // 清除上一局残留的定位状态(否则边界修正会用旧 startIdx 算出非法视口 → 库断言崩溃)
-    TR.startIdx = 0; TR.startTs = null; TR.zoomBars = 0; TR.endReason = '';
+    TR.startIdx = 0; TR.startTs = null; TR.endReason = '';
     // 品种指定优先(与市场互斥); 未指定品种时按市场过滤; 都不选=全市场随机
     let pool = symSel ? [symSel]
       : (mktSel ? (MARKET_GROUPS[mktSel] || []).filter(s => syms.includes(s)) : syms);
@@ -136,7 +132,6 @@ async function enterTrainer(){
       TR.step = 0; TR.session = []; TR.revealed = false; TR.active = true;
       TR.startWallTs = Date.now();
       TR.endCapital = INIT_CAPITAL;
-      TR.zoomBars = TR.LOOKBACK + 5;   // 缩放级别每局复位
       acctReset();   // 每局练习独立初始本金(100,000U); 练习中途资金不再跨局累计
       if (CHUNK_TFS.includes(tf)){
         // 分钟级: 从 manifest 随机取绝对下标, 只装载练习窗口(前200+后205根)

@@ -61,12 +61,14 @@ function addBudget(pos){
   const used = pos.entries.slice(1).reduce((a,e) => a + e.capital, 0);
   return { u, used, avail: Math.max(0, u - used) };
 }
-// 账户净值 = 已实现余额 + 全部持仓浮动盈亏
+// 账户净值 = 可用余额 + 占用保证金 + 当前布局持仓浮动盈亏
+// (保证金只是被锁定并未消失; 旧版漏加占用 → 满仓开仓后任何浮亏都会被误判为爆仓)
 const acctEquity = () => {
   const bar = curBar();
-  // 净值只计入当前布局(品种+周期)匹配的持仓浮盈 —— 异布局持仓待切回后结算, 不参与现值
   const cur = positions.filter(p => posLayoutOk(p));
-  return acctBal() + (bar ? cur.reduce((a,p) => a + pnlOf(p, bar.close), 0) : 0);
+  const used = cur.reduce((a,p) => a + posCapital(p), 0);
+  const floatPnl = bar ? cur.reduce((a,p) => a + pnlOf(p, bar.close), 0) : 0;
+  return acctBal() + used + floatPnl;
 };
 const fmtLogic = (s, n=16) => { s = String(s||''); return s.length > n ? s.slice(0, n) + '…' : s; };
 function renderJournal(){
@@ -78,9 +80,9 @@ function renderJournal(){
   const bar = curBar();
   let html = '';
   // 账户行: 本金/占用/浮动/净值
-  const floatSum = bar ? positions.reduce((a,p) => a + pnlOf(p, bar.close), 0) : 0;
-  const used = positions.reduce((a,p) => a + posCapital(p), 0);
-  const eq = acctBal() + floatSum;
+  const floatSum = bar ? positions.filter(p => posLayoutOk(p)).reduce((a,p) => a + pnlOf(p, bar.close), 0) : 0;
+  const used = positions.filter(p => posLayoutOk(p)).reduce((a,p) => a + posCapital(p), 0);
+  const eq = acctBal() + used + floatSum;   // 净值含占用保证金
   const eqCol = eq > INIT_CAPITAL ? 'var(--up)' : (eq < INIT_CAPITAL ? 'var(--down)' : 'var(--ink-2)');
   html += `<div data-acct style="border:1px dashed var(--border); border-radius:6px; padding:5px 8px; margin-top:8px; font-size:12px;">
     本金 <b data-abal>${acctBal().toFixed(2)}U</b> · 占用 <span data-aused>${used.toFixed(0)}</span>U ·
@@ -138,7 +140,11 @@ function renderJournal(){
       hist.map(t => {
         const col = t.pnl_u >= 0 ? 'var(--up)' : 'var(--down)';
         const tip = `${t.exit_reason || ''}${t.exit_logic ? ' · ' + t.exit_logic : ''}`.replace(/"/g,'&quot;');
-        const tLbl = trLocked() && t.exit_ts != null ? trLabel(t.exit_ts) : t.exit_time;
+        // 盲测态: 仅本局练习窗口内的记录打相对标签; 旧局记录显示真实时间(与本局定位无关)
+        const wFirst = candlesFor('raw')[0]?.time;
+        const tLbl = (trLocked() && t.exit_ts != null && wFirst != null &&
+                      t.exit_ts >= wFirst && t.exit_ts <= (replayT ?? Infinity))
+          ? trLabel(t.exit_ts) : t.exit_time;
         return `<tr title="${tip}"><td>${tLbl}</td><td>${t.side}${t.adds > 0 ? '+'+t.adds : ''}</td><td>${t.entry}→${t.exit_price}</td>
           <td style="color:${col};text-align:right">${t.pnl_u >= 0 ? '+' : ''}${(+t.pnl_u).toFixed(1)}</td></tr>`;
       }).join('') + '</table>';
@@ -162,9 +168,10 @@ function updateLivePnl(){
   // 账户行
   const balEl = document.querySelector('[data-abal]');
   if (balEl){
-    const floatSum = positions.reduce((a,p) => a + pnlOf(p, bar.close), 0);
-    const used = positions.reduce((a,p) => a + posCapital(p), 0);
-    const eq = acctBal() + floatSum;
+    const mine = positions.filter(p => posLayoutOk(p));
+    const floatSum = mine.reduce((a,p) => a + pnlOf(p, bar.close), 0);
+    const used = mine.reduce((a,p) => a + posCapital(p), 0);
+    const eq = acctBal() + used + floatSum;   // 净值含占用保证金
     const fsEl = document.querySelector('[data-fsum]');
     const eqEl = document.querySelector('[data-aeq]');
     const usEl = document.querySelector('[data-aused]');
@@ -268,9 +275,11 @@ function checkStopAndLiquidate(){
 }
 // 账户级爆仓: 净值≤0 → 强平全部; 练习直接强制揭示, 复盘提示后重置本金
 function checkAccountBlowup(){
-  if (!inReplay() || !positions.length) return false;
+  if (!inReplay()) return false;
+  // 以净值为准(不设持仓数前置条件): 单笔满仓亏光后余额归零同样判定爆仓
   if (acctEquity() > 0) return false;
-  for (const pos of [...positions]) closePosObj(pos, 1, '账户净值归零, 全部强平', '账户爆仓', true);
+  for (const pos of [...positions].filter(p => posLayoutOk(p)))
+    closePosObj(pos, 1, '账户净值归零, 全部强平', '账户爆仓', true);
   acctSave({...acctLoad(), [curModeKey()]: 0});
   if (TR.active && !TR.revealed){
     revealTrainer(true, '💥 账户爆仓, 练习强制结束');
