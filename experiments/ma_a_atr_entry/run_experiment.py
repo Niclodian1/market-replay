@@ -25,7 +25,15 @@ import yfinance as yf
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-DATA_DIR = HERE / "data"
+DATA_ROOT = REPO / "data"
+# 面板数据按资产类别归档到 data/ 子目录
+ASSET_SUBDIRS = {
+    "US equity": "stocks",
+    "HK equity": "hk_equity",
+    "CN equity": "cn_equity",
+    "gold": "gold",
+    "crypto": "crypto",
+}
 RESULTS_DIR = HERE / "results"
 
 sys.path.insert(0, str(REPO / "backend"))
@@ -96,8 +104,14 @@ def _normalise_frame(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _save_snapshot(panel_id: str, df: pd.DataFrame) -> Path:
-    path = DATA_DIR / f"{panel_id}.parquet"
+def _panel_path(panel_id: str, asset_class: str) -> Path:
+    subdir = ASSET_SUBDIRS.get(asset_class, "market")
+    return DATA_ROOT / subdir / f"{panel_id}.parquet"
+
+
+def _save_snapshot(panel_id: str, asset_class: str, df: pd.DataFrame) -> Path:
+    path = _panel_path(panel_id, asset_class)
+    path.parent.mkdir(parents=True, exist_ok=True)
     _normalise_frame(df).to_parquet(path, index=False)
     return path
 
@@ -138,17 +152,16 @@ def _yahoo_snapshot(symbol: str) -> pd.DataFrame:
 
 
 def prepare_data(refresh: bool) -> pd.DataFrame:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
     manifest_rows: list[dict[str, Any]] = []
 
     async def crypto_all() -> None:
         for symbol, timeframe in CRYPTO_PANELS:
             panel_id = _panel_id(symbol, timeframe)
-            path = DATA_DIR / f"{panel_id}.parquet"
+            path = _panel_path(panel_id, "crypto")
             if refresh or not path.exists():
                 print(f"[data] {symbol} {timeframe}", flush=True)
                 crypto = await _crypto_snapshot(symbol, timeframe)
-                _save_snapshot(panel_id, _drop_incomplete_candle(crypto, timeframe))
+                _save_snapshot(panel_id, "crypto", _drop_incomplete_candle(crypto, timeframe))
             frame = pd.read_parquet(path)
             manifest_rows.append(_manifest_row(
                 panel_id, symbol, timeframe, "crypto", "local parquet + OKX increment", path, frame
@@ -157,10 +170,10 @@ def prepare_data(refresh: bool) -> pd.DataFrame:
     asyncio.run(crypto_all())
 
     panel_id = _panel_id("XAUUSD", "1day")
-    xau_path = DATA_DIR / f"{panel_id}.parquet"
+    xau_path = _panel_path(panel_id, "gold")
     if refresh or not xau_path.exists():
         print("[data] XAUUSD 1day", flush=True)
-        _save_snapshot(panel_id, _xau_snapshot())
+        _save_snapshot(panel_id, "gold", _xau_snapshot())
     xau = pd.read_parquet(xau_path)
     manifest_rows.append(_manifest_row(
         panel_id, "XAUUSD", "1day", "gold", "Dukascopy snapshot", xau_path, xau
@@ -168,17 +181,17 @@ def prepare_data(refresh: bool) -> pd.DataFrame:
 
     for symbol, (name, asset_class) in YAHOO_SYMBOLS.items():
         panel_id = _panel_id(symbol, "1day")
-        path = DATA_DIR / f"{panel_id}.parquet"
+        path = _panel_path(panel_id, asset_class)
         if refresh or not path.exists():
             print(f"[data] {symbol} 1day", flush=True)
-            _save_snapshot(panel_id, _yahoo_snapshot(symbol))
+            _save_snapshot(panel_id, asset_class, _yahoo_snapshot(symbol))
         frame = pd.read_parquet(path)
         row = _manifest_row(panel_id, symbol, "1day", asset_class, "Yahoo Finance adjusted", path, frame)
         row["name"] = name
         manifest_rows.append(row)
 
     manifest = pd.DataFrame(manifest_rows).sort_values(["asset_class", "symbol", "timeframe"])
-    manifest.to_csv(DATA_DIR / "manifest.csv", index=False)
+    manifest.to_csv(HERE / "manifest.csv", index=False)
     return manifest
 
 
@@ -201,7 +214,7 @@ def _manifest_row(
         "bars": len(frame),
         "start": pd.to_datetime(int(frame["time"].iloc[0]), unit="s", utc=True).isoformat(),
         "end": pd.to_datetime(int(frame["time"].iloc[-1]), unit="s", utc=True).isoformat(),
-        "snapshot": str(path.relative_to(HERE)),
+        "snapshot": str(path.relative_to(REPO)),
     }
 
 
@@ -744,7 +757,7 @@ body_atr = (close[t] - open[t]) / ATR14[t-1]
 
 ## 文件
 
-- `data/manifest.csv`：数据范围与来源。
+- `data/manifest.csv`：数据范围与来源（面板数据归档至仓库根 `data/{stocks,gold,hk_equity,cn_equity,crypto}/`）。
 - `results/all_metrics.csv`：每个品种、周期、MA、参数、样本和执行口径的完整结果。
 - `results/development_summary.csv` / `holdout_summary.csv`：汇总结果。
 - `results/development_scores.csv` / `holdout_scores.csv`：稳健排名。
@@ -769,7 +782,6 @@ def main() -> None:
     parser.add_argument("--refresh-data", action="store_true", help="refresh remote/local snapshots")
     args = parser.parse_args()
 
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     config = {
         "atr_len": ATR_LEN,

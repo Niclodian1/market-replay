@@ -4,213 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>缠论多级别联动 · BTC/USD · 1D/4H/1H · 全周期买卖点</title>
-<style>
-  :root[data-theme="dark"] {
-    --surface: #1a1a19;
-    --plane:   #0d0d0d;
-    --ink:     #ffffff;
-    --ink-2:   #c3c2b7;
-    --muted:   #898781;
-    --grid:    #2c2c2a;
-    --border:  #383835;
-    --up:      #0ca30c;
-    --down:    #e66767;
-    --top:     #9085e9;
-    --bottom:  #3987e5;
-    --seg-up:  #199e70;
-    --seg-down:#d95926;
-    --buy1:    #d55181;
-    --buy2:    #008300;
-    --buy3:    #c98500;
-    --sell1:   #0094a6;
-    --sell2:   #e5484d;
-    --sell3:   #9c5fff;
-    --fast-alert: #ad7a00;
-    --fast-buy:   #0f9d5c;
-    --fast-sell:  #e85f2a;
-    --pivot-fill: rgba(255,255,255,0.07);
-    --pivot-edge: rgba(255,255,255,0.30);
-  }
-  :root[data-theme="light"] {
-    --surface: #fcfcfb;
-    --plane:   #f9f9f7;
-    --ink:     #0b0b0b;
-    --ink-2:   #52514e;
-    --muted:   #898781;
-    --grid:    #e1e0d9;
-    --border:  #c3c2b7;
-    --up:      #008300;
-    --down:    #e34948;
-    --top:     #4a3aa7;
-    --bottom:  #2a78d6;
-    --seg-up:  #1baf7a;
-    --seg-down:#eb6834;
-    --buy1:    #e87ba4;
-    --buy2:    #008300;
-    --buy3:    #eda100;
-    --sell1:   #007a9e;
-    --sell2:   #c03028;
-    --sell3:   #7a3fe0;
-    --fast-alert: #b07a00;
-    --fast-buy:   #00845f;
-    --fast-sell:  #d95400;
-    --pivot-fill: rgba(11,11,11,0.06);
-    --pivot-edge: rgba(11,11,11,0.30);
-  }
-
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: var(--plane);
-    color: var(--ink);
-    font-size: 13px;
-  }
-  #app { display: flex; flex-direction: column; height: 100%; }
-
-  /* ---- 顶部工具条 ---- */
-  .toolbar {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; padding: 10px 16px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex: 0 0 auto; flex-wrap: wrap;
-  }
-  .brand { display: flex; align-items: baseline; gap: 10px; }
-  .brand-title { font-size: 15px; font-weight: 600; letter-spacing: .5px; }
-  .brand-sub {
-    font-size: 11px; color: var(--muted);
-    font-variant-numeric: tabular-nums;
-    border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px;
-  }
-  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .controls-label { font-size: 11px; color: var(--muted); }
-
-  .seg { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-  .seg button {
-    background: transparent; color: var(--ink-2); border: none;
-    padding: 5px 11px; font-size: 12px; cursor: pointer; font-family: inherit;
-  }
-  .seg button.active { background: var(--ink); color: var(--surface); font-weight: 600; }
-  .btn {
-    background: transparent; color: var(--ink-2);
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
-  }
-  .btn:hover { border-color: var(--muted); color: var(--ink); }
-
-  /* ---- 主布局 ---- */
-  .layout { display: flex; flex: 1 1 auto; min-height: 0; }
-
-  .chart-pane { flex: 1 1 auto; min-width: 0; padding: 10px; display: flex; }
-  .chart-box {
-    position: relative; flex: 1; min-height: 0;
-    display: flex; flex-direction: column;
-    background: var(--surface);
-    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
-  }
-  #chart { flex: 1 1 auto; min-height: 0; }
-  #volume { height: 90px; flex: 0 0 auto; border-top: 1px solid var(--border); }
-  #macd   { height: 100px; flex: 0 0 auto; border-top: 1px solid var(--border); }
-
-  /* ---- 图例覆盖层 ---- */
-  .legend {
-    position: absolute; top: 8px; left: 10px; z-index: 5;
-    display: flex; align-items: center; gap: 10px;
-    padding: 4px 8px; border-radius: 6px;
-    background: color-mix(in srgb, var(--surface) 82%, transparent);
-    border: 1px solid var(--border);
-    font-size: 11px; font-variant-numeric: tabular-nums;
-    pointer-events: none;
-  }
-  .legend-symbol { font-weight: 600; }
-  .legend-date { color: var(--muted); }
-  .legend-ohlc { color: var(--ink-2); }
-  .legend-chg { font-weight: 600; }
-
-  .marker-tip {
-    position: absolute; top: 8px; right: 10px; z-index: 5;
-    display: none; padding: 4px 8px; border-radius: 6px;
-    background: color-mix(in srgb, var(--surface) 82%, transparent);
-    border: 1px solid var(--border);
-    font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
-    pointer-events: none;
-  }
-
-  /* ---- 右侧面板 ---- */
-  .side {
-    flex: 0 0 340px; min-width: 0;
-    padding: 10px 12px 10px 0;
-    overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
-  }
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border); border-radius: 8px;
-    padding: 12px 14px;
-  }
-  .card h3 {
-    margin: 0 0 10px; font-size: 12px; font-weight: 600;
-    color: var(--muted); letter-spacing: 1px; text-transform: uppercase;
-  }
-  .legend-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: var(--ink-2); }
-  .swatch { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
-  .swatch.up    { background: var(--up); }
-  .swatch.down  { background: var(--down); }
-  .swatch.top   { background: var(--top); clip-path: polygon(50% 0, 0 100%, 100% 100%); }
-  .swatch.bottom{ background: var(--bottom); clip-path: polygon(0 0, 100% 0, 50% 100%); }
-  .swatch.stroke{ background: var(--muted); }
-  .swatch.seg-up   { background: var(--seg-up); }
-  .swatch.seg-down { background: var(--seg-down); }
-  .swatch.pivot { background: var(--pivot-edge); border: 1px solid var(--border); }
-  .swatch.b1 { background: var(--buy1); border-radius: 50%; }
-  .swatch.b2 { background: var(--buy2); border-radius: 50%; }
-  .swatch.b3 { background: var(--buy3); border-radius: 50%; }
-  .swatch.s1 { background: var(--sell1); }
-  .swatch.s2 { background: var(--sell2); }
-  .swatch.s3 { background: var(--sell3); }
-  .swatch.fa { background: var(--fast-alert); border-radius: 50%; }
-  .swatch.fb { background: var(--fast-buy); border-radius: 50%; }
-  .swatch.fs { background: var(--fast-sell); border-radius: 50%; }
-
-  .stat-grid { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; }
-  .stat-grid .k { color: var(--muted); }
-  .stat-grid .v { color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
-  .stat-grid .v strong { color: var(--ink); font-weight: 600; }
-
-  .algo-card ol { margin: 0; padding-left: 18px; color: var(--ink-2); line-height: 1.65; }
-  .algo-card li { margin-bottom: 6px; }
-  .algo-card code { background: var(--grid); padding: 0 4px; border-radius: 3px; font-size: 11px; }
-  .note { color: var(--muted); font-size: 11px; line-height: 1.6; margin-top: 6px; }
-
-  /* ---- 买卖点列表 ---- */
-  .buy-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
-  .buy-group { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; font-size: 11px; font-weight: 600; }
-  .buy-group:first-child { margin-top: 0; }
-  .buy-count { color: var(--muted); font-weight: 400; }
-  .buy-row {
-    display: flex; justify-content: space-between; align-items: baseline;
-    padding: 2px 6px; border-radius: 4px; cursor: pointer;
-    color: var(--ink-2); font-variant-numeric: tabular-nums;
-  }
-  .buy-row:hover { background: var(--grid); color: var(--ink); }
-  .buy-date { font-size: 11px; }
-  .buy-price { font-size: 11px; font-weight: 600; }
-
-  .buy-detail {
-    margin-top: 8px; padding: 8px 10px; border-radius: 6px;
-    background: var(--plane); border: 1px solid var(--border);
-    font-size: 11px; line-height: 1.7; color: var(--ink-2);
-    word-break: break-all;
-  }
-  .buy-detail .dk { font-weight: 600; font-size: 12px; margin-bottom: 4px; }
-  .buy-detail .dsub { color: var(--muted); margin-top: 3px; }
-
-  @media (max-width: 900px) {
-    .layout { flex-direction: column; }
-    .side { flex: 0 0 auto; width: 100%; flex-direction: row; flex-wrap: wrap; padding: 0 10px 10px; }
-    .side .card { flex: 1 1 260px; }
-  }
-</style>
+  <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
 <div id="app">
@@ -218,41 +12,128 @@
     <div class="brand">
       <span class="brand-title">缠论多级别联动</span>
       <span class="brand-sub" id="symbolBadge">BTC/USD · 1D</span>
+      <select id="symSelect" class="sym-select" title="切换品种">
+        <option value="BTC" selected>BTC · 比特币</option>
+        <option value="ETH">ETH · 以太坊</option>
+        <option value="SOL">SOL · Solana</option>
+        <option value="PEPE">PEPE · Pepe</option>
+        <option value="HYPE">HYPE · Hyperliquid</option>
+        <option value="XAUUSD">XAUUSD · 现货黄金</option>
+        <option value="XAGUSD">XAGUSD · 现货白银</option>
+        <option value="AAPL">AAPL · 苹果</option>
+        <option value="MSFT">MSFT · 微软</option>
+        <option value="NVDA">NVDA · 英伟达</option>
+        <option value="GOOGL">GOOGL · 谷歌</option>
+        <option value="META">META · Meta</option>
+        <option value="TSLA">TSLA · 特斯拉</option>
+        <option value="AMZN">AMZN · 亚马逊</option>
+        <option value="BRK_B">BRK.B · 伯克希尔</option>
+        <option value="JPM">JPM · 摩根大通</option>
+        <option value="PLTR">PLTR · Palantir</option>
+        <option value="COIN">COIN · Coinbase</option>
+        <option value="AVGO">AVGO · 博通</option>
+        <option value="MU">MU · 美光</option>
+        <option value="WMT">WMT · 沃尔玛</option>
+        <option value="AMD">AMD · 超威半导体</option>
+        <option value="NFLX">NFLX · 奈飞</option>
+        <option value="0700_HK">0700.HK · 腾讯</option>
+        <option value="9988_HK">9988.HK · 阿里巴巴</option>
+        <option value="600519_SS">600519.SS · 贵州茅台</option>
+        <option value="002460_SZ">002460.SZ · 赣锋锂业</option>
+        <option value="300750_SZ">300750.SZ · 宁德时代</option>
+        <option value="600900_SS">600900.SS · 长江电力</option>
+        <option value="000333_SZ">000333.SZ · 美的集团</option>
+        <option value="603259_SS">603259.SS · 药明康德</option>
+        <option value="300033_SZ">300033.SZ · 同花顺</option>
+      </select>
     </div>
     <div class="controls">
-      <span class="controls-label">周期</span>
-      <div class="seg" id="tfToggle">
-        <button data-tf="1D" class="active">1D</button>
-        <button data-tf="4H">4H</button>
-        <button data-tf="1H">1H</button>
-      </div>
+      <span id="tfWrap" style="display:inline-flex; align-items:center; gap:8px;">
+        <span class="controls-label">周期</span>
+        <div class="seg" id="tfToggle">
+          <button data-tf="1D" class="active">1D</button>
+          <button data-tf="4H">4H</button>
+          <button data-tf="1H">1H</button>
+        </div>
+      </span>
       <span class="controls-label">中枢</span>
       <div class="seg" id="pivotToggle">
         <button data-mode="seg" class="active">线段中枢</button>
         <button data-mode="stroke">笔中枢</button>
       </div>
+      <span class="controls-label" title="笔的成笔口径; 线段/中枢/买卖点均随该口径整链切换(双口径各自成链)">笔口径</span>
+      <div class="seg" id="stdToggle">
+        <button data-std="new" class="active">新笔</button>
+        <button data-std="old" title="老笔口径(间隔≥1根合并K、无价格条件): 其线段/中枢/买卖点为同一口径独立推导, 与新笔链互不混用">老笔</button>
+      </div>
+      <span class="controls-label">回测</span>
+      <div class="seg" id="tradeModeToggle">
+        <button data-tmode="stroke" class="active">笔级</button>
+        <button data-tmode="segment">线段级</button>
+      </div>
       <span class="controls-label">图层</span>
       <div class="seg" id="layerToggle">
+        <button data-layer="fractals">分型</button>
         <button data-layer="strokes">笔</button>
         <button data-layer="segments">线段</button>
-        <button data-layer="pivots" class="active">中枢</button>
-        <button data-layer="buys" class="active">买点</button>
-        <button data-layer="sells" class="active">卖点</button>
-        <button data-layer="fast">抢先</button>
+        <button data-layer="pivots">中枢</button>
+        <button data-layer="buys">买点</button>
+        <button data-layer="sells">卖点</button>
+        <button data-layer="trades">交易</button>
+        <button data-layer="fast" title="抢先背驰买卖点: 跟随中枢模式 — 线段中枢模式显示线段级, 笔中枢模式显示笔级">抢先</button>
       </div>
       <div class="seg" id="viewToggle">
         <button data-view="raw" class="active">原始K线</button>
         <button data-view="merged">合并K线</button>
       </div>
+      <span class="controls-label">复盘</span>
+      <div class="seg" id="replayToggle">
+        <button id="replayBtn">进入复盘</button>
+      </div>
+      <div id="replayCtl" style="display:none; align-items:center; gap:6px;">
+        <input type="date" id="replayDate" style="background:var(--panel,#161616); color:inherit; border:1px solid rgba(128,128,128,.4); border-radius:6px; padding:4px 6px; font:inherit;">
+        <button class="btn" id="replayGo">定位</button>
+        <button class="btn" id="replayPrev">◀</button>
+        <button class="btn" id="replayPlay">▶ 播放</button>
+        <button class="btn" id="replayNext">▶|</button>
+        <button class="btn" id="replayExit">退出</button>
+        <span id="replayInfo" style="font-size:12px; opacity:.7;"></span>
+      </div>
+      <span class="controls-label">练习</span>
+      <div class="seg" id="trainerToggle">
+        <button id="trainerBtn">开始练习</button>
+      </div>
+      <div id="trainerCtl" style="display:none; align-items:center; gap:6px;">
+        <span class="btn" id="trainerProgress" title="已走根数/步数上限 · 本局已平仓笔数" style="cursor:default; font-variant-numeric:tabular-nums;">0/200</span>
+        <button class="btn" id="trainerNext" title="快捷键 → 或空格">▶ 下一根</button>
+        <button class="btn" id="trainerReveal">揭示答案</button>
+        <button class="btn" id="trainerQuit">放弃</button>
+        <button class="btn" id="trainerEnd" style="display:none;">✕ 结束</button>
+        <button class="btn" id="trainerAgain" style="display:none;">🔄 再来一局</button>
+      </div>
       <button class="btn" id="fitBtn">适应</button>
+      <span class="controls-label">画线</span>
+      <div class="seg" id="drawToggle">
+        <button data-tool="none" class="active">关</button>
+        <button data-tool="trend" title="点击两个点画趋势线">趋势线</button>
+        <button data-tool="sandr" title="点击一个价位画水平支撑/阻力线">支撑阻力</button>
+      </div>
+      <button class="btn" id="drawClear" title="清除全部手绘线条">清线</button>
+      <button class="btn" id="fsBtn">⛶ 全屏</button>
+      <span class="controls-label">MA</span>
+      <input id="maPeriods" value="20,60" title="均线周期, 逗号分隔(最多6条), 留空隐藏。例: 5,10,20,60"
+             style="width:90px; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:6px; padding:4px 6px; font:inherit; font-size:12px;">
+      <button class="btn" id="maOffBtn" title="隐藏/恢复均线">关闭</button>
+      <button class="btn" id="snapshotBtn">📷 快照</button>
       <button class="btn" id="themeBtn">☀️ 浅色</button>
+      <button class="btn" id="sideToggleBtn" title="收起/展开右侧面板">⇱ 侧栏</button>
     </div>
   </header>
 
   <main class="layout">
     <section class="chart-pane">
       <div class="chart-box">
-        <div id="chart"></div>
+        <div id="chart" title="按住 Shift 单击锚定起点后松开, 移动鼠标实时测量两点波动距离(Δ价格/波幅%/K线数/时间跨度); 再按 Shift+单击固定终点; 单击或 Esc 清除"></div>
         <div id="volume"></div>
         <div id="macd"></div>
         <div class="legend">
@@ -262,40 +143,100 @@
           <span class="legend-chg" id="legendChg"></span>
         </div>
         <div class="marker-tip" id="markerTip"></div>
+        <div id="trainerBanner"></div>
+        <div id="trainerConfig">
+          <div style="font-weight:700; font-size:14px; text-align:center;">练习设置</div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="width:36px; color:var(--muted);" title="不选=随机">品种</span>
+            <select id="trSymSel" style="flex:1; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:6px; padding:5px 8px; font:inherit;">
+              <option value="">随机</option>
+            </select>
+            <span style="color:var(--muted); font-size:11px;">与市场互斥</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="width:36px; color:var(--muted);">市场</span>
+            <select id="trMktSel" style="flex:1; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:6px; padding:5px 8px; font:inherit;">
+              <option value="">随机</option>
+              <option value="加密">加密</option><option value="美股">美股</option><option value="A股">A股</option>
+              <option value="港股">港股</option><option value="贵金属">贵金属</option>
+            </select>
+            <span style="color:var(--muted); font-size:11px;">留空=全市场</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="width:36px; color:var(--muted);">级别</span>
+            <select id="trTfSel" style="flex:1; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:6px; padding:5px 8px; font:inherit;">
+              <option value="">随机</option>
+              <option value="1D">1D</option><option value="4H">4H</option><option value="1H">1H</option>
+              <option value="15F">15F</option>
+            </select>
+            <span style="color:var(--muted); font-size:11px;">分钟级仅加密</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="width:36px; color:var(--muted);">步数</span>
+            <input type="number" id="trStepsInput" value="200" min="20" max="500" style="background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:6px; padding:5px 8px; font:inherit; width:90px;">
+            <span style="color:var(--muted); font-size:11px;">走满自动揭示</span>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:4px; justify-content:center;">
+            <button class="btn" id="trCfgStart" style="font-weight:700;">▶ 开始练习</button>
+            <button class="btn" id="trCfgCancel">取消</button>
+          </div>
+        </div>
       </div>
     </section>
 
     <aside class="side">
       <section class="card">
-        <h3>图例</h3>
-        <div class="legend-row"><span class="swatch up"></span>阳线 (上涨)</div>
-        <div class="legend-row"><span class="swatch down"></span>阴线 (下跌)</div>
-        <div class="legend-row"><span class="swatch top"></span>▼ 顶分型 (局部高点)</div>
-        <div class="legend-row"><span class="swatch bottom"></span>▲ 底分型 (局部低点)</div>
-        <div class="legend-row"><span class="swatch stroke"></span>— 笔 (新笔标准)</div>
-        <div class="legend-row"><span class="swatch seg-up"></span>— 线段 · 向上</div>
-        <div class="legend-row"><span class="swatch seg-down"></span>— 线段 · 向下</div>
-        <div class="legend-row"><span class="swatch pivot"></span>▦ 中枢 (ZD~ZG 区间)</div>
-        <div class="legend-row"><span class="swatch b1"></span>● 一买 (趋势背驰)</div>
-        <div class="legend-row"><span class="swatch b2"></span>● 二买 (回调不破)</div>
-        <div class="legend-row"><span class="swatch b3"></span>● 三买 (回抽不回中枢)</div>
-        <div class="legend-row"><span class="swatch s1"></span>■ 一卖 (顶背驰)</div>
-        <div class="legend-row"><span class="swatch s2"></span>■ 二卖 (反弹不创新高)</div>
-        <div class="legend-row"><span class="swatch s3"></span>■ 三卖 (回抽不回中枢·下)</div>
-        <div class="legend-row"><span class="swatch fa"></span>⚠ 告警 (潜在背驰)</div>
-        <div class="legend-row"><span class="swatch fb"></span>⚡ 背驰买点 (抢先入场)</div>
-        <div class="legend-row"><span class="swatch fs"></span>⚡ 背驰卖点 (抢先入场)</div>
+        <h3>复盘交易 <span style="text-transform:none;font-weight:400" id="journalMode"></span></h3>
+        <div id="journalForm" style="display:flex; flex-direction:column; gap:6px; font-size:12px;">
+          <div style="display:flex; gap:6px;">
+            <label style="flex:1">保证金U<input type="number" id="jCapital" value="100000" min="1" title="从账户本金中划扣, 平仓时释放并结算盈亏; 账户初始 100,000U" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"></label>
+            <label style="flex:1">杠杆倍数<input type="number" id="jLeverage" value="10" min="1" max="125" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"></label>
+            <label style="flex:1">方向<select id="jSide" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"><option value="多">做多</option><option value="空">做空</option></select></label>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <label style="flex:2">开仓价(默认当前收盘)<input type="number" id="jEntry" placeholder="留空=当前价" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"></label>
+            <label style="flex:2">止损价(可选)<input type="number" id="jStop" placeholder="留空=不止损" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"></label>
+          </div>
+          <label>开单逻辑 / 信号依据 (必填)<textarea id="jLogic" rows="2" placeholder="例: 4H一买·段确认+次级别盘整背驰共振, 回抽不破前低" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font:inherit;"></textarea></label>
+          <button class="btn" id="jOpen" style="align-self:flex-start;">开单(按当前K线)</button>
+        </div>
+        <div id="jPositions"></div>
+        <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
+          <button class="btn" id="jExport">导出 CSV</button>
+          <button class="btn" id="jClear">清空</button>
+          <span id="jSummary" style="font-size:11.5px; opacity:.75;"></span>
+        </div>
+        <p class="note">仅在<b>复盘模式</b>下可用。账户制：每模式独立本金 <b>100,000U</b>（localStorage 持久化），开仓占用保证金、平仓结算盈亏；<b>可同时持有多笔</b>不同方向的仓位，各自独立止损/加仓/平仓。<b>平仓支持比例%</b>（部分落袋）。单笔亏损≥其保证金自动离场；<b>账户净值≤0 即爆仓</b>——练习强制结束、复盘重置本金。盈利加仓只能用本笔浮盈。逻辑必填——沉淀你自己的开仓/加仓/离场规则→结果数据集。</p>
+      </section>
+
+      <section class="card" id="statsCard">
+        <h3>统计</h3>
+        <div class="stat-grid" id="statsGrid"></div>
       </section>
 
       <section class="card">
-        <h3>统计</h3>
-        <div class="stat-grid" id="statsGrid"></div>
+        <h3>练习战绩 <span style="text-transform:none;font-weight:400" id="trStatMode"></span></h3>
+        <div class="trade-stats" id="trStatsGrid"></div>
+        <div id="trPerSym" style="font-size:11px; color:var(--muted); line-height:1.9;"></div>
+        <div style="font-size:11px; font-weight:600; margin-top:8px; color:var(--ink-2);">历史练习（点击展开逐笔明细）</div>
+        <div id="trHistory"></div>
+        <div style="display:flex; gap:6px; margin-top:8px;">
+          <button class="btn" id="trStatsClear">清零战绩</button>
+        </div>
       </section>
 
       <section class="card">
         <h3>买卖点 <span style="text-transform:none;font-weight:400" id="tradeListMode"></span></h3>
         <div class="buy-list" id="tradeList"></div>
         <div class="buy-detail" id="tradeDetail" style="display:none"></div>
+      </section>
+
+      <section class="card">
+        <h3>回测交易 <span style="text-transform:none;font-weight:400" id="tradePanelMode"></span></h3>
+        <div class="trade-stats" id="tradeStats"></div>
+        <div class="trade-list" id="backtestTradeList"></div>
+        <div class="trade-detail" id="tradeDetailBox" style="display:none"></div>
+        <p class="note">入场=买点确认根收盘价, 止损=买点最低价, 出场=卖点收盘/止损/期末强平。图上 ● 入场→■ 出场连线: 绿=盈利 红=亏损, 虚线=止损离场。点击行定位该笔交易的入场与出场位置。</p>
       </section>
 
       <section class="card algo-card">
@@ -309,6 +250,7 @@
           <li><b>三类买点/卖点</b> — <b style="color:var(--buy1)">一买</b>：下跌趋势末中枢向下离开段趋势背驰；<b style="color:var(--buy2)">二买</b>：一买后回调不破低；<b style="color:var(--buy3)">三买</b>：向上离开后回抽不回中枢（低点≥ZG）。<b style="color:var(--sell1)">一卖</b>等三卖与之对称。</li>
           <li><b>抢先背驰（实盘抢先层）</b> — 每个买卖点带 <b>最早可确认时间</b>（MACD 面积在极值收盘即定型，前 1~3 根可判定）。<span style="color:var(--fast-alert)">⚠ 告警</span>：创新低/新高的当前段，运行面积已达参考A的一定比例但仍&lt;0.9A（潜在背驰）；<span style="color:var(--fast-buy)">⚡ 背驰买/卖点</span>：告警之后首个触发——MACD柱首次不再扩大 或 端点分型确认（若面积在触发前重上0.9A则背驰消失不入场）。</li>
           <li><b>多级别联动</b> — 1D/4H/1H 各自独立跑完整链路；按原文"大级别背驰必由次级别背驰引发"，对每个买卖点给出 <b>次级别确认</b>（次级别同向一买/一卖时间窗内命中）与 <b>上级别语境</b>（是否落在上级别中枢区间）。点击列表行查看每个买卖点的<b>产生说明</b>。</li>
+          <li><b>回测交易层</b> — backtest.py 规则落地为逐笔交易：买点确认根收盘入场、买点最低价止损、卖点确认根收盘离场（数据末端强平）。工具条切换 <b>笔级/线段级</b>，面板显示胜率/PF/复利统计与逐笔清单，点击行定位入场→出场区间。口径已定稿：A段=进入段（原文口径，回测验证优于 strongest），中枢延伸=重叠口径（回拉延伸经回测证伪已移除）。</li>
         </ol>
         <p class="note">MACD 面板展示 DIF/DEA 与红绿柱，直观印证背驰。三周期、两套中枢、原始/合并均可切换。</p>
       </section>
@@ -323,646 +265,15 @@
 
 <script src="lightweight-charts.standalone.production.js"></script>
 <script src="data.js"></script>
-<script>
-"use strict";
-const DATA = window.MARKET_DATA;
-const QP = new URLSearchParams(location.search);
-
-const THEMES = {
-  dark:  { surface:'#1a1a19', plane:'#0d0d0d', ink:'#ffffff', ink2:'#c3c2b7', muted:'#898781', grid:'#2c2c2a', border:'#383835', up:'#0ca30c', down:'#e66767', top:'#9085e9', bottom:'#3987e5', segUp:'#199e70', segDown:'#d95926' },
-  light: { surface:'#fcfcfb', plane:'#f9f9f7', ink:'#0b0b0b', ink2:'#52514e', muted:'#898781', grid:'#e1e0d9', border:'#c3c2b7', up:'#008300', down:'#e34948', top:'#4a3aa7', bottom:'#2a78d6', segUp:'#1baf7a', segDown:'#eb6834' },
-};
-const BUY_COLORS = {
-  dark:  { b1:'#d55181', b2:'#008300', b3:'#c98500' },
-  light: { b1:'#e87ba4', b2:'#008300', b3:'#eda100' },
-};
-const SELL_COLORS = {
-  dark:  { s1:'#0094a6', s2:'#e5484d', s3:'#9c5fff' },
-  light: { s1:'#007a9e', s2:'#c03028', s3:'#7a3fe0' },
-};
-const FAST_COLORS = {
-  dark:  { alert:'#ad7a00', buy:'#0f9d5c', sell:'#e85f2a' },
-  light: { alert:'#b07a00', buy:'#00845f', sell:'#d95400' },
-};
-const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "PingFang SC", sans-serif';
-const t = () => THEMES[document.documentElement.dataset.theme];
-const themeKey = () => document.documentElement.dataset.theme;
-
-// ---- 状态 ----
-let activeTF = '1D';
-let activeView = 'raw';
-let pivotMode = 'seg';            // 'seg' 线段中枢 | 'stroke' 笔中枢
-const layers = { strokes:false, segments:false, pivots:true, buys:true, sells:true, fast:false };
-let idxMap, markerMap;
-
-// ---- 时间格式化(UTC, 与数据一致) ----
-const p2 = n => String(n).padStart(2,'0');
-function fmtTime(ts){
-  if (ts == null) return '—';
-  const d = new Date(ts * 1000);
-  if (activeTF === '1D') return `${d.getUTCFullYear()}-${p2(d.getUTCMonth()+1)}-${p2(d.getUTCDate())}`;
-  return `${d.getUTCFullYear()}-${p2(d.getUTCMonth()+1)}-${p2(d.getUTCDate())} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
-}
-
-// ---- 数据访问器 ----
-const L = () => DATA.levels[activeTF];
-function candlesFor(v){ return (v === 'raw' ? L().candles : L().mergedCandles).map(c => ({ time:c[0], open:c[1], high:c[2], low:c[3], close:c[4] })); }
-function volArrFor(v){ return v === 'raw' ? L().volume : L().mergedVolume; }
-function topMarks(v){ return v === 'raw' ? L().topMarkers : L().topMergedMarkers; }
-function botMarks(v){ return v === 'raw' ? L().bottomMarkers : L().bottomMergedMarkers; }
-function strokesFor(v){ return v === 'raw' ? L().strokesRaw : L().strokesMerged; }
-function segmentsFor(v){ return v === 'raw' ? L().segmentsRaw : L().segmentsMerged; }
-function pivotsFor(v, m){
-  return m === 'seg'
-    ? (v === 'raw' ? L().pivotsSegmentRaw : L().pivotsSegmentMerged)
-    : (v === 'raw' ? L().pivotsStrokeRaw : L().pivotsStrokeMerged);
-}
-function buysFor(v, m){
-  return m === 'seg'
-    ? (v === 'raw' ? L().buyPointsSegmentRaw : L().buyPointsSegmentMerged)
-    : (v === 'raw' ? L().buyPointsStrokeRaw : L().buyPointsStrokeMerged);
-}
-function sellsFor(v, m){
-  return m === 'seg'
-    ? (v === 'raw' ? L().sellPointsSegmentRaw : L().sellPointsSegmentMerged)
-    : (v === 'raw' ? L().sellPointsStrokeRaw : L().sellPointsStrokeMerged);
-}
-function alertsFor(v){ return v === 'raw' ? L().beichiAlertsRaw : L().beichiAlertsMerged; }
-function fastFor(v){ return v === 'raw' ? L().beichiPointsRaw : L().beichiPointsMerged; }
-function macdFor(v){
-  return v === 'raw'
-    ? { diff:L().macdDiff, dea:L().macdDea, hist:L().macdHist }
-    : { diff:L().macdMergedDiff, dea:L().macdMergedDea, hist:L().macdMergedHist };
-}
-const kindColor = k => {
-  const th = themeKey();
-  if (k === '一买') return BUY_COLORS[th].b1;
-  if (k === '二买') return BUY_COLORS[th].b2;
-  if (k === '三买') return BUY_COLORS[th].b3;
-  if (k === '一卖') return SELL_COLORS[th].s1;
-  if (k === '二卖') return SELL_COLORS[th].s2;
-  if (k === '告警') return FAST_COLORS[th].alert;
-  if (k === '背驰买') return FAST_COLORS[th].buy;
-  if (k === '背驰卖') return FAST_COLORS[th].sell;
-  return SELL_COLORS[th].s3;
-};
-
-// ---- 主图 ----
-function chartOptions(){
-  const T = t();
-  return {
-    layout: {
-      background: { type: LightweightCharts.ColorType.Solid, color: T.surface },
-      textColor: T.ink2, fontSize: 11, fontFamily: FONT, attributionLogo: false,
-      localization: { timeFormatter: fmtTime },
-    },
-    grid: { vertLines: { color: T.grid }, horzLines: { color: T.grid } },
-    crosshair: {
-      mode: LightweightCharts.CrosshairMode.Normal,
-      vertLine: { color: T.border, lineStyle: LightweightCharts.LineStyle.Dashed, labelBackgroundColor: T.ink2, labelTextColor: T.surface },
-      horzLine: { color: T.border, labelBackgroundColor: T.ink2, labelTextColor: T.surface },
-    },
-    rightPriceScale: { borderColor: T.border },
-    timeScale: { borderColor: T.border, timeVisible: activeTF !== '1D', secondsVisible: false, rightOffset: 3 },
-    autoSize: true,
-  };
-}
-
-const chart = LightweightCharts.createChart(document.getElementById('chart'), chartOptions());
-const candleSeries = chart.addCandlestickSeries({
-  upColor: t().up, downColor: t().down,
-  borderUpColor: t().up, borderDownColor: t().down,
-  wickUpColor: t().up, wickDownColor: t().down,
-});
-
-// ---- 成交量面板 ----
-const volumeChart = LightweightCharts.createChart(document.getElementById('volume'), {
-  ...chartOptions(),
-  grid: { vertLines: { visible: false }, horzLines: { color: t().grid } },
-  timeScale: { ...chartOptions().timeScale, visible: false },
-});
-const volumeSeries = volumeChart.addHistogramSeries({
-  priceFormat: { type: 'volume' }, priceScaleId: '',
-  lastValueVisible: false, priceLineVisible: false,
-});
-volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.12, bottom: 0.04 } });
-
-// ---- MACD 面板 ----
-const macdChart = LightweightCharts.createChart(document.getElementById('macd'), {
-  ...chartOptions(),
-  grid: { vertLines: { visible: false }, horzLines: { color: t().grid } },
-  timeScale: { ...chartOptions().timeScale, visible: false },
-});
-const macdHistSeries = macdChart.addHistogramSeries({
-  priceScaleId: '', lastValueVisible: false, priceLineVisible: false,
-});
-const macdLineSeries = macdChart.addLineSeries({
-  color: t().ink2, lineWidth: 1, priceScaleId: '',
-  lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
-});
-const macdSignalSeries = macdChart.addLineSeries({
-  color: t().muted, lineWidth: 1, priceScaleId: '',
-  lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
-});
-macdHistSeries.priceScale().applyOptions({ scaleMargins: { top: 0.25, bottom: 0.05 } });
-
-// ---- 三面板时间轴同步 ----
-const syncAll = r => {
-  if (!r) return;
-  chart.timeScale().setVisibleLogicalRange(r);
-  volumeChart.timeScale().setVisibleLogicalRange(r);
-  macdChart.timeScale().setVisibleLogicalRange(r);
-};
-chart.timeScale().subscribeVisibleLogicalRangeChange(syncAll);
-volumeChart.timeScale().subscribeVisibleLogicalRangeChange(syncAll);
-macdChart.timeScale().subscribeVisibleLogicalRangeChange(syncAll);
-
-// ---- 笔/线段/中枢 overlay primitive ----
-function getLayerData(){
-  const th = themeKey();
-  return {
-    strokes:  layers.strokes  ? strokesFor(activeView)  : null,
-    segments: layers.segments ? segmentsFor(activeView) : null,
-    pivots:   layers.pivots   ? pivotsFor(activeView, pivotMode) : null,
-    segUp:   th === 'dark' ? '#199e70' : '#1baf7a',
-    segDown: th === 'dark' ? '#d95926' : '#eb6834',
-    strokeColor: 'rgba(137,135,129,0.5)',
-    pivotFill: th === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(11,11,11,0.06)',
-    pivotEdge: th === 'dark' ? 'rgba(255,255,255,0.30)' : 'rgba(11,11,11,0.30)',
-  };
-}
-class ChanOverlayRenderer {
-  constructor(prim){ this._prim = prim; }
-  draw(target){
-    const Ld = getLayerData();
-    if (!Ld) return;
-    const series = this._prim._series;
-    const timeScale = this._prim._chart.timeScale();
-    // v4.2: useMediaCoordinateSpace 回调式; priceToCoordinate 在 series 上
-    target.useMediaCoordinateSpace(scope => {
-      const ctx = scope.context;
-      ctx.lineCap = 'round';
-      const X = t => timeScale.timeToCoordinate(t);
-      const Y = p => series.priceToCoordinate(p);
-
-      if (Ld.strokes && Ld.strokes.length){
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = Ld.strokeColor;
-        ctx.setLineDash([2,3]);
-        for (const s of Ld.strokes){
-          const x1 = X(s[0]), y1 = Y(s[1]);
-          const x2 = X(s[2]), y2 = Y(s[3]);
-          if (x1 == null || x2 == null || y1 == null || y2 == null) continue;
-          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-        }
-        ctx.setLineDash([]);
-      }
-      if (Ld.segments && Ld.segments.length){
-        ctx.lineWidth = 2.5;
-        for (const s of Ld.segments){
-          ctx.strokeStyle = s[4] === 1 ? Ld.segUp : Ld.segDown;
-          const x1 = X(s[0]), y1 = Y(s[1]);
-          const x2 = X(s[2]), y2 = Y(s[3]);
-          if (x1 == null || x2 == null || y1 == null || y2 == null) continue;
-          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-        }
-      }
-      if (Ld.pivots && Ld.pivots.length){
-        ctx.lineWidth = 1;
-        for (const p of Ld.pivots){
-          const x1 = X(p[0]), x2 = X(p[1]);
-          const yz = Y(p[3]);   // ZG
-          const yd = Y(p[2]);   // ZD
-          if (x1 == null || x2 == null || yz == null || yd == null) continue;
-          const X0 = Math.min(x1, x2), W = Math.abs(x2 - x1);
-          ctx.fillStyle = Ld.pivotFill;
-          ctx.fillRect(X0, Math.min(yz, yd), W, Math.abs(yd - yz));
-          ctx.strokeStyle = Ld.pivotEdge;
-          ctx.setLineDash([3,3]);
-          ctx.beginPath(); ctx.moveTo(X0, yz); ctx.lineTo(X0 + W, yz); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(X0, yd); ctx.lineTo(X0 + W, yd); ctx.stroke();
-          ctx.setLineDash([]);
-        }
-      }
-    });
-  }
-}
-class ChanOverlayView {
-  constructor(prim){ this._prim = prim; this._renderer = new ChanOverlayRenderer(prim); }
-  update(){}
-  renderer(){ return this._renderer; }
-}
-class ChanOverlayPrimitive {
-  constructor(series, chart){ this._series = series; this._chart = chart; this._view = new ChanOverlayView(this); }
-  updateAllViews(){}
-  paneViews(){ return [this._view]; }
-}
-candleSeries.attachPrimitive(new ChanOverlayPrimitive(candleSeries, chart));
-
-// ---- 三面板纵向虚线联动(十字光标连接 K线/成交量/MACD) ----
-// 各面板右侧价格轴宽度不同会导致同 bar 像素 x 不同, 故每面板用自己 timeScale 算 x;
-// 配合 alignPanes() 收窄量/MACD 面板使时间刻度像素一致, 虚线连续贯穿同 bar。
-let syncT = null;
-class VLineRenderer {
-  constructor(prim){ this._prim = prim; }
-  draw(target){
-    if (syncT == null) return;
-    const x = this._prim._chart.timeScale().timeToCoordinate(syncT);
-    if (x == null) return;
-    target.useMediaCoordinateSpace(scope => {
-      const ctx = scope.context;
-      ctx.save();
-      ctx.lineCap = 'butt';
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = t().muted;
-      ctx.globalAlpha = 0.75;
-      ctx.setLineDash([3, 4]);
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, scope.mediaSize.height);
-      ctx.stroke();
-      ctx.restore();
-    });
-  }
-}
-class VLineView {
-  constructor(prim){ this._prim = prim; this._renderer = new VLineRenderer(prim); }
-  update(){}
-  renderer(){ return this._renderer; }
-}
-class VLinePrimitive {
-  constructor(series, chart){ this._series = series; this._chart = chart; this._view = new VLineView(this); this._req = null; }
-  attached(p){ this._req = p.requestUpdate; }
-  updateAllViews(){}
-  paneViews(){ return [this._view]; }
-}
-const vlineMain = new VLinePrimitive(candleSeries, chart);
-const vlineVolume = new VLinePrimitive(volumeSeries, volumeChart);
-const vlineMacd = new VLinePrimitive(macdHistSeries, macdChart);
-candleSeries.attachPrimitive(vlineMain);
-volumeSeries.attachPrimitive(vlineVolume);
-macdHistSeries.attachPrimitive(vlineMacd);
-const refreshVLine = () => {
-  if (vlineMain._req) vlineMain._req();
-  if (vlineVolume._req) vlineVolume._req();
-  if (vlineMacd._req) vlineMacd._req();
-};
-
-// ---- 标记(分型 + 买点 + 卖点) ----
-function buildMarkers(v){
-  const T = t(), out = [];
-  const sellTimes = new Set();
-  if (layers.sells) sellsFor(v, pivotMode).forEach(x => sellTimes.add(x.t));
-  // 注意: 底分型 ▲ 在 bar 下方(belowBar), 买点 ● 在 bar 上方(aboveBar),
-  //       二者不重叠, 故底分型箭头不再被买点跳过 —— 一买/二买/三买处的
-  //       ▲ 底分型应始终可见(如 2026-06-30 一买 与 ▲ 同 bar 并存)。
-  //       顶分型↔卖点同在上方、真重叠, 仍跳过。
-  // 抢先背驰层开启时, 分型箭头在其时间处让位给 告警/背驰买/背驰卖 标记。
-  const fastTimes = new Set();
-  if (layers.fast){
-    alertsFor(v).forEach(x => fastTimes.add(x.t));
-    fastFor(v).forEach(x => fastTimes.add(x.t));
-  }
-
-  topMarks(v).forEach(x => {
-    if (!sellTimes.has(x.time) && !fastTimes.has(x.time)) out.push({ time:x.time, position:'aboveBar', color:T.top, shape:'arrowDown', text:'', size:1 });
-  });
-  botMarks(v).forEach(x => {
-    if (!fastTimes.has(x.time)) out.push({ time:x.time, position:'belowBar', color:T.bottom, shape:'arrowUp', text:'', size:1 });
-  });
-  if (layers.buys) buysFor(v, pivotMode).forEach(b => {
-    out.push({ time:b.t, position:'aboveBar', color:kindColor(b.k), shape:'circle', text:b.k, size:1 });
-  });
-  if (layers.sells) sellsFor(v, pivotMode).forEach(s => {
-    out.push({ time:s.t, position:'aboveBar', color:kindColor(s.k), shape:'square', text:s.k, size:1 });
-  });
-  if (layers.fast){
-    alertsFor(v).forEach(x => {
-      out.push({ time:x.t, position: x.side === '卖' ? 'aboveBar' : 'belowBar', color:kindColor('告警'), shape:'circle', text:'警', size:1 });
-    });
-    fastFor(v).forEach(x => {
-      out.push({ time:x.t, position: x.side === '卖' ? 'aboveBar' : 'belowBar', color:kindColor(x.k), shape:'circle', text:x.k, size:1 });
-    });
-  }
-  out.sort((a,b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
-  return out;
-}
-
-function buildVolData(v){
-  const T = t(), cs = candlesFor(v), vols = volArrFor(v);
-  return cs.map((c,i) => ({ time:c.time, value:vols[i], color: c.close >= c.open ? T.up : T.down }));
-}
-
-function buildMacdData(v){
-  const T = t(), m = macdFor(v), cs = candlesFor(v);
-  return {
-    hist: cs.map((c,i) => ({ time:c.time, value:m.hist[i], color: m.hist[i] >= 0 ? T.up : T.down })),
-    diff: cs.map((c,i) => ({ time:c.time, value:m.diff[i] })),
-    dea:  cs.map((c,i) => ({ time:c.time, value:m.dea[i] })),
-  };
-}
-
-function buildMaps(v){
-  const cs = candlesFor(v);
-  idxMap = {}; cs.forEach((c,i) => idxMap[c.time] = i);
-  markerMap = {};
-  topMarks(v).forEach(x => markerMap[x.time] = { kind:'top',    price:x.price, color:t().top });
-  botMarks(v).forEach(x => markerMap[x.time] = { kind:'bottom', price:x.price, color:t().bottom });
-  if (layers.buys) buysFor(v, pivotMode).forEach(b => {
-    if (!markerMap[b.t]) markerMap[b.t] = { kind:b.k, price:b.p, color:kindColor(b.k) };
-  });
-  if (layers.sells) sellsFor(v, pivotMode).forEach(s => {
-    if (!markerMap[s.t]) markerMap[s.t] = { kind:s.k, price:s.p, color:kindColor(s.k) };
-  });
-  if (layers.fast){
-    alertsFor(v).forEach(x => markerMap[x.t] = { kind:'告警', price:x.p, color:kindColor('告警') });
-    fastFor(v).forEach(x => markerMap[x.t] = { kind:x.k, price:x.p, color:kindColor(x.k) });
-  }
-}
-
-function applySeries(){
-  candleSeries.setData(candlesFor(activeView));
-  candleSeries.setMarkers(buildMarkers(activeView));
-  volumeSeries.setData(buildVolData(activeView));
-  const md = buildMacdData(activeView);
-  macdHistSeries.setData(md.hist);
-  macdLineSeries.setData(md.diff);
-  macdSignalSeries.setData(md.dea);
-  buildMaps(activeView);
-}
-
-function refreshAll(){
-  applySeries();
-  renderTradeList();
-  computeStats();
-  // 主图价格轴宽度首帧布局后才可知, 数据重建/切视图/切周期后对齐一次量/MACD 面板
-  requestAnimationFrame(alignPanes);
-  setTimeout(alignPanes, 80);
-}
-window.addEventListener('resize', () => requestAnimationFrame(alignPanes));
-
-function setView(v){
-  activeView = v;
-  document.querySelectorAll('#viewToggle button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
-  refreshAll();
-  chart.timeScale().fitContent();
-}
-
-function setPivotMode(m){
-  pivotMode = m;
-  document.querySelectorAll('#pivotToggle button').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
-  refreshAll();
-}
-
-function setTF(tf){
-  if (tf === activeTF) return;
-  activeTF = tf;
-  document.querySelectorAll('#tfToggle button').forEach(b => b.classList.toggle('active', b.dataset.tf === tf));
-  document.getElementById('symbolBadge').textContent = `BTC/USD · ${tf}`;
-  chart.applyOptions(chartOptions());
-  volumeChart.applyOptions({ ...chartOptions(), grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
-  macdChart.applyOptions({ ...chartOptions(), grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
-  refreshAll();
-  chart.timeScale().fitContent();
-}
-
-function applyTheme(){
-  chart.applyOptions(chartOptions());
-  candleSeries.applyOptions({
-    upColor: t().up, downColor: t().down,
-    borderUpColor: t().up, borderDownColor: t().down,
-    wickUpColor: t().up, wickDownColor: t().down,
-  });
-  volumeChart.applyOptions({ ...chartOptions(), grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
-  macdChart.applyOptions({ ...chartOptions(), grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
-  macdLineSeries.applyOptions({ color: t().ink2 });
-  macdSignalSeries.applyOptions({ color: t().muted });
-  candleSeries.setMarkers(buildMarkers(activeView));
-  volumeSeries.setData(buildVolData(activeView));
-  const md = buildMacdData(activeView);
-  macdHistSeries.setData(md.hist);
-  macdLineSeries.setData(md.diff);
-  macdSignalSeries.setData(md.dea);
-  buildMaps(activeView);
-  renderTradeList();
-  computeStats();
-}
-
-// ---- 三面板十字光标同步 + 时间刻度对齐 ----
-// 主图右侧价格轴占 psM 宽, 量/MACD 面板各自空价格轴占 psV/psD 宽, 导致三面板同 bar
-// 的像素 x 不同(约 25~50px 错位)。alignPanes() 收窄量/MACD 面板宽度, 使
-// (面板宽 - 自身价格轴宽) 三面板一致 → 时间刻度像素一致, 虚线真正贯穿同 bar。
-// 注: autoSize 按 clientWidth(含 padding) 自适应, 故必须改元素实际宽度而非 padding。
-function alignPanes(){
-  const Wm = chart.timeScale().width();
-  if (!Wm) return;
-  const setW = (id, ps) => {
-    const el = document.getElementById(id);
-    const target = Math.round(Wm + ps);
-    if (el.clientWidth !== target) el.style.width = target + 'px';
-  };
-  setW('volume', volumeChart.priceScale('right').width());
-  setW('macd', macdChart.priceScale('right').width());
-}
-// 十字光标: 在任一面板悬停, K线/成交量/MACD 三面板同 bar 位置虚线贯穿。
-const onCrossSync = param => {
-  syncT = param.time == null ? null : param.time;
-  refreshVLine();
-};
-chart.subscribeCrosshairMove(onCrossSync);
-volumeChart.subscribeCrosshairMove(onCrossSync);
-macdChart.subscribeCrosshairMove(onCrossSync);
-const fmt = n => Number(n).toLocaleString('en-US', { maximumFractionDigits: 1 });
-chart.subscribeCrosshairMove(param => {
-  const oh = document.getElementById('legendOhlc');
-  const ch = document.getElementById('legendChg');
-  const dt = document.getElementById('legendDate');
-  const tip = document.getElementById('markerTip');
-  const d = param.seriesData && param.seriesData.get(candleSeries);
-  if (!param.time || !d){
-    oh.textContent = '—'; ch.textContent = ''; dt.textContent = '—'; tip.style.display = 'none';
-    return;
-  }
-  dt.textContent = fmtTime(d.time);
-  oh.innerHTML = `O ${fmt(d.open)}  H <span style="color:var(--up)">${fmt(d.high)}</span>  L <span style="color:var(--down)">${fmt(d.low)}</span>  C ${fmt(d.close)}`;
-  const cs = candlesFor(activeView), i = idxMap[d.time];
-  const prev = i > 0 ? cs[i-1].close : null;
-  if (prev){
-    const pct = (d.close - prev) / prev * 100;
-    ch.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
-    ch.style.color = pct >= 0 ? 'var(--up)' : 'var(--down)';
-  } else ch.textContent = '';
-  const mk = markerMap[d.time];
-  if (mk){
-    if (mk.kind === 'top') tip.textContent = `▼ 顶分型 · 最高 ${fmt(mk.price)}`;
-    else if (mk.kind === 'bottom') tip.textContent = `▲ 底分型 · 最低 ${fmt(mk.price)}`;
-    else if (mk.kind === '告警') tip.textContent = `⚠ 告警(潜在背驰) · ${fmt(mk.price)}`;
-    else if (mk.kind === '背驰买' || mk.kind === '背驰卖') tip.textContent = `⚡ ${mk.kind}(抢先) · ${fmt(mk.price)}`;
-    else tip.textContent = `${mk.kind} · ${mk.kind.indexOf('买') >= 0 ? '买入价' : '卖出价'} ${fmt(mk.price)}`;
-    tip.style.color = mk.color;
-    tip.style.display = 'block';
-  } else tip.style.display = 'none';
-});
-
-// ---- 统计面板 ----
-function computeStats(){
-  const m = L().meta;
-  const cs = candlesFor('raw');
-  const ridx = {}; cs.forEach((c,i) => ridx[c.time] = i);
-  const topIdx = L().topMarkers.map(x => ridx[x.time]).filter(i => i != null);
-  const botIdx = L().bottomMarkers.map(x => ridx[x.time]).filter(i => i != null);
-  const hi = cs.reduce((a,c) => c.high > a.high ? c : a, cs[0]);
-  const lo = cs.reduce((a,c) => c.low  < a.low  ? c : a, cs[0]);
-  const lastC = cs[cs.length-1];
-  const buys = buysFor(activeView, pivotMode);
-  const sells = sellsFor(activeView, pivotMode);
-  const cnt = (arr, k) => arr.filter(b => b.k === k).length;
-  const nB = buys.length, nS = sells.length;
-  const rows = [
-    ['周期 / K线', `<strong>${m.interval}</strong> · <strong>${m.nBars}</strong> 根`],
-    ['原始/合并', `<strong>${m.nBars}</strong> / <strong>${m.nMerged}</strong>`],
-    ['顶/底分型', `<strong>${m.nTops}</strong> / <strong>${m.nBottoms}</strong>`],
-    ['笔 / 线段', `<strong>${m.nStrokes}</strong> / <strong>${m.nSegments}</strong>`],
-    ['中枢 笔/线段', `<strong>${m.nPivotsStroke}</strong> / <strong>${m.nPivotsSegment}</strong>`],
-    ['当前买点', `<strong>${nB}</strong>（一买${cnt(buys,'一买')}·二买${cnt(buys,'二买')}·三买${cnt(buys,'三买')}）`],
-    ['当前卖点', `<strong>${nS}</strong>（一卖${cnt(sells,'一卖')}·二卖${cnt(sells,'二卖')}·三卖${cnt(sells,'三卖')}）`],
-    ['区间最高/最低', `${fmt(hi.high)} / ${fmt(lo.low)}`],
-    ['最新收盘', `${fmt(lastC.close)} (${fmtTime(lastC.time)})`],
-  ];
-  if (m.nBeichiAlert != null){
-    rows.push(['抢先(告警/买/卖)', `<strong>${m.nBeichiAlert}</strong> / ${m.nBeichiBuy} / ${m.nBeichiSell}`]);
-  }
-  const edge = m.edge;
-  if (edge){
-    rows.push(['末端分型', edge.lastFractal || '—']);
-    rows.push(['末端在途', edge.pending || '—']);
-    const lv = edge.live;
-    if (lv){
-      rows.push(['抢先实时', `${lv.side}侧[${lv.from}~${lv.to}] 比${lv.ratio} ${lv.note || lv.alert || ''}`]);
-    }
-  }
-  document.getElementById('statsGrid').innerHTML =
-    rows.map(r => `<span class="k">${r[0]}</span><span class="v">${r[1]}</span>`).join('');
-  document.getElementById('dataNote').textContent =
-    `数据源: BTC_USD_${m.interval.toLowerCase()}.parquet · ${m.nBars} 根 (${m.firstDate} ~ ${m.lastDate}) · chanlun.py 三周期独立计算 + 次级别联动, 导出 data.js`;
-  document.getElementById('tradeListMode').textContent =
-    `（${pivotMode === 'seg' ? '线段中枢' : '笔中枢'} · ${activeView === 'raw' ? '原始' : '合并'}）`;
-}
-
-// ---- 买卖点列表 + 详情 ----
-function renderTradeList(){
-  const buys = buysFor(activeView, pivotMode);
-  const sells = sellsFor(activeView, pivotMode);
-  const grid = document.getElementById('tradeList');
-  if (!buys.length && !sells.length && !(layers.fast && (alertsFor(activeView).length || fastFor(activeView).length))){
-    grid.innerHTML = '<div class="note">当前模式/视图下无买卖点。</div>';
-    return;
-  }
-  const groups = { '一买':[], '二买':[], '三买':[], '一卖':[], '二卖':[], '三卖':[], '告警':[], '背驰买':[], '背驰卖':[] };
-  buys.forEach(b => (groups[b.k] || []).push(b));
-  sells.forEach(s => (groups[s.k] || []).push(s));
-  if (layers.fast){
-    alertsFor(activeView).forEach(x => groups['告警'].push(x));
-    fastFor(activeView).forEach(x => (groups[x.k] || []).push(x));
-  }
-  let html = '';
-  for (const kind of ['一买','二买','三买','一卖','二卖','三卖',
-                      ...(layers.fast ? ['告警','背驰买','背驰卖'] : [])]){
-    const g = groups[kind];
-    if (!g.length) continue;
-    html += `<div class="buy-group"><span style="color:${kindColor(kind)}">${kind}</span><span class="buy-count">${g.length}</span></div>`;
-    g.forEach(b => {
-      html += `<div class="buy-row" data-time="${b.t}" title="点击查看产生说明"><span class="buy-date">${fmtTime(b.t)}</span><span class="buy-price">${fmt(b.p)}</span></div>`;
-    });
-  }
-  grid.innerHTML = html;
-}
-
-function showDetail(b){
-  const el = document.getElementById('tradeDetail');
-  const sub = b.sub && b.sub !== '' ? b.sub : '—';
-  const upper = b.upper && b.upper !== '' ? b.upper : '—';
-  const ct = b.confirmedT ? fmtTime(b.confirmedT) : '—（在途，待收盘确认）';
-  const tier = b.tier ? ` · 背驰${b.tier}` : '';
-  const ratio = b.ratio != null ? ` · 运行/参考=${b.ratio}` : '';
-  const st = b.state === 'forming' ? '（末端在途）' : '';
-  const fastLine = (b.trigger && b.alertT)
-    ? `<div class="dsub">⚡ 抢先触发 ${b.trigger} · 告警 ${fmtTime(b.alertT)}${ratio}</div>` : '';
-  el.innerHTML =
-    `<div class="dk" style="color:${kindColor(b.k)}">${b.k} · ${fmtTime(b.t)} @ ${fmt(b.p)}${st}</div>` +
-    (fastLine || `<div class="dsub">⏱ 最早可确认 ${ct}${tier}</div>`) +
-    `<div class="dwhy">${b.why}</div>` +
-    `<div class="dsub">◆ 次级别确认：${sub}</div>` +
-    `<div class="dsub">◇ 上级别语境：${upper}</div>`;
-  el.style.display = 'block';
-}
-document.getElementById('tradeList').addEventListener('click', e => {
-  const row = e.target.closest('.buy-row');
-  if (!row || row.dataset.time == null) return;
-  const time = Number(row.dataset.time);
-  const i = idxMap[time];
-  const all = buysFor(activeView, pivotMode).concat(sellsFor(activeView, pivotMode));
-  const p = all.find(x => x.t === time);
-  if (p) showDetail(p);
-  if (i == null) return;
-  const half = Math.max(60, Math.floor(candlesFor('raw').length * 0.08));
-  chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, i - half), to: i + half });
-});
-
-// ---- 控件 ----
-document.getElementById('tfToggle').addEventListener('click', e => {
-  const b = e.target.closest('button');
-  if (b) setTF(b.dataset.tf);
-});
-document.getElementById('viewToggle').addEventListener('click', e => {
-  const b = e.target.closest('button');
-  if (b) setView(b.dataset.view);
-});
-document.getElementById('pivotToggle').addEventListener('click', e => {
-  const b = e.target.closest('button');
-  if (b) setPivotMode(b.dataset.mode);
-});
-document.getElementById('layerToggle').addEventListener('click', e => {
-  const b = e.target.closest('button');
-  if (!b || b.dataset.layer == null) return;
-  const key = b.dataset.layer;
-  layers[key] = !layers[key];
-  b.classList.toggle('active', layers[key]);
-  refreshAll();
-});
-document.getElementById('fitBtn').addEventListener('click', () => chart.timeScale().fitContent());
-document.getElementById('themeBtn').addEventListener('click', () => {
-  const cur = document.documentElement.dataset.theme;
-  const next = cur === 'dark' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = next;
-  document.getElementById('themeBtn').textContent = next === 'dark' ? '☀️ 浅色' : '🌙 深色';
-  applyTheme();
-});
-
-// ---- 初始化 ----
-setView(QP.get('view') === 'merged' ? 'merged' : 'raw');
-if (QP.get('pivot') === 'stroke') setPivotMode('stroke');
-if (QP.get('tf')) setTF(QP.get('tf'));
-if (QP.get('fast') === '1'){
-  layers.fast = true;
-  document.querySelectorAll('#layerToggle button').forEach(b => {
-    if (b.dataset.layer === 'fast') b.classList.add('active');
-  });
-}
-if (QP.get('detail')){
-  const all = buysFor(activeView, pivotMode).concat(sellsFor(activeView, pivotMode));
-  let target = null;
-  if (QP.get('t')) target = all.find(x => String(x.t) === QP.get('t'));
-  if (!target) target = all.find(x => x.k === '一买') || all[0];
-  if (target){
-    showDetail(target);
-    const i = idxMap[target.t];
-    if (i != null){
-      const half = Math.max(60, Math.floor(candlesFor('raw').length * 0.08));
-      chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, i - half), to: i + half });
-    }
-  }
-}
+<script src="trades_data.js"></script>
+<script src="js/00-app-core.js"></script>
+<script src="js/01-config.js"></script>
+<script src="js/02-data.js"></script>
+<script src="js/03-charts.js"></script>
+<script src="js/04-panels.js"></script>
+<script src="js/05-journal.js"></script>
+<script src="js/06-trainer.js"></script>
+<script src="js/07-main.js"></script>
 </script>
 </body>
 </html>

@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>缠论体系 · 可视化教程 — 以 BTC/USD 实盘数据为例</title>
+<script src="./lightweight-charts.standalone.production.js"></script>
+<script src="./tutorial_data.js"></script>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b24; --border:#232a36; --text:#d1d4dc; --muted:#8b93a3;
+    --accent:#f0b90b; --quote-bg:#141a23; --quote-edge:#3a5a8c;
+    --pit-bg:#1d1712; --pit-edge:#a3562b; --key-edge:#2f7d5f; --up:#26a69a; --down:#ef5350;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75}
+  a{color:#7fb4ff;text-decoration:none}
+  .layout{display:flex;max-width:1500px;margin:0 auto}
+  nav{width:230px;position:sticky;top:0;height:100vh;overflow-y:auto;padding:22px 14px;
+      border-right:1px solid var(--border);flex-shrink:0}
+  nav h1{font-size:15px;margin:0 0 4px;color:var(--accent)}
+  nav .sub{font-size:11px;color:var(--muted);margin-bottom:18px}
+  nav a{display:block;padding:7px 10px;border-radius:6px;font-size:13px;color:var(--muted);margin-bottom:2px}
+  nav a:hover{background:#1b2230;color:var(--text)}
+  nav a.active{background:#20304a;color:#cfe3ff}
+  main{flex:1;padding:30px 40px 120px;min-width:0}
+  header.hero{border-bottom:1px solid var(--border);padding-bottom:26px;margin-bottom:34px}
+  header.hero h1{font-size:26px;margin:0 0 10px}
+  header.hero p{color:var(--muted);font-size:14px;margin:4px 0}
+  .disclaimer{font-size:12px;background:var(--panel);border:1px dashed var(--border);
+              border-radius:8px;padding:10px 14px;margin-top:14px;color:var(--muted)}
+  section.chapter{margin-bottom:70px}
+  h2.ch{font-size:21px;border-left:4px solid var(--accent);padding-left:12px;margin:0 0 20px}
+  h3{font-size:16px;margin:26px 0 10px;color:#e8ebf2}
+  .quote{background:var(--quote-bg);border-left:3px solid var(--quote-edge);border-radius:0 8px 8px 0;
+         padding:14px 18px;margin:14px 0;font-size:14px;color:#c9d4e6}
+  .quote .src{display:inline-block;font-size:11px;color:#7fa8e8;background:#182338;
+              border-radius:4px;padding:1px 8px;margin-bottom:8px;letter-spacing:.5px}
+  .quote p{margin:6px 0}
+  .keys{background:rgba(47,125,95,.08);border-left:3px solid var(--key-edge);border-radius:0 8px 8px 0;
+        padding:12px 18px;margin:14px 0;font-size:14px}
+  .keys ul,.pits ol{margin:6px 0;padding-left:20px}
+  .keys li,.pits li{margin:5px 0}
+  .keys .lab,.pits .lab,.explain .lab{display:inline-block;font-size:12px;font-weight:600;
+        letter-spacing:1px;margin-bottom:4px}
+  .keys .lab{color:#5fc79e} .pits .lab{color:#e8935c} .explain .lab{color:#9fb6dd}
+  .pits{background:var(--pit-bg);border-left:3px solid var(--pit-edge);border-radius:0 8px 8px 0;
+        padding:12px 18px;margin:14px 0;font-size:14px}
+  .explain{margin:14px 0;font-size:14.5px}
+  table.cmp{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0}
+  table.cmp th,table.cmp td{border:1px solid var(--border);padding:7px 10px;text-align:left}
+  table.cmp th{background:#1a2130;color:#aab6cc}
+  .case-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+             margin:20px 0;overflow:hidden}
+  .case-head{padding:12px 18px;border-bottom:1px solid var(--border)}
+  .case-head .t{font-weight:600;font-size:15px}
+  .case-head .tf{font-size:11px;background:#20304a;color:#8fb8ff;border-radius:4px;
+                 padding:1px 8px;margin-left:8px;vertical-align:2px}
+  .case-head .s{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .chart{height:400px}
+  .chart.macd{height:120px;border-top:1px solid var(--border)}
+  .facts{display:flex;gap:18px;flex-wrap:wrap;padding:10px 18px;font-size:12.5px;color:var(--muted);
+         border-top:1px solid var(--border)}
+  .facts b{color:var(--text);font-weight:600}
+  code{background:#1c2432;border-radius:4px;padding:1px 6px;font-size:12.5px;color:#ffd479}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);padding:8px 18px}
+  .legend i{display:inline-block;width:18px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+  .legend s{display:inline-block;width:12px;height:10px;border:1px solid #508cff;background:rgba(80,140,255,.15);text-decoration:none;vertical-align:middle;margin-right:5px}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav id="nav">
+  <h1>缠论体系 · 可视化教程</h1>
+  <div class="sub">BTC/USD 本地实盘数据 · 2017–2026</div>
+  <a href="#ch0">0 · 导论：缠论地图</a>
+  <a href="#ch1">1 · 包含关系与合并K线</a>
+  <a href="#ch2">2 · 分型</a>
+  <a href="#ch3">3 · 笔</a>
+  <a href="#ch4">4 · 线段</a>
+  <a href="#ch5">5 · 中枢</a>
+  <a href="#ch6">6 · 走势类型 · 级别 · 走势终完美</a>
+  <a href="#ch7">7 · 背驰与盘整背驰</a>
+  <a href="#ch8">8 · 三类买卖点</a>
+  <a href="#ch9">9 · 区间套与多级别联动</a>
+  <a href="#ch10">10 · 实战问题清单</a>
+</nav>
+
+<main>
+<header class="hero">
+  <h1>缠论体系 · 可视化教程</h1>
+  <p>以本地 BTC/USD 真实行情为案例，逐步讲解：包含关系 → 分型 → 笔 → 线段 → 中枢 → 走势类型 → 背驰 → 三类买卖点 → 区间套联动。</p>
+  <p>每个概念配一个从真实数据中筛选的典型案例，图上叠加本系统的结构识别结果。</p>
+  <div class="disclaimer">⚠ 引文说明：文中「原文」引文系《教你炒股票》108 课的节选转抄，标注 <b>（述）</b> 者为转述而非逐字引用；个别字句可能与原文略有出入，请以缠中说禅新浪博客原文为准。「实战问题」部分来自本项目对 BTC 数据的实际回测结论（见 backtest.py / multilevel_backtest.py / sanmai_hold_test.py）。</div>
+</header>
+
+<!-- ==================== 0 导论 ==================== -->
+<section class="chapter" id="ch0">
+<h2 class="ch">0 · 导论：一张缠论地图</h2>
+<div class="explain"><span class="lab">体系总览</span><br>
+缠论不是指标，而是一套对市场走势进行<b>完全分类</b>的几何学。它从最原始的 K 线出发，通过五步纯几何变换构建出全部结构：</div>
+<table class="cmp">
+<tr><th>层次</th><th>输入</th><th>输出</th><th>回答的问题</th></tr>
+<tr><td>① 包含关系处理</td><td>原始K线</td><td>合并K线</td><td>哪些K线没有方向信息？</td></tr>
+<tr><td>② 分型</td><td>合并K线</td><td>顶/底分型</td><td>局部高低点在哪里？</td></tr>
+<tr><td>③ 笔</td><td>分型序列</td><td>笔</td><td>最小级别的连接运动是什么？</td></tr>
+<tr><td>④ 线段</td><td>笔序列</td><td>线段</td><td>笔的运动何时算一段完成？</td></tr>
+<tr><td>⑤ 中枢 → 走势类型</td><td>次级别走势</td><td>中枢、趋势/盘整</td><td>多空博弈区在哪？走势走到哪一步？</td></tr>
+</table>
+<div class="explain">在此之上是两个动态判据：<b>背驰</b>（力度衰竭 → 判转折）与<b>三类买卖点</b>（把转折翻译成操作），以及贯穿全体系的灵魂——<b>级别递归</b>。右侧目录按此顺序展开，每一章都配有 BTC 真实行情案例。</div>
+<div class="quote"><span class="src">原文 · 第62课（述）</span>
+<p>本 ID 的理论只涉及最基础的三件事：分类、级别、完全分类……任何走势都可以唯一地被分解为这三种情况的组合。</p></div>
+</section>
+
+<!-- ==================== 1 包含关系 ==================== -->
+<section class="chapter" id="ch1">
+<h2 class="ch">1 · 包含关系与合并K线</h2>
+<div class="quote"><span class="src">原文 · 第62课（述）</span>
+<p>相邻两根K线，如果其中一根的高低点完全覆盖另一根，则构成包含关系。处理时先确认方向：若前一根K线高点较高则视为向上，向上时两根K线取「高高、高低」（高点取大、低点取大）；向下时取「低高、低低」（高点取小、低点取小）。合并后如仍与新邻K存在包含关系，则继续合并。</p></div>
+<div class="explain"><span class="lab">释义</span><br>
+包含关系的本质是「这一根K线没有提供新的方向信息」——它的极值完全落在前一根的范围里。合并就是把无信息的K线折叠掉，让后面的分型判断建立在干净的有向序列上。</div>
+<div class="keys"><span class="lab">关键点</span>
+<ul>
+<li>方向由<b>更早一根已处理的K线</b>决定：前高更高 → 向上；否则向下。</li>
+<li>合并会<b>向后传播</b>：合并结果可能仍与下一根互相包含，需循环处理。</li>
+<li>合并后的K线记区间 <code>[start, end]</code>（由哪几根原始K线合成），后续定位极值要用这个区间找回真实的原始bar。</li>
+<li>成交量通常做累加处理（本系统的选择）。</li>
+</ul></div>
+<div class="pits"><span class="lab">实战问题</span>
+<ol>
+<li><b>合并K线的收盘价会遮蔽真实极值</b>：向上合并时 low 取「两低中的大者」，合并体的 low 可能高于区间内某根原始K线的真实最低价。本系统曾因此漏掉 2025-04 的崩盘低点——笔端点价格必须用 <code>localize</code> 回原始bar，而不能直接用合并体的 OHLC。</li>
+<li><b>因果性陷阱</b>：实盘中一根新K线到来时，只有它与前一根的合并可以确定；更早的合并一旦冻结不可回改。逐根在线实现必须「只改最后一根」（见 fractals.py 的 <code>append_merged_bar</code>）。</li>
+</ol></div>
+
+<div class="case-card" id="case-inclusion-1">
+  <div class="case-head"><span class="t">案例：连续包含关系</span><span class="tf" id="tf-inclusion-1"></span>
+    <div class="s" id="sub-inclusion-1"></div></div>
+  <div class="chart" id="chart-inclusion-1"></div>
+  <div class="legend"><span><i style="border-color:#ffd479"></i>黄色标签 = 合并结果(几根原始K线折成1根)</span></div>
+  <div class="facts" id="facts-inclusion-1"></div>
+</div>
+</section>
+
+<!-- ==================== 2 分型 ==================== -->
+<section class="chapter" id="ch2">
+<h2 class="ch">2 · 分型</h2>
+<div class="quote"><span class="src">原文 · 第62课</span>
+<p>顶分型，第二根K线的上高点是相邻三根K线高点中最高的，而低点也是相邻三根K线低点中最高的；底分型，第二根K线的下低点是相邻三根K线低点中最低的，而高点也是相邻三根K线高点中最低的。</p></div>
+<div class="explain"><span class="lab">释义</span><br>
+注意定义是<b>双向极值</b>：顶分型的中K不仅高点最高，低点也必须最高（整根K线「浮」在左右两根之上）。这是比「仅高点最高」更强的条件，天然过滤掉一部分假信号。分型是市场「转折意图」在本级别留下的最小痕迹——原文把它类比为水的波纹：有波纹不代表转向，但一切转向必先有波纹。</div>
+<div class="keys"><span class="lab">关键点</span>
+<ul>
+<li>必须在<b>合并后</b>的K线上识别，否则包含关系会产生大量伪分型。</li>
+<li>三根K线缺一不可；中间那根叫中K，其极值即分型的价格。</li>
+<li>顶底分型天然交替出现；连续同类意味着中间有分型被过滤或结构特殊。</li>
+<li><b>原文没有收盘确认要求</b>——第三根走完分型即成立。本系统额外叠加了用户自定义增强：其后 ≤3 根原始K线内须有收盘价反向突破中K极值（<code>CONFIRM_WINDOW=3</code>）才承认该分型。</li>
+</ul></div>
+<div class="pits"><span class="lab">实战问题</span>
+<ol>
+<li><b>假分型率很高</b>：不加过滤时小周期大量分型是噪声。收盘确认能剔除相当一部分，但代价是延迟 1~3 根K线，且窗口内未突破的真转折会被丢弃（2024-08-05 崩盘低点曾被旧规则漏掉，后来放宽窗口才修复）。</li>
+<li><b>确认与及时性的矛盾随周期放大</b>：回测显示 1H 笔级买点的止损距离中位数只有约 1%，等确认再入场 + 紧止损导致 67% 的交易被打掉；同样规则在 1D 上代价就小得多。<b>确认参数应按级别差异化</b>。</li>
+</ol></div>
+
+<div class="case-card" id="case-fractal-t">
+  <div class="case-head"><span class="t">案例：标准顶分型</span><span class="tf" id="tf-fractal-t"></span>
+    <div class="s" id="sub-fractal-t"></div></div>
+  <div class="chart" id="chart-fractal-t"></div>
+  <div class="legend"><span><i style="border-color:#ffd479"></i>左K / 中K / 右K</span><span style="color:#e0554d">▼ = 分型成立位置</span></div>
+  <div class="facts" id="facts-fractal-t"></div>
+</div>
+<div class="case-card" id="case-fractal-b">
+  <div class="case-head"><span class="t">案例：标准底分型</span><span class="tf" id="tf-fractal-b"></span>
+    <div class="s" id="sub-fractal-b"></div></div>
+  <div class="chart" id="chart-fractal-b"></div>
+  <div class="facts" id="facts-fractal-b"></div>
+</div>
+</section>
+
+<!-- ==================== 3 笔 ==================== -->
+<section class="chapter" id="ch3">
+<h2 class="ch">3 · 笔</h2>
+<div class="quote"><span class="src">原文 · 第62课（述）</span>
+<p>相邻的顶分型与底分型之间构成一笔。笔的划分最初的标准是：顶底之间至少有一根独立的K线不属于这两个分型。</p></div>
+<div class="quote"><span class="src">原文 · 第77课《一些概念的再分辨》（述）</span>
+<p>笔的标准后来被收紧：一、顶分型与底分型经过包含处理后不允许共用K线；二、顶分型中最高的K线与底分型中最低的K线之间，至少有三根以上K线。</p></div>
+<div class="explain"><span class="lab">释义：三种口径并存</span><br>
+缠师在课文与回复中先后给出过不同松紧的笔标准，社区至今并存三种口径：</div>
+<table class="cmp">
+<tr><th>口径</th><th>出处性质</th><th>一笔最少合并K线</th><th>特点</th></tr>
+<tr><td>老笔</td><td>第62课正文</td><td>7 根（顶底间≥1独立K）</td><td>宽松，信号多</td></tr>
+<tr><td>严笔</td><td>第77课修订</td><td>9 根（顶底极值间≥3K）</td><td>严格，信号少而稳</td></tr>
+<tr><td>新笔</td><td>博客回复</td><td>5 根（顶底不共用K即可）</td><td>介于两者，适合高波动品种</td></tr>
+</table>
+<div class="keys"><span class="lab">关键点</span>
+<ul>
+<li>本系统采用<b>新笔口径</b>：两分型（以中点计）相距 ≥4 根合并K线，即一笔最少由 5 根合并K线构成；另附加防御条件「顶分型高点必须高于底分型高点」。</li>
+<li><b>笔的延伸</b>：同性质更极端的新分型会把开放笔的终点向后替换，上一笔随之延伸——这是保持顶底交替的关键机制。</li>
+<li>笔端点的价格 = 分型极值（经 localize 回原始bar），时间 = 极值所在原始bar。</li>
+</ul></div>
+<div class="pits"><span class="lab">实战问题</span>
+<ol>
+<li><b>口径选择改变信号数量级</b>：严笔在 BTC 上信号过稀，新笔较平衡；但无论哪种口径，<b>1H 及以下周期的笔级买卖点都过密</b>——回测中 1H 笔级三年产生近千个买点、67% 被紧止损打掉，复利为负。笔级信号更适合作为高级别的入场触发器，而不是独立交易依据。</li>
+<li>笔与分型一样存在「右端在途」问题：最后一笔永远可能被延伸，末端结构未闭合。</li>
+</ol></div>
+
+<div class="case-card" id="case-stroke-up">
+  <div class="case-head"><span class="t">案例：上升笔（新笔口径）</span><span class="tf" id="tf-stroke-up"></span>
+    <div class="s" id="sub-stroke-up"></div></div>
+  <div class="chart" id="chart-stroke-up"></div>
+  <div class="legend"><span><i style="border-color:#9aa3b2;border-top-style:dashed"></i>灰虚线 = 全部笔</span><span><i style="border-color:#f0b90b"></i>金色 = 本例讲解的笔</span></div>
+  <div class="facts" id="facts-stroke-up"></div>
+</div>
+<div class="case-card" id="case-stroke-down">
+  <div class="case-head"><span class="t">案例：下降笔（新笔口径）</span><span class="tf" id="tf-stroke-down"></span>
+    <div class="s" id="sub-stroke-down"></div></div>
+  <div class="chart" id="chart-stroke-down"></div>
+  <div class="facts" id="facts-stroke-down"></div>
+</div>
+</section>
+
+<!-- ==================== 4 线段 ==================== -->
+<section class="chapter" id="ch4">
+<h2 class="ch">4 · 线段</h2>
+<div class="quote"><span class="src">原文 · 第67课（述）</span>
+<p>线段至少由三笔构成。线段的划分用特征序列：向上线段的特征序列，就是其中所有向下笔的高低区间；向下线段的特征序列则是所有向上笔。对特征序列做包含处理后，若出现分型且第一、二元素之间不存在缺口，线段在该分型处结束——此为第一种情况；若存在缺口，则必须等待反向特征序列也出现分型，才能确认原线段结束——此为第二种情况。</p></div>
+<div class="explain"><span class="lab">释义</span><br>
+线段解决的问题是：「同方向的一串笔，到哪儿才算一个完整的推进单元」。直觉答案是「反向笔创新极值就破坏」，但原文用特征序列给出了更精确的判定——看的是<b>反向力的内部结构</b>：反向笔自己出现了分型，才说明反向力完成了自己的构造，原线段才算终结。</div>
+<div class="keys"><span class="lab">关键点</span>
+<ul>
+<li>特征序列的包含处理方向<b>顺着原线段方向</b>：向上线段取高高/高低。</li>
+<li><b>第一种情况（无缺口）</b>：反向力量是原线段的延续衰竭，分型一出立即终结，转折往往剧烈（V型）。</li>
+<li><b>第二种情况（有缺口）</b>：反向力量以跳空方式出现，原线段可能只是暂时喘息，必须等反向特征序列走出自己的分型才确认。</li>
+<li>本系统实现了完整的两种情况判定（chanlun.py 的 <code>_reverse_confirmed</code>），这是全链路中最忠实于原文的一层。</li>
+</ul></div>
+<div class="pits"><span class="lab">实战问题</span>
+<ol>
+<li><b>第二种情况带来确认滞后</b>：要等反向线段自己长出分型，实盘上常晚数根K线。</li>
+<li><b>最后一段永远不可判定</b>：线段终结依赖未来笔的出现，「当前段」只能是假设。系统用 <code>complete=false</code> 标记末端，教学与回测都必须区分「已完成结构」与「在途假设」。</li>
+</ol></div>
+
+<div class="case-card" id="case-segment-up">
+  <div class="case-head"><span class="t">案例：向上线段与特征序列</span><span class="tf" id="tf-segment-up"></span>
+    <div class="s" id="sub-segment-up"></div></div>
+  <div class="chart" id="chart-segment-up"></div>
+  <div class="legend"><span><i style="border-color:#9aa3b2;border-top-style:dashed"></i>灰虚线 = 组成线段的笔</span><span><i style="border-color:#f0b90b"></i>金线 = 线段本身</span><span><s></s>蓝框 = 特征序列元素(向下笔的高低区间)</span></div>
+  <div class="facts" id="facts-segment-up"></div>
+</div>
+<div class="case-card" id="case-segment-down">
+  <div class="case-head"><span class="t">案例：向下线段</span><span class="tf" id="tf-segment-down"></span>
+    <div class="s" id="sub-segment-down"></div></div>
+  <div class="chart" id="chart-segment-down"></div>
+  <div class="facts" id="facts-segment-down"></div>
+</div>
+</section>
+
+<!-- ==================== 5 中枢 ==================== -->
+<section class="chapter" id="ch5">
+<h2 class="ch">5 · 中枢</h2>
+<div class="quote"><span class="src">原文 · 第17课</span>
+<p>缠中说禅走势中枢：某级别走势类型中，被至少三个连续次级别走势类型所重叠的部分。</p></div>
+<div class="quote"><span class="src">原文 · 第20课（述）</span>
+<p>设构成中枢的各段的高低点为 gn/dn，则 ZG=min(gn)、ZD=max(dn) 为中枢区间上下沿；GG=max(gn)、DD=min(dn) 为震荡的最高最低。此后依次出现的次级别走势，只要与 [ZD,ZG] 有重叠即为<b>中枢延伸</b>；与 [ZD,ZG] 无重叠并开出新中枢，则为<b>中枢新生</b>；两个同级别中枢的波动区间发生重合，称为<b>中枢扩展</b>。</p></div>
+<div class="explain"><span class="lab">释义</span><br>
+中枢是多空反复成交、筹码充分换手的区域，是全理论的引力中心：离开中枢的走势要么被拉回（延伸），要么开创新趋势（新生）。三类买卖点全部围绕「离开—回抽」与中枢的位置关系定义。</div>
+<div class="keys"><span class="lab">关键点</span>
+<ul>
+<li>ZG/ZD 由<b>前三段的重叠</b>决定，之后延伸不改变区间，只扩大 GG/DD 与时间范围。</li>
+<li>组件可以是笔（笔中枢）也可以是线段（线段中枢）：组件升级 ⇒ 中枢级别更大。两套并行观察是工程上的通行做法。</li>
+<li>「至少三个」意味着中枢最少由三段重叠构成；延伸可使其远超三段——但延伸出九段以上就该考虑中枢自身的升级问题了。</li>
+</ul></div>
+<div class="pits"><span class="lab">实战问题</span>
+<ol>
+<li><b>延伸规则的宽严是生死线</b>：我们做过反证实验——若把延伸放宽为「离开后必须等到回拉才算结束」，笔级别会出现横跨 57 段、600 余根K线的怪物中枢，整个下跌趋势被吞进一个中枢，趋势背驰结构彻底消失。原文「与[ZD,ZG]有重叠即延伸、无重叠即新生」的口径不能动。</li>
+<li><b>原文用前两段定义 ZG/ZD，多数实现用三段取交集</b>：因第三段与前两段重叠是成中枢的前提，两者几乎总是一致；仅当第三段整体缩进前两段重叠区内时有细微差异。</li>
+</ol></div>
+
+<div class="case-card" id="case-pivot-stroke">
+  <div class="case-head"><span class="t">案例：笔中枢</span><span class="tf" id="tf-pivot-stroke"></span>
+    <div class="s" id="sub-pivot-stroke"></div></div>
+  <div class="chart" id="chart-pivot-stroke"></div>
+  <div class="legend"><span><i style="border-color:rgba(255,255,255,.35);border-top-style:dashed"></i>ZG/ZD 虚线</span><span style="color:#8b93a3">阴影矩形 = 中枢区间</span></div>
+  <div class="facts" id="facts-pivot-stroke"></div>
+</div>
+<div class="case-card" id="case-pivot-segment">
+  <div class="case-head"><span class="t">案例：线段中枢（组件升级为线段，级别更大）</span><span class="tf" id="tf-pivot-segment"></span>
+    <div class="s" id="sub-pivot-segment"></div></div>
+  <div class="chart" id="chart-pivot-segment"></div>
+  <div class="facts" id="facts-pivot-segment"></div>
+</div>
+</section>
+
+<!-- ==================== 6 走势类型 ==================== -->
+<section class="chapter" id="ch6">
+<h2 class="ch">6 · 走势类型 · 级别 · 走势终完美</h2>
+<div class="quote"><span class="src">原文 · 第17课</span>
+<p>某完成的走势类型，至少包含一个走势中枢。只有一个走势中枢的走势类型称为缠中说禅盘整；至少有两个以上（含两个）依次同向的走势中枢的，称为缠中说禅趋势——向上为上涨，向下为下跌。（述）</p></div>
+<div class="quote"><span class="src">原文 · 第17课（述）</span>
+<p>任何级别的任何走势类型终要完成。——「走势终完美」</p></div>
+<div class="explain"><span class="lab">释义</span><br>
+「走势终完美」是整个理论唯一的公理化信仰：任何正在进行的走势（盘整/上涨/下跌）必然走向完成，完成之后必然连接另一种走势类型（趋势↔盘整交替）。它之所以可用，是因为中枢给了「完成」可观测的定义——中枢新生、破坏、扩展都有明确几何判据。于是任何时刻市场只剩有限种可能性，这就是「完全分类」的含义。</div>
+<div class="keys"><span class="lab">关键点</span>
+<ul>
+<li>趋势的判定标准极其朴素：<b>两个依次抬升的中枢 = 上涨</b>，依次下降 = 下跌。</li>
+<li><b>级别不由K线周期决定</b>：级别由「组件→中枢→走势类型」的递归层级定义。1D 图上的笔 ≠ 4H 图上的线段，尽管它们常近似对应。</li>
+<li>操作的核心节奏：判断当下走势类型的类型与位置 → 用背驰找它的终点 → 新走势类型开始时用三类买卖点介入。</li>
+</ul></div>
+<div class="pits"><span class="lab">实战问题</span>
+<ol>
+<li><b>多周期 ≈ 多级别 只是近似</b>：本系统用 1D←4H←1H 独立分析加时间窗联动来模拟递归级别，实用但理论上不严格（4H 并非 1D 的严格次级别，1D=6×4H 而原文级别也不是简单倍数关系）。</li>
+<li>回测证据：同一套买卖点逻辑，在<b>线段级别</b>上的信号质量显著高于笔级别（1H：+364% vs −4.4%）。印证了「级别越大结构越稳」，也提示实操应以线段定方向、笔找入场。</li>
+</ol></div>
+
+<div class="case-card" id="case-trend-1">
+  <div class="case-head"><span class="t">案例：上涨趋势 = 两个依次抬升的中枢</span><span class="tf" id="tf-trend-1"></span>
+    <div class="s" id="sub-trend-1"></div></div>
+  <div class="chart" id="chart-trend-1"></div>
+  <div class="facts" id="facts-trend-1"></div>
+</div>
+</section>
+
+<!-- ==================== 7 背驰 ==================== -->
+<section class="chapter" id="ch7">
+<h2 class="ch">7 · 背驰与盘整背驰</h2>
+<div class="quote"><span class="src">原文 · 第24课（述）</span>
+<p>背驰的判断可以用 MACD 辅助：在一段趋势中，比较前后两段同向走势对应的红绿柱面积与黄白线位置，若后一段价格创新高（低）而柱面积明显缩小、黄白线不再创出相应高度，则为背驰。注意：这只是辅助手段，背驰的本质是比较两段走势的「力度」，MACD 是力度的近似量度之一。</p></div>
+<div class="quote"><span class="src">原文 · 第25课（述）</span>
+<p>盘整背驰：在中枢震荡中，比较离开中枢的两段走势的力度，弱者回拉。它发生在盘整内部，不要求趋势存在，因此不能按趋势背驰的方式对待。</p></div>
+<div class="explain"><span class="lab">释义</span><br>
+背驰是缠论的「转折探测器」。严格的<b>趋势背驰</b>有三个前提：① 存在同级别趋势（≥2 个同向中枢）；② 比较对象是该级别<b>相邻的同向两段</b>——通常是「进入最后一个中枢的段 B」与「离开它的段 C」；③ C 段创新高/新低但力度衰竭。三者缺一就不是背驰，而是别的东西。</div>
+<div class="keys"><span class="lab">关键点</span>
+<ul>
+<li>本系统量化：C 段 MACD 柱面积 &lt; A 段 × 0.9 即判背驰；面积比 &lt;0.7 记为「明显」，其余「临界」。</li>
+<li>面积只是力度的代理变量。黄白线位置、斜率、区间套下钻都是补充证据。</li>
+<li>盘整背驰 ≠ 趋势背驰：前者用于中枢震荡的高抛低吸与二买确认，后者才是趋势反转信号。</li>
+</ul></div>
+<div class="pits"><span class="lab">实战问题</span>
+<ol>
+<li><b>比较基准的选择是最大的坑</b>：本系统旧口径取「整条中枢链内最强的同向段」作 A 段，回测暴露约四成一买是伪背驰（均笔 −0.33%）；改回原文口径「进入最后中枢的同向段 B」后，1H 笔级从复利 −4.4% 修正为 +418%。理论细节的偏离会直接变成亏损。</li>
+<li><b>背驰之后还有背驰</b>：强趋势中可连续多次背离而不反转（「背了又背」），所以一买必须配合止损与仓位管理，原文亦强调小转大的风险。</li>
+</ol></div>
+
+<div class="case-card" id="case-beichi-buy">
+  <div class="case-head"><span class="t">案例：底背驰（绿柱面积衰竭）</span><span class="tf" id="tf-beichi-buy"></span>
+    <div class="s" id="sub-beichi-buy"></div></div>
+  <div class="chart" id="chart-beichi-buy"></div>
+  <div class="chart macd" id="macd-beichi-buy"></div>
+  <div class="legend"><span style="color:#3da47b">● 一买</span><span style="color:#8b93a3">下方 MACD 面板: A段(进入段) vs C段(创新低段) 绿柱面积对比</span></div>
+  <div class="facts" id="facts-beichi-buy"></div>
+</div>
+<div class="case-card" id="case-beichi-sell">
+  <div class="case-head"><span class="t">案例：顶背驰（红柱面积衰竭）</span><span class="tf" id="tf-beichi-sell"></span>
+    <div class="s" id="sub-beichi-sell"></div></div>
+  <div class="chart" id="chart-beichi-sell"></div>
+  <div class="chart macd" id="macd-beichi-sell"></div>
+  <div class="facts" id="facts-beichi-sell"></div>
+</div>
+</section>
+
+<!-- ==================== 8 三类买卖点 ==================== -->
+<section class="chapter" id="ch8">
+<h2 class="ch">8 · 三类买卖点</h2>
+<div class="quote"><span class="src">原文 · 第20课后及各课（述）</span>
+<p>第一类买点：某级别下跌趋势中，一个次级别走势类型向下跌破最后一个走势中枢后出现的背驰点。<br>
+第二类买点：第一类买点出现后，随着第一次次级别上涨结束，接着会有一次次级别回调；这次回调不创新低的低点，就是第二类买点。<br>
+第三类买点：某次级别走势类型向上突破最后一个走势中枢后，另一个次级别回抽的低点不跌破 ZG，即为第三类买点。</p>
+<p>卖点与之完全对称。</p></div>
+<div class="explain"><span class="lab">释义：三种风险收益结构</span><br>
+三类买点本质上是同一个转折在三个阶段的表现：一买赌转折启动（最难、最便宜）、二买确认转折成立（安全、次优价格）、三买确认中枢新生进入主升（效率最高、价格最差）。原文后期点明：所有买点归根结底都是某级别一买的变体——二买包含次级别一买的确认，三买的中枢新生由次级别一买引发。</div>
+<table class="cmp">
+<tr><th>买点</th><th>本质</th><th>优势</th><th>失败模式</th><th>适合</th></tr>
+<tr><td>一买</td><td>趋势背驰</td><td>价格最优、利润最大</td><td>背驰后再背驰 / 小转大</td><td>大资金建仓起点</td></tr>
+<tr><td>二买</td><td>回调确认</td><td>不需预测背驰、最可靠</td><td>跌破一买低点</td><td>稳健者首选</td></tr>
+<tr><td>三买</td><td>中枢新生</td><td>进入主升、资金效率最高</td><td>回落中枢=中枢扩展</td><td>趋势跟随</td></tr>
+</table>
+<div class="pits"><span class="lab">实战问题（本项目回测实证）</span>
+<ol>
+<li><b>三卖作为平仓信号接近零贡献</b>（三周期均 ±0.5% 内）：它是中枢新生(向下)的确认器，不是好的离场点位。</li>
+<li><b>三买的正确赢法是持有至新趋势一卖</b>：改为「仅一卖离场」后 4H 复利 +260%→+713%、1H +61%→+676%（PF 同步提升）；但 1D 例外——日线中途回撤太深，硬扛把一笔 +229% 回吐到 +98%。结论：≤4H 可直接采纳，1D 以上需配合次级别移动止盈（TODO.md P1）。</li>
+<li><b>一买必须过滤</b>：多级别共振（下一章）能把 4H 一买胜率从 33% 提到 46%、回撤减半。</li>
+</ol></div>
+
+<div class="case-card" id="case-buy1">
+  <div class="case-head"><span class="t">案例：一买（趋势背驰点）</span><span class="tf" id="tf-buy1"></span><div class="s" id="sub-buy1"></div></div>
+  <div class="chart" id="chart-buy1"></div><div class="facts" id="facts-buy1"></div>
+</div>
+<div class="case-card" id="case-buy2">
+  <div class="case-head"><span class="t">案例：二买（回调不创新低）</span><span class="tf" id="tf-buy2"></span><div class="s" id="sub-buy2"></div></div>
+  <div class="chart" id="chart-buy2"></div><div class="facts" id="facts-buy2"></div>
+</div>
+<div class="case-card" id="case-buy3">
+  <div class="case-head"><span class="t">案例：三买（回抽不回中枢）</span><span class="tf" id="tf-buy3"></span><div class="s" id="sub-buy3"></div></div>
+  <div class="chart" id="chart-buy3"></div><div class="facts" id="facts-buy3"></div>
+</div>
+<div class="case-card" id="case-sell1">
+  <div class="case-head"><span class="t">案例：一卖（顶部趋势背驰）</span><span class="tf" id="tf-sell1"></span><div class="s" id="sub-sell1"></div></div>
+  <div class="chart" id="chart-sell1"></div><div class="facts" id="facts-sell1"></div>
+</div>
+<div class="case-card" id="case-sell2">
+  <div class="case-head"><span class="t">案例：二卖（反弹不创新高）</span><span class="tf" id="tf-sell2"></span><div class="s" id="sub-sell2"></div></div>
+  <div class="chart" id="chart-sell2"></div><div class="facts" id="facts-sell2"></div>
+</div>
+<div class="case-card" id="case-sell3">
+  <div class="case-head"><span class="t">案例：三卖（回抽不入中枢）</span><span class="tf" id="tf-sell3"></span><div class="s" id="sub-sell3"></div></div>
+  <div class="chart" id="chart-sell3"></div><div class="facts" id="facts-sell3"></div>
+</div>
+</section>
+
+<!-- ==================== 9 区间套 ==================== -->
+<section class="chapter" id="ch9">
+<h2 class="ch">9 · 区间套与多级别联动</h2>
+<div class="quote"><span class="src">原文 · 第43课（述）</span>
+<p>缠中说禅趋势转折定律：任何级别的转折，都是由更小级别的第一类买卖点引发的。</p></div>
+<div class="quote"><span class="src">原文 · 第27课（述）</span>
+<p>在大级别的背驰点内部，必然可以用更低级别的背驰逐步缩小范围——就像用望远镜逐级放大——最终精确定位转折的那一点。这套方法被称为区间套。</p></div>
+<div class="explain"><span class="lab">释义</span><br>
+区间套的操作含义：看到 4H 级别的潜在一买时，不要急着进——下钻到 1H（乃至 1m）找它自己的趋势背驰，次级别背驰的确认点就是精度最高的入场点。同一个市场底部，在不同级别图上有不同身份：它是 4H 二买的低点，同时可能正是 1H 一买的背驰点。</div>
+<div class="keys"><span class="lab">关键点（本项目实测）</span>
+<ul>
+<li>联动判定：大级别买点端点与次级别一买端点重合（±2 根大级别K线）＝「同一个底」。</li>
+<li><b>联动率远低于直觉</b>：4H 一买仅 27% 有 1H 一买同底；二买 5%；三买 ~1%。因为二买/三买的次级别对应物是<b>盘整背驰</b>而非趋势背驰——这正是系统尚未实现的信号。</li>
+<li><b>一买×一买共振是唯一显著正向的组合</b>：胜率 33%→46%、均笔翻倍、最大回撤 39%→18%（PF 1.51→2.02）。原文本义得到数据验证。</li>
+<li>时序版区间套（次级先于大级确认）覆盖率仅 7%，但它给出的是可实盘执行的抢先入场时机（平均早 1~3 根次级K线）。</li>
+</ul></div>
+<div class="pits"><span class="lab">实战问题</span>
+<ol>
+<li>给二买/三买挂「次级别一买 ✓/✗」标签是语义错配，应只对一买做联动检验（TODO.md P3/P4）。</li>
+<li>固定周期近似递归级别的误差在这里显性化：很多「4H 结构」在 1H 上并不构成带中枢链的完整趋势，联动天然稀疏——这不是 bug，是级别理论的真实现象。</li>
+</ol></div>
+
+<div class="case-card" id="case-nest">
+  <div class="case-head"><span class="t">案例：区间套 —— 4H 一买内部的 1H 一买</span><span class="tf">4H + 1H</span>
+    <div class="s" id="sub-nest"></div></div>
+  <div class="chart" id="chart-nest" style="height:320px"></div>
+  <div class="chart" id="chart-nest-sub" style="height:300px;border-top:1px solid var(--border)"></div>
+  <div class="legend"><span style="color:#fff">● 上图: 4H 一买</span><span style="color:#f0a848">● 下图: 同窗口内 1H 自己的一买(趋势背驰)</span></div>
+  <div class="facts" id="facts-nest"></div>
+</div>
+</section>
+
+<!-- ==================== 10 实战清单 ==================== -->
+<section class="chapter" id="ch10">
+<h2 class="ch">10 · 实战问题清单（来自本项目的回测）</h2>
+<div class="explain">以下每一条都在本仓库的数据上做过 A/B 验证，可作为把缠论从「纸上理论」落到「可执行系统」时的避坑清单：</div>
+<table class="cmp">
+<tr><th>#</th><th>发现</th><th>证据</th><th>处置</th></tr>
+<tr><td>1</td><td>背驰比较基准必须是「进入最后中枢的 B 段」</td><td>旧口径 41% 一买为伪背驰；修正后 1H 复利 −4.4%→+419%</td><td>a_mode="enter" 已实现</td></tr>
+<tr><td>2</td><td>中枢延伸「重叠即延伸」不可放宽</td><td>放宽版产生 57 段怪物中枢，趋势结构消失</td><td>保持现行（即原文口径）</td></tr>
+<tr><td>3</td><td>笔级信号在小周期不可独立交易</td><td>1H 止损距离中位 1.0%，67% 被止损</td><td>线段定方向、笔找入场</td></tr>
+<tr><td>4</td><td>三卖不是离场信号</td><td>三周期平仓贡献 ≈0</td><td>离场交给一卖/二卖</td></tr>
+<tr><td>5</td><td>三买应持有至一卖</td><td>4H 复利 +260%→+713%</td><td>≤4H 采纳；1D 配合次级止盈(TODO P1)</td></tr>
+<tr><td>6</td><td>一买×一买共振有效</td><td>胜率 +13pct，回撤 39%→18%</td><td>multilevel_backtest.py</td></tr>
+<tr><td>7</td><td>二买的次级别对应物是盘整背驰</td><td>一买联动率仅 5%</td><td>待实现盘整背驰(TODO P4)</td></tr>
+<tr><td>8</td><td>收盘确认窗口应按级别差异化</td><td>1H 确认延迟吃掉本就微薄的止损距离</td><td>TODO P5</td></tr>
+</table>
+<div class="explain" style="margin-top:22px;color:var(--muted);font-size:13px">
+配套工具：行情与结构总览见 <a href="./index.html">index.html</a>；回测脚本 backtest.py / multilevel_backtest.py / sanmai_hold_test.py；待办见 TODO.md。
+</div>
+</section>
+
+</main>
+</div>
+
+<script>
+/* ================= 渲染引擎 ================= */
+const C = window.TUTORIAL_CASES;
+const TH = { bg:'#131722', grid:'#22293a', text:'#c8cede', up:'#26a69a', down:'#ef5350' };
+
+function chartOpts(h){
+  return {
+    layout:{ background:{type:'solid', color:TH.bg}, textColor:TH.text,
+             fontFamily:'-apple-system,PingFang SC,sans-serif' },
+    grid:{ vertLines:{color:TH.grid}, horzLines:{color:TH.grid} },
+    timeScale:{ borderColor:'#2a3346', timeVisible:true, secondsVisible:false },
+    rightPriceScale:{ borderColor:'#2a3346' },
+    height:h, autoSize:true,
+  };
+}
+
+/* overlay primitive: strokes / segments / pivots / notes / featureSeq */
+function makeOverlay(spec, series, chart){
+  const items = spec;
+  class R{
+    draw(target){
+      target.useMediaCoordinateSpace(scope=>{
+        const ctx = scope.context;
+        const X = t => chart.timeScale().timeToCoordinate(t);
+        const Y = p => series.priceToCoordinate(p);
+        ctx.lineCap='round';
+        // strokes (灰虚线)
+        if(items.strokes){
+          ctx.lineWidth=1; ctx.strokeStyle='rgba(154,163,178,.55)'; ctx.setLineDash([3,3]);
+          for(const s of items.strokes){
+            const x1=X(s[0]),y1=Y(s[1]),x2=X(s[2]),y2=Y(s[3]);
+            if(x1==null||x2==null||y1==null||y2==null) continue;
+            ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+          }
+          ctx.setLineDash([]);
+        }
+        // segments (金色粗线)
+        if(items.segments){
+          ctx.lineWidth=2.6;
+          for(const s of items.segments){
+            const x1=X(s[0]),y1=Y(s[1]),x2=X(s[2]),y2=Y(s[3]);
+            if(x1==null||x2==null||y1==null||y2==null) continue;
+            ctx.strokeStyle='#f0b90b';
+            ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+          }
+        }
+        // pivots (矩形)
+        if(items.pivots){
+          for(const p of items.pivots){
+            const x1=X(p[0]), x2=X(p[1]), yz=Y(p[3]), yd=Y(p[2]);
+            if(x1==null||x2==null||yz==null||yd==null) continue;
+            const x0=Math.min(x1,x2), w=Math.abs(x2-x1)||2;
+            ctx.fillStyle='rgba(255,255,255,.06)';
+            ctx.fillRect(x0,Math.min(yz,yd),w,Math.abs(yd-yz));
+            ctx.strokeStyle='rgba(255,255,255,.32)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+            ctx.beginPath();ctx.moveTo(x0,yz);ctx.lineTo(x0+w,yz);ctx.stroke();
+            ctx.beginPath();ctx.moveTo(x0,yd);ctx.lineTo(x0+w,yd);ctx.stroke();
+            ctx.setLineDash([]);
+          }
+        }
+        // featureSeq (蓝色窄框)
+        if(items.featureSeq && items.featureSeq.length){
+          const sp = chart.timeScale().options().barSpacing || 6;
+          const w = Math.max(3, sp*0.55);
+          for(const f of items.featureSeq){
+            const x=X(f.t), y1=Y(f.hi), y2=Y(f.lo);
+            if(x==null||y1==null||y2==null) continue;
+            ctx.fillStyle='rgba(80,140,255,.14)'; ctx.strokeStyle='rgba(80,140,255,.75)';
+            ctx.lineWidth=1;
+            ctx.fillRect(x-w/2,Math.min(y1,y2),w,Math.abs(y2-y1)||1);
+            ctx.strokeRect(x-w/2,Math.min(y1,y2),w,Math.abs(y2-y1)||1);
+          }
+        }
+        // notes (文字标签)
+        if(items.notes){
+          ctx.font='11px -apple-system,PingFang SC,sans-serif';
+          for(const n of items.notes){
+            const x=X(n.t), y=Y(n.p);
+            if(x==null||y==null) continue;
+            const txt=n.text, tw=ctx.measureText(txt).width;
+            const ty=y-26;
+            ctx.fillStyle='#ffd479'; ctx.globalAlpha=.95;
+            ctx.fillText(txt, Math.max(2,x-tw/2), ty);
+            ctx.globalAlpha=1;
+            ctx.strokeStyle='rgba(255,212,121,.45)';
+            ctx.beginPath();ctx.moveTo(x,ty+3);ctx.lineTo(x,y-(items.pivots?0:4));ctx.stroke();
+          }
+        }
+      });
+    }
+  }
+  class V{ constructor(){this._r=new R(this);} update(){} renderer(){return this._r;} }
+  class P{ updateAllViews(){} paneViews(){return [new V()];} }
+  return new P();
+}
+
+function markersOf(c){
+  const out=[];
+  (c.marks||[]).forEach(m=>out.push({
+    time:m.t, position:m.shape==='arrowUp'?'belowBar':'aboveBar',
+    color:m.color, shape:m.shape==='circle'?'circle':(m.shape==='arrowDown'?'arrowDown':'arrowUp'),
+    text:m.text||'', size:m.shape==='circle'?1.6:1 }));
+  return out.sort((a,b)=>a.time-b.time);
+}
+
+function renderStandard(elId, c, opts={}){
+  const el=document.getElementById(elId);
+  const chart=LightweightCharts.createChart(el, chartOpts(el.clientHeight||opts.height||400));
+  const series=chart.addCandlestickSeries({
+    upColor:TH.up, downColor:TH.down, borderUpColor:TH.up, borderDownColor:TH.down,
+    wickUpColor:TH.up, wickDownColor:TH.down });
+  series.setData(c.w.candles.map(k=>({time:k[0],open:k[1],high:k[2],low:k[3],close:k[4]})));
+  series.attachPrimitive(makeOverlay(c, series, chart));
+  const mk=markersOf(c).concat((c.fractalMarks||[]));
+  if(mk.length) series.setMarkers(mk);
+  chart.timeScale().fitContent();
+  return {chart,series};
+}
+
+let rendered=new Set();
+function renderCase(cid){
+  if(rendered.has(cid)) return;
+  rendered.add(cid);
+  const c=C[cid]; if(!c) return;
+  const _t=document.getElementById('tf-'+cid); if(_t)_t.textContent=c.tf;
+  const _s=document.getElementById('sub-'+cid); if(_s)_s.textContent=c.subtitle||'';
+  const facts=document.getElementById('facts-'+cid);
+  if(facts && c.facts){
+    facts.innerHTML=Object.entries(c.facts).map(([k,v])=>`<span>${k}: <b>${v}</b></span>`).join('');
+  }
+  if(cid==='nest'){
+    const a=renderStandard('chart-nest', c);
+    const sub={...c, w:c.w2, marks:c.marks2||[], strokes:null,pivots:null,notes:null};
+    const b=renderStandard('chart-nest-sub', sub);
+    let flag=false;
+    a.chart.timeScale().subscribeVisibleLogicalRangeChange(r=>{ if(flag||!r)return; flag=true; b.chart.timeScale().setVisibleLogicalRange(r); flag=false; });
+    b.chart.timeScale().subscribeVisibleLogicalRangeChange(r=>{ if(flag||!r)return; flag=true; a.chart.timeScale().setVisibleLogicalRange(r); flag=false; });
+    return;
+  }
+  const {chart}=renderStandard('chart-'+cid, c);
+  if(c.macd){
+    const mEl=document.getElementById('macd-'+cid);
+    if(mEl){
+      const mc=LightweightCharts.createChart(mEl,{...chartOpts(mEl.clientHeight||120),
+        timeScale:{visible:false,borderColor:'#2a3346'}, rightPriceScale:{borderColor:'#2a3346'}});
+      const hs=mc.addHistogramSeries({priceFormat:{type:'volume'}});
+      const inR=(t,r)=>r&&t>=r[0]&&t<=r[1];
+      hs.setData(c.w.candles.map((k,i)=>{
+        const v=c.macd.hist[i]||0;
+        const isA=inR(k[0],c.aRange), isC=inR(k[0],c.cRange);
+        let col=v>=0?'rgba(239,83,80,.45)':'rgba(38,166,154,.45)';
+        if(isA) col=v>=0?'rgba(239,83,80,.85)':'rgba(38,166,154,.85)';
+        if(isC) col=v>=0?'#ef5350':'#26a69a';
+        return {time:k[0], value:v, color:col};
+      }));
+      let flag=false;
+      chart.timeScale().subscribeVisibleLogicalRangeChange(r=>{if(flag||!r)return;flag=true;mc.timeScale().setVisibleLogicalRange(r);flag=false;});
+      mc.timeScale().subscribeVisibleLogicalRangeChange(r=>{if(flag||!r)return;flag=true;chart.timeScale().setVisibleLogicalRange(r);flag=false;});
+    }
+  }
+}
+
+/* 懒加载 + 目录高亮 */
+const io=new IntersectionObserver(es=>{
+  es.forEach(e=>{ if(e.isIntersecting){ renderCase(e.target.dataset.case); }});
+},{rootMargin:'200px'});
+document.querySelectorAll('.case-card').forEach(card=>{
+  const cid=card.id.replace(/^case-/,'');
+  card.dataset.case=cid; io.observe(card);
+});
+const navLinks=[...document.querySelectorAll('#nav a')];
+const secIO=new IntersectionObserver(es=>{
+  es.forEach(e=>{ if(e.isIntersecting){
+    navLinks.forEach(a=>a.classList.toggle('active', a.getAttribute('href')==='#'+e.target.id));
+  }});
+},{rootMargin:'-40% 0px -55% 0px'});
+document.querySelectorAll('section.chapter').forEach(s=>secIO.observe(s));
+</script>
+</body>
+</html>

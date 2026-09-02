@@ -22,18 +22,21 @@ A/B 对照(理论修正开关, 通过 chanlun._collect_causal_points 透传):
 
 import json
 from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
 
 import pandas as pd
 
 import chanlun
 
-DATA_FILES = {"1D": "BTC_USD_1day.parquet", "4H": "BTC_USD_4h.parquet", "1H": "BTC_USD_1h.parquet"}
-CONFIGS = [
-    ("baseline", dict(a_mode="strongest", pullback_ext=False)),
-    ("fixA-enter", dict(a_mode="enter", pullback_ext=False)),
-    ("fixB-pullback", dict(a_mode="strongest", pullback_ext=True)),
-    ("fixAB", dict(a_mode="enter", pullback_ext=True)),
-]
+_DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "crypto"
+DATA_FILES = {
+    "1D": _DATA_DIR / "BTC_USD_1day.parquet",
+    "4H": _DATA_DIR / "BTC_USD_4h.parquet",
+    "1H": _DATA_DIR / "BTC_USD_1h.parquet",
+}
+# 口径已定稿(2026-08): A段=进入段, 中枢延伸=α。原 baseline/fixB/fixAB
+# 实验组已随 chanlun 侧参数移除, 只保留现行口径。
+CONFIGS = [("enter", dict())]
 
 
 # --------------------------------------------------------------------------- #
@@ -142,7 +145,7 @@ def run_one(args):
     """子进程任务: 加载单个周期数据, 跑单配置的因果信号生成 + 回测。"""
     tf, cfg_name, kw = args
     bars, epochs = load_bars(tf)
-    buy_s, sell_s, buy_g, sell_g, _ = chanlun._collect_causal_points(bars, epochs, tf, **kw)
+    buy_s, sell_s, buy_g, sell_g, *_ = chanlun._collect_causal_points(bars, epochs, tf, **kw)
     out = []
     for mode, buys, sells in (("stroke", buy_s, sell_s), ("segment", buy_g, sell_g)):
         trades = run_backtest(bars, epochs, buys, sells, tf, mode)

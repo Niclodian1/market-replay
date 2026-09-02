@@ -30,7 +30,7 @@
 ## 目录结构
 
 - `run_experiment.py`：完整、可重复运行的实验。
-- `data/`：运行时保存的标准化 OHLCV 数据快照与清单。
+- 面板数据快照已归档至仓库根 `data/{stocks,gold,hk_equity,cn_equity,crypto}/`。
 - `results/`：全量指标、汇总、推荐 JSON 和图表。
 - `RESULTS.md`：运行后自动生成的中文结论。
 

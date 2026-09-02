@@ -74,7 +74,7 @@ body_atr = (close[t] - open[t]) / ATR14[t-1]
 
 ## 文件
 
-- `data/manifest.csv`：数据范围与来源。
+- `manifest.csv`：数据范围与来源。
 - `results/all_metrics.csv`：每个品种、周期、MA、参数、样本和执行口径的完整结果。
 - `results/development_summary.csv` / `holdout_summary.csv`：汇总结果。
 - `results/development_scores.csv` / `holdout_scores.csv`：稳健排名。

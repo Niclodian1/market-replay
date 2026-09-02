@@ -8,7 +8,7 @@ import pandas as pd
 from app.core.alert_engine import evaluate_alert
 from app.core.divergence_detectors import macd_extreme_divergence_events
 
-_PARQUET = Path(__file__).resolve().parents[2] / "fenxing" / "BTC_USD_1day.parquet"
+_PARQUET = Path(__file__).resolve().parents[2] / "data" / "crypto" / "BTC_USD_1day.parquet"
 
 
 def _btc_candles():

@@ -41,10 +41,11 @@
 """
 
 import json
+from pathlib import Path
 
 import pandas as pd
 
-DATA_FILE = "BTC_USD_1day.parquet"
+DATA_FILE = Path(__file__).resolve().parents[1] / "data" / "crypto" / "BTC_USD_1day.parquet"
 OUT_FILE = "data.js"
 
 

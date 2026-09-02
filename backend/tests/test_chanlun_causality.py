@@ -8,8 +8,7 @@ import pytest
 
 from app.core import chanlun_service
 
-FENXING = Path(__file__).resolve().parents[2] / "fenxing"
-PARQUET_1D = FENXING / "BTC_USD_1day.parquet"
+PARQUET_1D = Path(__file__).resolve().parents[2] / "data" / "crypto" / "BTC_USD_1day.parquet"
 
 
 def _fmt(ts: int) -> str:

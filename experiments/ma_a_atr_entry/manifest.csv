@@ -1,0 +1,40 @@
+panel_id,symbol,name,timeframe,asset_class,source,bars,start,end,snapshot
+000333_SZ_1day,000333.SZ,美的集团,1day,CN equity,Yahoo Finance adjusted,3140,2013-09-18T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/cn_equity/000333_SZ_1day.parquet
+002460_SZ_1day,002460.SZ,赣锋锂业,1day,CN equity,Yahoo Finance adjusted,3893,2010-08-10T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/cn_equity/002460_SZ_1day.parquet
+300033_SZ_1day,300033.SZ,同花顺,1day,CN equity,Yahoo Finance adjusted,4045,2009-12-25T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/cn_equity/300033_SZ_1day.parquet
+300750_SZ_1day,300750.SZ,宁德时代,1day,CN equity,Yahoo Finance adjusted,1990,2018-06-11T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/cn_equity/300750_SZ_1day.parquet
+600900_SS_1day,600900.SS,长江电力,1day,CN equity,Yahoo Finance adjusted,5569,2003-11-18T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/cn_equity/600900_SS_1day.parquet
+603259_SS_1day,603259.SS,药明康德,1day,CN equity,Yahoo Finance adjusted,2014,2018-05-08T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/cn_equity/603259_SS_1day.parquet
+AAPL_1day,AAPL,Apple,1day,US equity,Yahoo Finance adjusted,11516,1980-12-12T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/AAPL_1day.parquet
+AMD_1day,AMD,AMD,1day,US equity,Yahoo Finance adjusted,11704,1980-03-17T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/AMD_1day.parquet
+AMZN_1day,AMZN,Amazon,1day,US equity,Yahoo Finance adjusted,7364,1997-05-15T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/AMZN_1day.parquet
+AVGO_1day,AVGO,Broadcom,1day,US equity,Yahoo Finance adjusted,4288,2009-08-06T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/AVGO_1day.parquet
+BRK_B_1day,BRK-B,Berkshire,1day,US equity,Yahoo Finance adjusted,7621,1996-05-09T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/BRK_B_1day.parquet
+COIN_1day,COIN,Coinbase,1day,US equity,Yahoo Finance adjusted,1347,2021-04-14T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/COIN_1day.parquet
+GOOGL_1day,GOOGL,Alphabet,1day,US equity,Yahoo Finance adjusted,5538,2004-08-19T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/GOOGL_1day.parquet
+JPM_1day,JPM,JPMorgan,1day,US equity,Yahoo Finance adjusted,11704,1980-03-17T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/JPM_1day.parquet
+META_1day,META,Meta,1day,US equity,Yahoo Finance adjusted,3586,2012-05-18T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/META_1day.parquet
+MSFT_1day,MSFT,Microsoft,1day,US equity,Yahoo Finance adjusted,10190,1986-03-13T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/MSFT_1day.parquet
+MU_1day,MU,Micron,1day,US equity,Yahoo Finance adjusted,10639,1984-06-01T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/MU_1day.parquet
+NFLX_1day,NFLX,Netflix,1day,US equity,Yahoo Finance adjusted,6102,2002-05-23T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/NFLX_1day.parquet
+NVDA_1day,NVDA,NVIDIA,1day,US equity,Yahoo Finance adjusted,6939,1999-01-22T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/NVDA_1day.parquet
+PLTR_1day,PLTR,Palantir,1day,US equity,Yahoo Finance adjusted,1481,2020-09-30T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/PLTR_1day.parquet
+TSLA_1day,TSLA,Tesla,1day,US equity,Yahoo Finance adjusted,4063,2010-06-29T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/TSLA_1day.parquet
+WMT_1day,WMT,Walmart,1day,US equity,Yahoo Finance adjusted,13610,1972-08-25T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/stocks/WMT_1day.parquet
+BTC_USD_1day,BTC-USD,BTC-USD,1day,crypto,local parquet + OKX increment,3297,2017-08-17T00:00:00+00:00,2026-08-25T00:00:00+00:00,data/crypto/BTC_USD_1day.parquet
+BTC_USD_1h,BTC-USD,BTC-USD,1h,crypto,local parquet + OKX increment,78956,2017-08-17T04:00:00+00:00,2026-08-25T06:00:00+00:00,data/crypto/BTC_USD_1h.parquet
+BTC_USD_4h,BTC-USD,BTC-USD,4h,crypto,local parquet + OKX increment,19754,2017-08-17T04:00:00+00:00,2026-08-25T04:00:00+00:00,data/crypto/BTC_USD_4h.parquet
+ETH_USD_1day,ETH-USD,ETH-USD,1day,crypto,local parquet + OKX increment,3297,2017-08-17T00:00:00+00:00,2026-08-25T00:00:00+00:00,data/crypto/ETH_USD_1day.parquet
+ETH_USD_1h,ETH-USD,ETH-USD,1h,crypto,local parquet + OKX increment,78956,2017-08-17T04:00:00+00:00,2026-08-25T06:00:00+00:00,data/crypto/ETH_USD_1h.parquet
+ETH_USD_4h,ETH-USD,ETH-USD,4h,crypto,local parquet + OKX increment,19754,2017-08-17T04:00:00+00:00,2026-08-25T04:00:00+00:00,data/crypto/ETH_USD_4h.parquet
+HYPE_USD_1day,HL:HYPE,HL:HYPE,1day,crypto,Hyperliquid native candles,628,2024-12-05T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/crypto/HYPE_USD_1day.parquet
+HYPE_USD_1h,HL:HYPE,HL:HYPE,1h,crypto,Hyperliquid native candles,5002,2026-01-29T03:00:00+00:00,2026-08-25T12:00:00+00:00,data/crypto/HYPE_USD_1h.parquet
+HYPE_USD_4h,HL:HYPE,HL:HYPE,4h,crypto,Hyperliquid native candles,3769,2024-12-05T08:00:00+00:00,2026-08-25T08:00:00+00:00,data/crypto/HYPE_USD_4h.parquet
+PEPE_USD_1day,PEPE-USD,PEPE-USD,1day,crypto,Binance spot full history,1208,2023-05-05T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/crypto/PEPE_USD_1day.parquet
+PEPE_USD_1h,PEPE-USD,PEPE-USD,1h,crypto,Binance spot full history,28987,2023-05-05T18:00:00+00:00,2026-08-25T12:00:00+00:00,data/crypto/PEPE_USD_1h.parquet
+PEPE_USD_4h,PEPE-USD,PEPE-USD,4h,crypto,Binance spot full history,7247,2023-05-05T16:00:00+00:00,2026-08-25T08:00:00+00:00,data/crypto/PEPE_USD_4h.parquet
+SOL_USD_1day,SOL-USD,SOL-USD,1day,crypto,Binance spot full history,2205,2020-08-11T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/crypto/SOL_USD_1day.parquet
+SOL_USD_1h,SOL-USD,SOL-USD,1h,crypto,Binance spot full history,52907,2020-08-11T06:00:00+00:00,2026-08-25T12:00:00+00:00,data/crypto/SOL_USD_1h.parquet
+SOL_USD_4h,SOL-USD,SOL-USD,4h,crypto,Binance spot full history,13232,2020-08-11T04:00:00+00:00,2026-08-25T08:00:00+00:00,data/crypto/SOL_USD_4h.parquet
+XAGUSD_1day,XAGUSD,XAGUSD,1day,gold,Dukascopy snapshot,7981,1999-06-03T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/gold/XAGUSD_1day.parquet
+XAUUSD_1day,XAUUSD,XAUUSD,1day,gold,Dukascopy snapshot,8255,1999-06-03T00:00:00+00:00,2026-08-24T00:00:00+00:00,data/gold/XAUUSD_1day.parquet

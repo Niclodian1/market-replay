@@ -25,7 +25,7 @@ from backtest import load_bars, run_backtest, stats
 
 PAIRS = [("1D", "4H"), ("4H", "1H")]
 BAR_SEC = {"1D": 86400, "4H": 14400, "1H": 3600}
-KW = dict(a_mode="enter", pullback_ext=False)
+KW = dict()
 
 
 def collect(tf):
@@ -41,7 +41,7 @@ def main():
 
     rows = []  # (big, mode, sub_mode, type, n_all, n_link, ...)
     print("=" * 112)
-    print("联动率: 大级别买点端点 ±2根大级别K线内存在次级别一买端点")
+    print("联动率: 大级别买点端点 ±3根大级别K线内存在次级别一买端点 (与 chanlun.LINK_WINDOW 一致)")
     print("-" * 112)
     header = f"{'大级':4s} {'口径':7s} {'次级':7s} | " + " ".join(
         f"{ty}(总→联动)" for ty in ("一买", "二买", "三买"))
@@ -49,9 +49,9 @@ def main():
 
     results = []  # 明细交易供效果统计
     for big, sub in PAIRS:
-        bars_b, ep_b, (bs, ss, bg, sg, _) = cache[big]
-        _, _, (bsub_s, _, bsub_g, _, _) = cache[sub]
-        tol = 2 * BAR_SEC[big]
+        bars_b, ep_b, (bs, ss, bg, sg, _, _) = cache[big]
+        _, _, (bsub_s, _, bsub_g, _, _, bsub_pb) = cache[sub]
+        tol = 3 * BAR_SEC[big]  # 与 chanlun.LINK_WINDOW (1D:72h, 4H:24h = ±3根) 一致
         for mode, buys, sells in (("stroke", bs, ss), ("segment", bg, sg)):
             # 对照组: 全部买点回测
             trades_all = run_backtest(bars_b, ep_b, buys, sells, big, mode)

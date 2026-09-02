@@ -24,7 +24,7 @@ sys.path.insert(0, str(_FENXING_DIR))
 
 SYMBOL = "BTC-USD"
 TIMEFRAME = "1day"
-PARQUET = _FENXING_DIR / "BTC_USD_1day.parquet"
+PARQUET = _REPO_ROOT / "data" / "crypto" / "BTC_USD_1day.parquet"
 OUT_JS = _FENXING_DIR / "divergence_data.js"
 
 

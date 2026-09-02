@@ -137,7 +137,7 @@ def test_macd_extreme_divergence_detector_on_real_data():
     import pandas as pd
 
     df = pd.read_parquet(
-        Path(__file__).resolve().parents[2] / "fenxing" / "BTC_USD_1day.parquet"
+        Path(__file__).resolve().parents[2] / "data" / "crypto" / "BTC_USD_1day.parquet"
     )[["time", "open", "high", "low", "close", "volume"]].dropna().sort_values("time")
     candles = df.to_dict("records")
 

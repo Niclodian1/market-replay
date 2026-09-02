@@ -61,10 +61,10 @@ def _decode_bucket(data: dict) -> list[dict]:
     return candles
 
 
-def _load_local() -> list[dict]:
-    if not _CACHE_PATH.exists():
+def _load_local(path: Path) -> list[dict]:
+    if not path.exists():
         return []
-    frame = pd.read_parquet(_CACHE_PATH)
+    frame = pd.read_parquet(path)
     records = frame.to_dict("records")
     return [
         {
@@ -79,56 +79,73 @@ def _load_local() -> list[dict]:
     ]
 
 
-def _save_local(candles: list[dict]) -> None:
-    _CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(candles).to_parquet(_CACHE_PATH, index=False)
+def _save_local(candles: list[dict], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(candles).to_parquet(path, index=False)
 
 
-async def _fetch_year(client: httpx.AsyncClient, year: int) -> list[dict]:
+async def _fetch_year(client: httpx.AsyncClient, year: int, url: str) -> list[dict]:
     current_year = datetime.now(timezone.utc).year
     if year == current_year:
         start_ms = int(datetime(year, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
-        url = f"{_BASE_URL}?from={start_ms}"
+        url = f"{url}?from={start_ms}"
     else:
-        url = f"{_BASE_URL}/{year}"
+        url = f"{url}/{year}"
     response = await client.get(url)
     response.raise_for_status()
     return _decode_bucket(response.json())
 
 
-class DukascopyXauProvider:
+class DukascopyMetalProvider:
+    """Dukascopy 贵金属日线(XAU-USD / XAG-USD ...): 年度桶增量合并 + 本地 parquet 缓存。
+
+    pair: Dukascopy 产品对(如 "XAU-USD"); product: 本地产品符号(如 "XAUUSD"),
+    决定缓存路径 data/market/{product}_1d.parquet 与符号校验口径。
+    """
+
+    _start_year = _START_YEAR
+
+    def __init__(self, pair: str = "XAU-USD", product: str | None = None):
+        self._pair = pair.upper()
+        self._product = (product or self._pair.replace("-", "")).upper()
+        self._url = f"https://jetta.dukascopy.com/v1/candles/day/{self._pair}/BID"
+        self._cache_path = _REPO_ROOT / "data" / "market" / f"{self._product}_1d.parquet"
+        self._memory_cache: tuple[list[dict], float] | None = None
+
+    def _validate_symbol(self, symbol: str) -> bool:
+        return symbol.upper().replace("/", "").replace("=", "") == self._product
+
     async def get_full_history(self, symbol: str, interval: str) -> list[dict]:
-        global _memory_cache
-        if not is_xauusd_symbol(symbol) or interval != "1day":
-            raise ValueError("Dukascopy XAUUSD 第一阶段仅提供日线")
+        if not self._validate_symbol(symbol) or interval != "1day":
+            raise ValueError(f"Dukascopy {self._product} 第一阶段仅提供日线")
 
         now = time.monotonic()
-        if _memory_cache is not None and now - _memory_cache[1] < 300:
-            return _memory_cache[0]
+        if self._memory_cache is not None and now - self._memory_cache[1] < 300:
+            return self._memory_cache[0]
 
-        local = await asyncio.to_thread(_load_local)
+        local = await asyncio.to_thread(_load_local, self._cache_path)
         current_year = datetime.now(timezone.utc).year
-        years = range(_START_YEAR, current_year + 1) if not local else range(max(_START_YEAR, current_year - 1), current_year + 1)
+        years = range(self._start_year, current_year + 1) if not local else range(max(self._start_year, current_year - 1), current_year + 1)
         semaphore = asyncio.Semaphore(8)
 
         async with httpx.AsyncClient(timeout=httpx.Timeout(20.0, connect=8.0)) as client:
             async def fetch(year: int) -> list[dict]:
                 async with semaphore:
-                    return await _fetch_year(client, year)
+                    return await _fetch_year(client, year, self._url)
 
             fetched = await asyncio.gather(*(fetch(year) for year in years), return_exceptions=True)
 
         updates = [candle for result in fetched if not isinstance(result, Exception) for candle in result]
         if not updates and not local:
             errors = [str(result) for result in fetched if isinstance(result, Exception)]
-            raise ValueError(f"XAUUSD 历史数据暂不可用：{errors[0] if errors else '空数据'}")
+            raise ValueError(f"{self._product} 历史数据暂不可用：{errors[0] if errors else '空数据'}")
 
         merged = {candle["time"]: candle for candle in local}
         merged.update({candle["time"]: candle for candle in updates})
         candles = [merged[key] for key in sorted(merged)]
         if updates:
-            await asyncio.to_thread(_save_local, candles)
-        _memory_cache = (candles, now)
+            await asyncio.to_thread(_save_local, candles, self._cache_path)
+        self._memory_cache = (candles, now)
         return candles
 
     async def get_time_series(
@@ -150,13 +167,13 @@ class DukascopyXauProvider:
     async def get_quote(self, symbol: str) -> dict:
         candles = await self.get_full_history(symbol, "1day")
         if not candles:
-            raise ValueError("XAUUSD 暂无报价")
+            raise ValueError(f"{self._product} 暂无报价")
         latest = candles[-1]
         previous = candles[-2] if len(candles) > 1 else latest
         change = latest["close"] - previous["close"]
         return {
-            "symbol": "XAUUSD",
-            "name": "现货黄金",
+            "symbol": self._product,
+            "name": "现货" + ("黄金" if self._product == "XAUUSD" else self._product),
             "price": latest["close"],
             "change": change,
             "change_percent": change / previous["close"] * 100 if previous["close"] else 0,
@@ -165,6 +182,13 @@ class DukascopyXauProvider:
             "source": "dukascopy",
             "source_label": "Dukascopy",
         }
+
+
+class DukascopyXauProvider(DukascopyMetalProvider):
+    """向后兼容别名: 黄金日线 provider(行为与旧版完全一致)。"""
+
+    def __init__(self):
+        super().__init__("XAU-USD", "XAUUSD")
 
 
 _provider = DukascopyXauProvider()

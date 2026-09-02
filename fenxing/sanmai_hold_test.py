@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 import chanlun
 from backtest import load_bars, run_backtest, stats
 
-KW = dict(a_mode="enter", pullback_ext=False)
+KW = dict()
 
 
 def iso(e):
@@ -34,7 +34,7 @@ def main():
     print("-" * 118)
     for tf in ("1D", "4H", "1H"):
         bars, epochs = load_bars(tf)
-        bs, ss, bg, sg, _ = chanlun._collect_causal_points(bars, epochs, tf, **KW)
+        bs, ss, bg, sg, *_ = chanlun._collect_causal_points(bars, epochs, tf, **KW)
         for mode, buys, sells in (("stroke", bs, ss), ("segment", bg, sg)):
             b3 = [b for b in buys if b["k"] == "三买"]
             if not b3:
