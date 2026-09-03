@@ -44,10 +44,8 @@ scripts/backtests/data/
 
 # fenxing research sandbox: keep sources & input parquet, ignore generated artifacts
 fenxing/__pycache__/
-fenxing/data.js
 fenxing/trades_detail.json
 fenxing/backtest_report.json
-fenxing/divergence_data.js
 fenxing/multilevel_profile.txt
 fenxing/*.txt
 

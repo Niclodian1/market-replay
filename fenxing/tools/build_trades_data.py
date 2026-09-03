@@ -10,10 +10,11 @@ trades_detail.json → trades_data.js (供 index.html 回测交易图层加载)
 """
 
 import json
+from pathlib import Path
 from datetime import datetime, timezone
 
-SRC = "trades_detail.json"
-DST = "trades_data.js"
+SRC = str(Path(__file__).resolve().parent / "trades_detail.json")
+DST = str(Path(__file__).resolve().parents[1] / "data-view" / "trades_data.js")
 
 
 def main():

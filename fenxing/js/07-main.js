@@ -344,7 +344,7 @@ function computeStats(){
   document.getElementById('statsGrid').innerHTML =
     rows.map(r => `<span class="k">${r[0]}</span><span class="v">${r[1]}</span>`).join('');
   document.getElementById('dataNote').textContent = DATA.meta.source
-    ? `数据源: ${DATA.meta.source} · ${DATA.meta.multiTF ? '多级别独立计算 + 次级别联动' : '日线单级别'}缠论计算, 导出 ${currentSym === 'BTC' ? 'data.js' : 'data_' + currentSym.toLowerCase() + '.js'}`
+    ? `数据源: ${DATA.meta.source} · ${DATA.meta.multiTF ? '多级别独立计算 + 次级别联动' : '日线单级别'}缠论计算, 导出 ${currentSym === 'BTC' ? 'data-view/data.js' : 'data-view/data_' + currentSym.toLowerCase() + '.js'}`
     : `数据源: BTC_USD_${m.interval.toLowerCase()}.parquet · ${m.nBars} 根 (${m.firstDate} ~ ${m.lastDate}) · chanlun.py 三周期独立计算 + 次级别联动, 导出 data.js`;
   document.getElementById('tradeListMode').textContent =
     `（${pivotMode === 'seg' ? '线段中枢' : '笔中枢'} · ${activeView === 'raw' ? '原始' : '合并'}）`;

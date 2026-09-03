@@ -8,12 +8,16 @@
 比较各层对象数量与端点差异。
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # fenxing/ (chanlun.py/backtest.py)
+
 import pandas as pd
 from pathlib import Path
 
 import chanlun
 
-_DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "crypto"
+_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "crypto"
 DATA_FILES = {
     "1D": _DATA_DIR / "BTC_USD_1day.parquet",
     "4H": _DATA_DIR / "BTC_USD_4h.parquet",

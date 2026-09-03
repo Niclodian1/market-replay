@@ -10,7 +10,7 @@
   cn     : 600519_SS (1D)
 
 用法: python3 build_all_symbols.py [SYM ...]   # 不带参数则跑全部
-输出: fenxing/data_<sym小写>.js  (window.MARKET_DATA = {...})
+输出: fenxing/data-view/data_<sym小写>.js  (window.MARKET_DATA = {...})
 """
 
 from __future__ import annotations
@@ -134,7 +134,7 @@ def build(key: str, name: str, tf_paths: dict[str, str]) -> None:
         "levels": levels_out,
     }
     # BTC 直接写主数据文件 data.js(页面默认加载, 与 chanlun.py main 默认一致)
-    out_path = _HERE / ("data.js" if key == "BTC" else f"data_{key.lower()}.js")
+    out_path = _HERE / "data-view" / ("data.js" if key == "BTC" else f"data_{key.lower()}.js")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("window.MARKET_DATA = ")
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))

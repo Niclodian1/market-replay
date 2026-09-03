@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "crypto"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "crypto"
 SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT"}
 INTERVALS = {"1day": "1d", "4h": "4h", "1h": "1h"}
 PAGE = 1000

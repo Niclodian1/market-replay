@@ -482,7 +482,7 @@ def main():
         case_bsp(L4H, tp, True)
     case_nest(L4H, L1H)
 
-    with open("tutorial_data.js", "w", encoding="utf-8") as f:
+    with open(Path(__file__).resolve().parents[1] / "data-view" / "tutorial_data.js", "w", encoding="utf-8") as f:
         f.write("window.TUTORIAL_CASES = ")
         json.dump(CASES, f, ensure_ascii=False, separators=(",", ":"))
         f.write(";\n")

@@ -40,7 +40,7 @@ async function switchSymbol(sym, force){
     await new Promise((res, rej) => {
       const s = document.createElement('script');
       // BTC 主数据固定为 data.js(与默认加载同一份), 其余品种为 data_<sym>.js
-      s.src = sym === 'BTC' ? 'data.js' : 'data_' + sym.toLowerCase() + '.js';
+      s.src = sym === 'BTC' ? 'data-view/data.js' : 'data-view/data_' + sym.toLowerCase() + '.js';
       s.onload = res; s.onerror = () => rej(new Error('加载 ' + s.src + ' 失败'));
       document.head.appendChild(s);
     });

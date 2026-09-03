@@ -20,11 +20,11 @@ else
 fi
 
 echo "== [2/3] 重建 BTC 缠论结构 (data.js) =="
-python3 chanlun.py BTC
+python3 ../fenxing/chanlun.py BTC
 
 echo "== [3/3] 重建 ETH 缠论结构 (data_eth.js) =="
-python3 chanlun.py ETH
+python3 ../fenxing/chanlun.py ETH
 
 echo ""
 echo "== 完成 ✓ =="
-ls -lh data.js data_eth.js
+ls -lh ../fenxing/data-view/data.js ../fenxing/data-view/data_eth.js

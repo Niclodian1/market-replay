@@ -10,6 +10,10 @@
   B. 盘背买与一买/二买的时间重合率(±3根大级别K线) — 检验"二买的次级别
      对应物是盘整背驰"的联动假设
 """
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # fenxing/ (chanlun.py/backtest.py)
+
 from datetime import datetime, timezone
 
 import chanlun
@@ -70,7 +74,7 @@ def main():
         print(sline)
         lines.append(sline)
     print("=" * 110)
-    with open("panbei_report.txt", "w", encoding="utf-8") as f:
+    with open(Path(__file__).resolve().parents[2] / "fenxing" / "docs" / "reports" / "panbei_report.txt", "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
 
