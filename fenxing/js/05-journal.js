@@ -70,6 +70,32 @@ const acctEquity = () => {
   const floatPnl = bar ? cur.reduce((a,p) => a + pnlOf(p, bar.close), 0) : 0;
   return acctBal() + used + floatPnl;
 };
+// ---- 练习标记: 开仓/加仓/出场在图表K线上的位置 ----
+const posColorById = pid => POS_COLORS[(pid - 1) % POS_COLORS.length];
+// 汇总本局全部入场事件: 在仓的逐笔 + 已平仓记录里的逐笔(平仓后仍可回看入场位)
+function practiceEntries(){
+  const out = [];
+  for (const pos of positions){
+    pos.entries.forEach((e, i) => out.push({
+      time: e.t, price: e.price, side: pos.side, isAdd: i > 0, pid: pos.id, color: posColor(pos),
+    }));
+  }
+  for (const r of TR.session){
+    const live = positions.find(p => p.id === r.pid);
+    if (!live){
+      // 已完全离场的仓位: 入场事件由记录补(部分平仓的在仓持仓已在上面提供, 不重复计)
+      (r.entry_ts_list || []).forEach((t, i) => out.push({
+        time: t, price: (r.entry_prices || [])[i] ?? r.entry, side: r.side, isAdd: i > 0,
+        pid: r.pid, color: posColorById(r.pid), closed: true,
+      }));
+    }
+    if (r.exit_ts != null) out.push({
+      time: r.exit_ts, price: r.exit_price, side: r.side, isExit: true, pid: r.pid,
+      color: r.pnl_u >= 0 ? t().up : t().down,
+    });
+  }
+  return out.sort((a,b) => a.time - b.time);
+}
 const fmtLogic = (s, n=16) => { s = String(s||''); return s.length > n ? s.slice(0, n) + '…' : s; };
 function renderJournal(){
   const box = document.getElementById('jPositions');
@@ -228,6 +254,7 @@ function closePosObj(pos, r, exitLogic, reason = '手动平仓', force = false){
   if (r >= 1) positions = positions.filter(p => p !== pos);
   else pos.entries.forEach(e => { e.capital = +(e.capital * (1 - r)).toFixed(6); });
   renderJournal();
+  refreshAll({ light: true });   // 出场标记立即上图(练习局)
   return true;
 }
 function makeRec(pos, r, exitPrice, exitTs, pnl, exitLogic, reason){
@@ -238,6 +265,7 @@ function makeRec(pos, r, exitPrice, exitTs, pnl, exitLogic, reason){
     pid: pos.id,
     side: pos.side, leverage: pos.entries[0].leverage, capital: +capClosed.toFixed(2),
     entry_ts: pos.entries[0].t, exit_ts: exitTs,
+    entry_ts_list: pos.entries.map(e => e.t), entry_prices: pos.entries.map(e => e.price),
     entry_time: fmtTimeReal(pos.entries[0].t), entry: +posAvgEntry(pos).toFixed(2),
     exit_time: fmtTimeReal(exitTs), exit_price: exitPrice,
     stop: pos.stop ?? '', logic: pos.entries[0].logic,
@@ -318,6 +346,7 @@ function setupJournal(){
       }],
     });
     renderJournal();
+    refreshAll({ light: true });   // 立即在图上标记开仓位置
   });
   // 持仓卡事件委托: 加仓/平仓表单切换 + 确认动作 + 重置本金
   document.getElementById('jPositions').addEventListener('click', e => {
@@ -379,6 +408,7 @@ function setupJournal(){
         const ns = q('.inp-add-stop').value;
         if (ns) pos.stop = +ns;
         renderJournal();
+        refreshAll({ light: true });   // 立即在图上标记加仓位置
         break;
       }
       case 'close-ok': {
