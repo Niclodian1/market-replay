@@ -596,19 +596,34 @@ document.getElementById('maPeriods').addEventListener('change', () => {
 });
 // MA 关闭/恢复: 隐藏时记住周期, 再点一键恢复
 let _maSaved = document.getElementById('maPeriods').value.trim();
-document.getElementById('maOffBtn').addEventListener('click', () => {
-  const inp = document.getElementById('maPeriods');
-  if (parseMaPeriods().length){
-    _maSaved = inp.value.trim();
-    inp.value = '';
-    document.getElementById('maOffBtn').textContent = '显示';
-    flashBtn('snapshotBtn', 'MA 已隐藏');
+// ---- 视角开关: 缠论 / MA / MACD / 量 —— 平级的观察视角 ----
+let chanMaster = true, savedLayers = null;
+document.getElementById('overlayToggle').addEventListener('click', e => {
+  const b = e.target.closest('button[data-ov]'); if (!b) return;
+  const ov = b.dataset.ov;
+  b.classList.toggle('active');
+  const on = b.classList.contains('active');
+  if (ov === 'chan'){
+    // 缠论总开关: 关=全部结构图层隐藏(记住子开关), 开=恢复; ⚙ 入口随动
+    chanMaster = on;
+    if (!on){ savedLayers = {...layers}; Object.keys(layers).forEach(k => layers[k] = false); }
+    else if (savedLayers) Object.assign(layers, savedLayers);
+    document.querySelectorAll('#layerToggle button').forEach(x =>
+      x.classList.toggle('active', !!layers[x.dataset.layer]));
+    document.getElementById('chanDetailsBtn').style.display = on ? '' : 'none';
+    refreshAll();
+  } else if (ov === 'ma'){
+    maSeries.forEach(it => it.series.applyOptions({ visible: on }));
+    document.getElementById('maPeriods').style.display = on ? '' : 'none';
   } else {
-    inp.value = _maSaved || '20,60';
-    document.getElementById('maOffBtn').textContent = '关闭';
-    flashBtn('snapshotBtn', 'MA 已恢复');
+    const el = document.getElementById(ov === 'macd' ? 'macd' : 'volume');
+    el.style.display = on ? '' : 'none';
+    requestAnimationFrame(alignPanes);
   }
-  rebuildMA();
+});
+document.getElementById('chanDetailsBtn').addEventListener('click', () => {
+  const d = document.getElementById('chanDetails');
+  d.style.display = d.style.display === 'none' ? 'flex' : 'none';
 });
 setView(QP.get('view') === 'merged' ? 'merged' : 'raw');
 if (QP.get('pivot') === 'stroke') setPivotMode('stroke');

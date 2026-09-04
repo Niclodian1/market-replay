@@ -56,6 +56,15 @@
           <button data-tf="1H">1H</button>
         </div>
       </span>
+      <span class="controls-label">视角</span>
+      <div class="seg" id="overlayToggle">
+        <button data-ov="chan" class="active" title="缠论结构图层总开关(分型/笔/中枢/买卖点…)">缠论</button>
+        <button data-ov="ma" class="active" title="均线 MA(周期可在右侧改)">MA</button>
+        <button data-ov="macd" class="active" title="MACD 副图">MACD</button>
+        <button data-ov="vol" class="active" title="成交量副图">量</button>
+      </div>
+      <button class="btn" id="chanDetailsBtn" title="缠论图层与口径设置" style="display:none;">⚙ 缠论设置</button>
+      <div class="controls" id="chanDetails" style="display:none; align-items:center; gap:8px;">
       <span class="controls-label">中枢</span>
       <div class="seg" id="pivotToggle">
         <button data-mode="seg" class="active">线段中枢</button>
@@ -85,6 +94,7 @@
       <div class="seg" id="viewToggle">
         <button data-view="raw" class="active">原始K线</button>
         <button data-view="merged">合并K线</button>
+      </div>
       </div>
       <span class="controls-label">复盘</span>
       <div class="seg" id="replayToggle">
@@ -123,7 +133,6 @@
       <span class="controls-label">MA</span>
       <input id="maPeriods" value="20,60" title="均线周期, 逗号分隔(最多6条), 留空隐藏。例: 5,10,20,60"
              style="width:90px; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:6px; padding:4px 6px; font:inherit; font-size:12px;">
-      <button class="btn" id="maOffBtn" title="隐藏/恢复均线">关闭</button>
       <button class="btn" id="snapshotBtn">📷 快照</button>
       <button class="btn" id="themeBtn">☀️ 浅色</button>
       <button class="btn" id="sideToggleBtn" title="收起/展开右侧面板">⇱ 侧栏</button>

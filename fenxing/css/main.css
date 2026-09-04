@@ -346,3 +346,11 @@ body.side-collapsed .layout { flex-direction: column; }
   background: var(--plane); color: inherit; border: 1px solid var(--border);
   border-radius: 4px; padding: 3px 6px; width: 100px; font: inherit;
 }
+
+/* 缠论细节条(收纳中枢/笔口径/回测/图层/原始合并) */
+#chanDetails { display: none; align-items: center; gap: 8px; }
+#chanDetails .controls-label { color: var(--muted); }
+
+/* 缠论细节条(收纳中枢/笔口径/回测/图层/原始合并) */
+#chanDetails { display: none; align-items: center; gap: 8px; }
+#chanDetails .controls-label { color: var(--muted); }
