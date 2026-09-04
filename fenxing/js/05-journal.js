@@ -409,6 +409,7 @@ function setupJournal(){
         if (ns) pos.stop = +ns;
         renderJournal();
         refreshAll({ light: true });   // 立即在图上标记加仓位置
+        flashBtn('snapshotBtn', `✓ 新成本 ${posAvgEntry(pos).toPrecision(6)}`);
         break;
       }
       case 'close-ok': {
@@ -463,7 +464,7 @@ function refreshPositionLines(){
     // 标题只留编号(方向/价格看卡片与轴标): 长文字会压在最新K线区域影响读图
     posPriceLines.push({ pid: pos.id, kind: 'entry', line: candleSeries.createPriceLine({
       price: entry, color, lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: true, title: `#${pos.id}`,
+      axisLabelVisible: true, title: `#${pos.id} 成本`,
     })});
     if (pos.stop != null){
       posPriceLines.push({ pid: pos.id, kind: 'stop', line: candleSeries.createPriceLine({
@@ -488,6 +489,7 @@ function openPosPopup(pos, point){
     <div class="pp-head" style="color:${posColor(pos)}">#${pos.id} ${pos.side} · ${pos.entries.length}笔</div>
     <div class="pp-row">均价 ${fmt(posAvgEntry(pos))} · 保证金 ${cap.toFixed(0)}U</div>
     <div class="pp-row" data-pp-float style="font-weight:700;color:${u >= 0 ? 'var(--up)' : 'var(--down)'}">浮动 ${u >= 0 ? '+' : ''}${u.toFixed(1)}U (${cap ? (u/cap*100 >= 0 ? '+' : '') + (u/cap*100).toFixed(1) : '0.0'}%)</div>
+    ${pos.entries.map((e,i) => `<div class="pp-row" style="opacity:.75">${i+1}) ${e.isAdd ? '加' : '开'} @ ${e.price.toPrecision(6)} · ${e.capital}U${e.leverage>1?` · ${e.leverage}x`:''}</div>`).join('')}
     <div class="pp-actions">
       <button class="btn" data-pp="add">加仓</button>
       <button class="btn" data-pp="stop">改止损</button>
