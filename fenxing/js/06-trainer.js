@@ -38,15 +38,17 @@ function trainerChartLock(on){
 }
 
 // 视口锁定: 右缘锚定当前K线, 可见宽度 = 回看200根 + 已走步数(+缓冲)
+// RIGHT_PAD: 最新K线与右缘价格轴的留白(根) —— 给持仓线轴标/弹层留出空间, 不遮挡最新走势
+const RIGHT_PAD = 10;
 let _lvLocking = false;
 function lockViewport(){
   if (!trLocked()) return;
   const n = candlesFor(activeView).length;
   if (!n) return;
-  const maxW = TR.LOOKBACK + TR.step + 3;                       // 练习窗口总宽 + 缓冲
+  const maxW = TR.LOOKBACK + TR.step + RIGHT_PAD + 3;           // 练习窗口总宽 + 缓冲
   const w = Math.min(TR.LOOKBACK + 5, maxW);
   _lvLocking = true;
-  chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - w), to: n + 2 });
+  chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - w), to: n + RIGHT_PAD });
   requestAnimationFrame(() => { _lvLocking = false; });
 }
 
@@ -61,7 +63,7 @@ function practiceWindowStart(){
 function enforcePracticeBounds(r){
   if (!trLocked() || !r || _lvLocking || !TR.sym) return;   // TR.sym=未进入有效局时不修正
   const left = practiceWindowStart();
-  const right = candlesFor('raw').length + 2;
+  const right = candlesFor('raw').length + RIGHT_PAD;
   // 强制吸附精确练习窗口: 任何视口变化(缩放/平移/误按键/数据长度突变)都立即弹回
   // (旧版"越界才修正"无法覆盖零宽视口等退化场景 → barSpacing 被打爆卡在放大态)
   if (Math.abs(r.from - left) > 0.5 || Math.abs(r.to - right) > 0.5){
