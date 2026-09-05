@@ -358,6 +358,16 @@ function setupJournal(){
       }
       return;
     }
+
+    if (e.target.id === 'jCloseAll'){
+      const mine = positions.filter(p => posLayoutOk(p));
+      const others = positions.length - mine.length;
+      if (!mine.length){ alert('当前品种/周期下没有可平持仓' + (others ? `（另有 ${others} 笔绑定其他布局, 请切回后处理）` : '')); return; }
+      if (!confirm(`确认一键平掉全部 ${mine.length} 笔持仓?\n离场依据将统一记录为「一键全部平仓」。`)) return;
+      for (const pos of [...mine]) closePosObj(pos, 1, '一键全部平仓', '一键全部平仓');
+      if (others) flashBtn('snapshotBtn', `⚠ 另有 ${others} 笔异布局持仓未平`);
+      return;
+    }
     const b = e.target.closest('button[data-act]');
     if (!b) return;
     // 注意: 按钮自身也带 data-pid, 必须向上找 .pos-card 容器(含加仓/平仓表单)
@@ -385,6 +395,13 @@ function setupJournal(){
         if (!posLayoutOk(pos)){ alert(`该持仓绑定 ${pos.sym} ${pos.tf}, 请切回原品种与周期再平仓`); return; }
         showOnly(q('.sec-exit').style.display === 'none' ? '.sec-exit' : null);
         break;
+      case 'add-max': {
+        const bd = addBudget(pos);
+        const capInp = q('.inp-add-cap');
+        if (capInp) capInp.value = bd.avail > 0 ? bd.avail.toFixed(2) : '';
+        flashBtn('snapshotBtn', bd.avail > 0 ? `✓ 已填入最大可加 ${bd.avail.toFixed(2)}U` : '当前无可加浮盈');
+        break;
+      }
       case 'add-ok': {
         if (!inReplay()){ alert('仅复盘模式可加仓'); return; }
         if (!posLayoutOk(pos)){ alert(`该持仓绑定 ${pos.sym} ${pos.tf}, 请切回原品种与周期再加仓`); return; }
