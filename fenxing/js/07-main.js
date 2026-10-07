@@ -1,130 +1,7 @@
-// js/07-main.js — 手绘线 / 全屏 / 面板对齐 / 统计与列表 / 控件绑定 / 初始化
-// ---- 手绘线: 趋势线(两点) / 支撑阻力(水平) ----
-// 线条以 (time, price) 锚定, 存 localStorage; overlay primitive 重绘时跟随缩放。
-const DKEY = 'chan_drawings_v1';
-const dLoad = () => { try { return JSON.parse(localStorage.getItem(DKEY)) || []; } catch { return []; } };
-const dSave = arr => localStorage.setItem(DKEY, JSON.stringify(arr));
-let drawTool = 'none';
-let drawPending = null;   // 趋势线第一个点 {t, p}
-const drawnLines = [];    // 已建 series 引用 {type, series}
-
-function addDrawnLine(rec){
-  if (rec.type === 'sandr'){
-    const s = candleSeries.createPriceLine({
-      price: rec.p, color: rec.color || '#f5a623', lineWidth: 1.6,
-      lineStyle: LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: true, title: '阻/支',
-    });
-    drawnLines.push({ type: 'sandr', series: s, candleSeries: true });
-  }
-}
-function restoreDrawings(){
-  // 恢复持久化的水平线(趋势线由 overlay 绘制, 无需重建)
-  for (const rec of dLoad()) if (rec.type === 'sandr') addDrawnLine(rec);
-}
-function redrawTrendOverlay(){
-  // 趋势线画在 ChanOverlay 同一 canvas — 通过全局变量供 renderer 读取
-  window._trendLines = dLoad().filter(r => r.type === 'trend');
-  refreshChanOverlay();
-}
-// 鼠标像素 Y → 真实价位(支撑阻力/趋势线完全跟手的关键, 而非取K线收盘价)
+// js/07-main.js — 全屏 / 面板对齐 / 统计与列表 / 控件绑定 / 初始化
+// 手绘线(趋势线/水平线/斐波那契/折线)已迁移到 js/08-draw.js, 使用 TradingView 风格画线组件。
+// 鼠标像素 Y → 真实价位(测距完全跟手的关键, 而非取K线收盘价)
 const cursorPrice = y => candleSeries.coordinateToPrice(y);
-function clearTrendPreview(){
-  window._pendingTrend = null;
-  refreshChanOverlay();
-}
-
-function setupDrawing(){
-  document.querySelectorAll('#drawToggle button').forEach(b =>
-    b.addEventListener('click', () => {
-      drawTool = b.dataset.tool;
-      document.querySelectorAll('#drawToggle button').forEach(x =>
-        x.classList.toggle('active', x === b));
-      drawPending = null;
-      clearTrendPreview();
-      chart.applyOptions({ handleScroll: drawTool === 'none' ? true : false });
-      flashBtn('snapshotBtn', drawTool === 'none' ? '画线已关' : '模式: ' + b.textContent);
-    }));
-  document.getElementById('drawClear').addEventListener('click', () => {
-    dSave([]);
-    window._trendLines = [];
-    drawPending = null;
-    clearTrendPreview();
-    // 移除水平线 series
-    while (drawnLines.length){
-      const l = drawnLines.pop();
-      if (l.type === 'sandr') candleSeries.removePriceLine(l.series);
-    }
-    flashBtn('snapshotBtn', '线条已清空');
-    applySeries();   // 触发 overlay 重绘, 立即抹掉残留趋势线
-  });
-  // 右键取消画线: 清掉已选的第1点与跟随预览
-  document.querySelector('.chart-box').addEventListener('contextmenu', e => {
-    if (drawTool !== 'trend' || !drawPending) return;
-    e.preventDefault();
-    drawPending = null;
-    clearTrendPreview();
-    flashBtn('snapshotBtn', '已取消画线');
-  });
-  // 画线交互全部用原生 DOM 事件而非 LW 事件:
-  // 1) LW v4.2 双击检测会静默吞掉 500ms 内的第二次 click;
-  // 2) 鼠标在最后一根K线右侧空白区时 crosshairMove 的 param.point 为空,
-  //    趋势线无法预览/落笔到K线之外 — DOM mousemove/mouseup 无此限制。
-  const chartEl = document.getElementById('chart');
-  let downPos = null;
-  // 趋势线第1点确认后: 第2端实时跟随鼠标移动(虚线预览, 可拉到K线之外)
-  chartEl.addEventListener('mousemove', e => {
-    if (drawTool !== 'trend' || !drawPending) return;
-    const rect = chartEl.getBoundingClientRect();
-    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-    if (cx >= chartEl.clientWidth - chart.priceScale('right').width()) return;
-    const t2 = xToTime(cx);
-    const p2 = cursorPrice(cy);
-    if (t2 == null || p2 == null) return;
-    window._pendingTrend = {
-      t1: drawPending.t, p1: drawPending.p,
-      t2, p2: +p2.toFixed(2),
-      color: '#4a90d9',
-    };
-    refreshChanOverlay();
-  });
-  chartEl.addEventListener('mousedown', e => {
-    if (e.button === 0) downPos = { x: e.clientX, y: e.clientY };
-  });
-  chartEl.addEventListener('mouseup', e => {
-    if (drawTool === 'none' || e.button !== 0 || !downPos) return;
-    // 按下后拖动超过阈值视为平移/缩放手势, 不算画线点击
-    if (Math.abs(e.clientX - downPos.x) + Math.abs(e.clientY - downPos.y) > 5){ downPos = null; return; }
-    downPos = null;
-    const rect = chartEl.getBoundingClientRect();
-    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-    if (cx >= chartEl.clientWidth - chart.priceScale('right').width()) return;   // 点在右侧价格轴上
-    // 端点取鼠标所指的精确时间/价位(可落在K线之外), 不吸附到K线
-    const tRaw = xToTime(cx);
-    const pRaw = cursorPrice(cy);
-    if (tRaw == null || pRaw == null){ flashBtn('snapshotBtn', '✗ 该位置无法定位'); return; }
-    const price = +pRaw.toFixed(2);
-    const bt = tRaw;
-    if (drawTool === 'sandr'){
-      const rec = { type: 'sandr', t: null, p: price, color: '#f5a623' };
-      const arr = dLoad(); arr.push(rec); dSave(arr);
-      addDrawnLine(rec);
-      flashBtn('snapshotBtn', `水平线 @ ${rec.p}`);
-    } else if (drawTool === 'trend'){
-      if (!drawPending){
-        drawPending = { t: bt, p: price };
-        flashBtn('snapshotBtn', '趋势线: 已选第1点, 再点第2点(右键取消)');
-      } else {
-        const rec = { type: 'trend', t1: drawPending.t, p1: drawPending.p, t2: bt, p2: price, color: '#4a90d9' };
-        const arr = dLoad(); arr.push(rec); dSave(arr);
-        redrawTrendOverlay();
-        drawPending = null;
-        clearTrendPreview();
-        flashBtn('snapshotBtn', '✓ 趋势线已画');
-      }
-    }
-  });
-}
 
 // ---- 全屏模式: 仅图表区(chart-pane)全屏, 侧栏隐藏 ----
 function setupFullscreen(){
@@ -222,10 +99,12 @@ chart.subscribeCrosshairMove(param => {
   const oh = document.getElementById('legendOhlc');
   const ch = document.getElementById('legendChg');
   const dt = document.getElementById('legendDate');
+  const dist = document.getElementById('distTag');
   const tip = document.getElementById('markerTip');
   const d = param.seriesData && param.seriesData.get(candleSeries);
   if (!param.time || !d){
     oh.textContent = '—'; ch.textContent = ''; dt.textContent = '—';
+    if (dist){ dist.textContent = ''; dist.style.display = 'none'; }
     tip.style.display = 'none'; pointCardEl.style.display = 'none';
     return;
   }
@@ -238,6 +117,26 @@ chart.subscribeCrosshairMove(param => {
     ch.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
     ch.style.color = pct >= 0 ? 'var(--up)' : 'var(--down)';
   } else ch.textContent = '';
+  // 光标价位 ↔ 最新收盘的距离(实时跟手): 贴在右侧价格栏, 随光标纵向移动
+  const last = cs.length ? cs[cs.length - 1] : null;
+  if (dist && last && param.point){
+    const px = cursorPrice(param.point.y);
+    if (px == null){ dist.style.display = 'none'; }
+    else {
+      const dp = px - last.close;
+      const pp = last.close ? dp / last.close * 100 : 0;
+      const nb = i == null ? 0 : cs.length - 1 - i;
+      const col = dp >= 0 ? 'var(--up)' : 'var(--down)';
+      // 先展示光标当前价格(轴标签会被本浮标遮挡), 再展示距最新的距离
+      dist.innerHTML = `<b style="color:var(--ink)">${fmt(px)}</b> · 距最新 <span style="color:${col}">${dp >= 0 ? '+' : ''}${fmt(dp)} (${pp >= 0 ? '+' : ''}${pp.toFixed(2)}%)</span>${nb > 0 ? ` · ${nb}根` : ''}`;
+      dist.style.color = '';
+      const boxRect = document.querySelector('.chart-box').getBoundingClientRect();
+      const chRect = document.getElementById('chart').getBoundingClientRect();
+      const top = Math.min(chRect.height - 12, Math.max(12, (chRect.top - boxRect.top) + param.point.y));
+      dist.style.top = Math.round(top) + 'px';
+      dist.style.display = 'block';
+    }
+  } else if (dist) dist.style.display = 'none';
   // 悬停详情卡: 该bar上有信号 → 展示完整生成依据(级别/口径/价格/触发确认/why)
   const ents = detailMap && detailMap[d.time];
   if (ents && ents.length && param.point){
@@ -574,6 +473,10 @@ try {
 document.title = document.title.replace('BTC/USD', DATA.meta.symbol);
 document.getElementById('symbolBadge').textContent = `${DATA.meta.symbol} · ${activeTF}`;
 syncTfTabs();
+// ?layers=buys,sells,fractals,fast... 深链直达指定结构图层(分享视图/渲染测试用)
+if (QP.get('layers')){
+  for (const k of QP.get('layers').split(',')) if (k in layers) layers[k] = true;
+}
 // 图层按钮高亮状态与内部开关对齐(默认全关)
 document.querySelectorAll('#layerToggle button').forEach(b => b.classList.toggle('active', !!layers[b.dataset.layer]));
 {
@@ -584,11 +487,8 @@ setupReplay();
 setupTrainer();
 setupSnapshot();
 setupJournal();
-setupDrawing();
 setupMeasure();
 setupFullscreen();
-restoreDrawings();
-redrawTrendOverlay();
 // MA 周期输入: 回车/失焦时重建(applySeries 已含 rebuildMA)
 document.getElementById('maPeriods').addEventListener('change', () => {
   rebuildMA();
@@ -615,6 +515,7 @@ document.getElementById('overlayToggle').addEventListener('click', e => {
   } else if (ov === 'ma'){
     maSeries.forEach(it => it.series.applyOptions({ visible: on }));
     document.getElementById('maPeriods').style.display = on ? '' : 'none';
+    renderMaLegend();
   } else {
     const el = document.getElementById(ov === 'macd' ? 'macd' : 'volume');
     el.style.display = on ? '' : 'none';

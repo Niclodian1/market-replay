@@ -1,26 +1,28 @@
 // js/01-config.js — 主题配色 / 页面状态 / 时间格式化 / 练习器状态
 
+// TradingView 官方暗色/亮色调色板: 图表 canvas(经 t()) 与 CSS 变量(见 main.css)同源。
 const THEMES = {
-  dark:  { surface:'#1a1a19', plane:'#0d0d0d', ink:'#ffffff', ink2:'#c3c2b7', muted:'#898781', grid:'#2c2c2a', border:'#383835', up:'#0ca30c', down:'#e66767', top:'#9085e9', bottom:'#3987e5', segUp:'#199e70', segDown:'#d95926' },
-  light: { surface:'#fcfcfb', plane:'#f9f9f7', ink:'#0b0b0b', ink2:'#52514e', muted:'#898781', grid:'#e1e0d9', border:'#c3c2b7', up:'#008300', down:'#e34948', top:'#4a3aa7', bottom:'#2a78d6', segUp:'#1baf7a', segDown:'#eb6834' },
+  dark:  { surface:'#1e222d', plane:'#131722', panel:'#2a2e39', ink:'#d1d4dc', ink2:'#b2b5be', muted:'#787b86', grid:'#1e222d', border:'#2a2e39', up:'#089981', down:'#f23645', top:'#ff9800', bottom:'#2962ff', segUp:'#26a69a', segDown:'#ef5350' },
+  light: { surface:'#ffffff', plane:'#f0f3fa', panel:'#e0e3eb', ink:'#131722', ink2:'#434651', muted:'#787b86', grid:'#f0f3fa', border:'#e0e3eb', up:'#089981', down:'#f23645', top:'#ff9800', bottom:'#2962ff', segUp:'#26a69a', segDown:'#ef5350' },
 };
+// 买卖点色板: 保持原有语义(一买粉/二买绿/三买橙, 一卖青/二卖红/三卖紫), 换成 TradingView 色系
 const BUY_COLORS = {
-  dark:  { b1:'#d55181', b2:'#008300', b3:'#c98500' },
-  light: { b1:'#e87ba4', b2:'#008300', b3:'#eda100' },
+  dark:  { b1:'#e91e63', b2:'#089981', b3:'#ff9800' },
+  light: { b1:'#e91e63', b2:'#089981', b3:'#ff9800' },
 };
 const SELL_COLORS = {
-  dark:  { s1:'#0094a6', s2:'#e5484d', s3:'#9c5fff' },
-  light: { s1:'#007a9e', s2:'#c03028', s3:'#7a3fe0' },
+  dark:  { s1:'#00bcd4', s2:'#f23645', s3:'#9c27b0' },
+  light: { s1:'#00bcd4', s2:'#f23645', s3:'#9c27b0' },
 };
 const FAST_COLORS = {
-  dark:  { alert:'#ad7a00', buy:'#0f9d5c', sell:'#e85f2a' },
-  light: { alert:'#b07a00', buy:'#00845f', sell:'#d95400' },
+  dark:  { alert:'#ffb74d', buy:'#26a69a', sell:'#ff5722' },
+  light: { alert:'#f57c00', buy:'#26a69a', sell:'#ff5722' },
 };
 const PANBEI_COLORS = {
-  dark:  { buy:'#7a5cd6', sell:'#d6685c' },
-  light: { buy:'#6a4cc6', sell:'#c05a50' },
+  dark:  { buy:'#7e57c2', sell:'#f06292' },
+  light: { buy:'#7e57c2', sell:'#ec407a' },
 };
-const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "PingFang SC", sans-serif';
+const FONT = '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, "Segoe UI", system-ui, "PingFang SC", sans-serif';
 const t = () => THEMES[document.documentElement.dataset.theme];
 const themeKey = () => document.documentElement.dataset.theme;
 
@@ -55,6 +57,15 @@ const TR = {
   endReason: '',      // 结束原因: 步数走满 / 手动揭示 / 账户爆仓
   step: 0,            // 已向后走的根数
   maxStep: 200,       // 步数上限, 走满强制揭示
+  drill: '',          // 本局专项(空=随机): 突破失败/震荡反复止损/趋势持有/加仓后回撤
+  capital0: 100000,   // 本局初始本金(开始练习时可配置, 默认10万U)
+  marks: [],          // 本局信号K/观察标记 [{t, kind:'signal'|'watch', step}]
+  desc: '',           // 题目描述(揭示时按本局走势生成): 强趋势/筑底/高位震荡...
+  transition: '',     // 趋势转换(揭示时生成): 下跌 → 上涨 / 上涨 → 下跌 / ''
+  durSec: 0,          // 本局用时(秒, 揭示/放弃时结算)
+  curve: [],          // 本局净值曲线 [{step, eq, cf}] — cf=不加仓对照(保持原出场时点)
+  addPnlRealized: 0,  // 已实现加仓贡献 = 实际盈亏 − 仅首笔同出场时点的盈亏
+  hadAdds: false,     // 本局是否发生过加仓
   LOOKBACK: 200,      // 起点前展示的历史根数(视口锁定宽度)
   session: [],        // 本局已平仓交易记录(journal rec 引用), 揭示时入账
 };

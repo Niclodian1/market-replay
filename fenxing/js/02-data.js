@@ -7,10 +7,11 @@ const CHUNK_SYMBOLS = ['BTC', 'ETH', 'SOL', 'PEPE'];
 const MARKET_GROUPS = {
   '加密': ['BTC', 'ETH', 'SOL', 'PEPE', 'HYPE'],
   '美股': ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'META', 'TSLA', 'AMZN', 'BRK_B', 'JPM',
-           'PLTR', 'COIN', 'AVGO', 'MU', 'WMT', 'AMD', 'NFLX'],
+           'PLTR', 'COIN', 'AVGO', 'MU', 'WMT', 'AMD', 'NFLX', 'INTC', 'SNDK'],
   '港股': ['0700_HK', '9988_HK'],
   'A股': ['600519_SS', '002460_SZ', '300750_SZ', '600900_SS', '000333_SZ', '603259_SS', '300033_SZ'],
   '贵金属': ['XAUUSD', 'XAGUSD'],
+  '指数': ['N225', 'SPX', 'NDX', '399006_SZ', '000688_SS'],
 };
 const CHUNK_TFS = ['15F'];
 const TF_DIR = { '15F': '15m' };

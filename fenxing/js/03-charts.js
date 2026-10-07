@@ -4,18 +4,18 @@ function chartOptions(){
   const T = t();
   return {
     layout: {
-      background: { type: LightweightCharts.ColorType.Solid, color: T.surface },
-      textColor: T.ink2, fontSize: 11, fontFamily: FONT, attributionLogo: false,
+      background: { type: LightweightCharts.ColorType.Solid, color: T.plane },
+      textColor: T.muted, fontSize: 11, fontFamily: FONT, attributionLogo: false,
       localization: { timeFormatter: fmtTime },
     },
     grid: { vertLines: { color: T.grid }, horzLines: { color: T.grid } },
     crosshair: {
       mode: LightweightCharts.CrosshairMode.Normal,
-      vertLine: { color: T.border, lineStyle: LightweightCharts.LineStyle.Dashed, labelBackgroundColor: T.ink2, labelTextColor: T.surface },
-      horzLine: { color: T.border, labelBackgroundColor: T.ink2, labelTextColor: T.surface },
+      vertLine: { color: T.muted, lineStyle: LightweightCharts.LineStyle.Dashed, labelBackgroundColor: T.panel, labelTextColor: T.ink },
+      horzLine: { color: T.muted, labelBackgroundColor: T.panel, labelTextColor: T.ink },
     },
-    rightPriceScale: { borderColor: T.border },
-    timeScale: { borderColor: T.border, timeVisible: activeTF !== '1D', secondsVisible: false, rightOffset: 3 },
+    rightPriceScale: { borderColor: T.grid },
+    timeScale: { borderColor: T.grid, timeVisible: activeTF !== '1D', secondsVisible: false, rightOffset: 5 },
     autoSize: true,
   };
 }
@@ -58,8 +58,8 @@ const macdSignalSeries = macdChart.addLineSeries({
 });
 
 // ---- MA 均线(主图叠加, 周期可配) ----
-// 默认 MA20/MA60; 输入框可改周期, 逗号分隔, 留空隐藏。颜色循环取 MA_COLORS。
-const MA_COLORS = ['#f5a623', '#4a90d9', '#b45cd6', '#2fbf8f', '#e05c78', '#8a9299'];
+// 默认 MA20/MA60/MA120; 输入框可改周期, 逗号分隔, 留空隐藏。颜色循环取 MA_COLORS。
+const MA_COLORS = ['#2962ff', '#ff9800', '#9c27b0', '#00bcd4', '#e91e63', '#787b86'];
 const maSeries = [];   // {period, series}
 function parseMaPeriods(){
   const raw = document.getElementById('maPeriods').value.trim();
@@ -99,6 +99,18 @@ function rebuildMA(){
     const vals = sma(closes, p);
     item.series.setData(cs.map((c, j) => vals[j] != null ? { time: c.time, value: vals[j] } : null).filter(Boolean));
   });
+  renderMaLegend();
+}
+// 左上角 MA 图例: 颜色色块 + 周期, 与 MA_COLORS 顺序一致; MA 关闭或留空时隐藏
+function renderMaLegend(){
+  const el = document.getElementById('legendMa');
+  if (!el) return;
+  const btn = document.querySelector('#overlayToggle button[data-ov="ma"]');
+  const on = !btn || btn.classList.contains('active');
+  const periods = parseMaPeriods();
+  if (!on || !periods.length){ el.innerHTML = ''; return; }
+  el.innerHTML = periods.map((p, i) =>
+    `<span class="ma-item"><i style="background:${MA_COLORS[i % MA_COLORS.length]}"></i>MA${p}</span>`).join('');
 }
 macdHistSeries.priceScale().applyOptions({ scaleMargins: { top: 0.25, bottom: 0.05 } });
 
@@ -135,15 +147,15 @@ function getLayerData(){
     strokes:  layers.strokes  ? strokesFor(activeView)  : null,
     segments: layers.segments ? segmentsFor(activeView) : null,
     pivots:   layers.pivots   ? pivotsFor(activeView, pivotMode) : null,
-    segUp:   th === 'dark' ? '#199e70' : '#1baf7a',
-    segDown: th === 'dark' ? '#d95926' : '#eb6834',
+    segUp:   '#26a69a',
+    segDown: '#ef5350',
     // 老笔口径下笔线用紫色(原「老笔」对照层配色), 提示当前为对照链
     strokeColor: strokeStd === 'old'
-      ? (th === 'dark' ? 'rgba(176,138,255,0.8)' : 'rgba(122,60,214,0.75)')
-      : 'rgba(137,135,129,0.5)',
+      ? (th === 'dark' ? 'rgba(126,87,194,0.85)' : 'rgba(94,53,177,0.75)')
+      : (th === 'dark' ? 'rgba(120,123,134,0.55)' : 'rgba(120,123,134,0.65)'),
     strokeDash: strokeStd === 'old' ? [5,4] : [2,3],
-    pivotFill: th === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(11,11,11,0.06)',
-    pivotEdge: th === 'dark' ? 'rgba(255,255,255,0.30)' : 'rgba(11,11,11,0.30)',
+    pivotFill: th === 'dark' ? 'rgba(41,98,255,0.07)' : 'rgba(41,98,255,0.05)',
+    pivotEdge: th === 'dark' ? 'rgba(120,123,134,0.45)' : 'rgba(41,98,255,0.35)',
   };
 }
 class ChanOverlayRenderer {
@@ -200,46 +212,14 @@ class ChanOverlayRenderer {
           ctx.setLineDash([]);
         }
       }
-      // ---- 手绘趋势线(两点, time/price 锚定) ----
-      const trends = window._trendLines || [];
-      if (trends.length){
-        ctx.lineWidth = 2;
-        for (const r of trends){
-          const x1 = X(r.t1), y1 = Y(r.p1), x2 = X(r.t2), y2 = Y(r.p2);
-          if (x1 == null || x2 == null || y1 == null || y2 == null) continue;
-          ctx.strokeStyle = r.color || '#4a90d9';
-          ctx.setLineDash([]);
-          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-          // 端点小圆
-          ctx.fillStyle = r.color || '#4a90d9';
-          ctx.beginPath(); ctx.arc(x1, y1, 3, 0, Math.PI*2); ctx.fill();
-          ctx.beginPath(); ctx.arc(x2, y2, 3, 0, Math.PI*2); ctx.fill();
-        }
-      }
-      // ---- 画线中: 趋势线第2端跟随鼠标的虚线预览 ----
-      const pend = window._pendingTrend;
-      if (pend){
-        const qx1 = X(pend.t1), qy1 = Y(pend.p1), qx2 = X(pend.t2), qy2 = Y(pend.p2);
-        if (qx1 != null && qy1 != null && qx2 != null && qy2 != null){
-          const c = pend.color || '#4a90d9';
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = c;
-          ctx.globalAlpha = 0.85;
-          ctx.setLineDash([6,4]);
-          ctx.beginPath(); ctx.moveTo(qx1, qy1); ctx.lineTo(qx2, qy2); ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.fillStyle = c;
-          ctx.beginPath(); ctx.arc(qx2, qy2, 3, 0, Math.PI*2); ctx.fill();
-          ctx.globalAlpha = 1;
-        }
-      }
+      // ---- 手绘线 (趋势线/水平线/FIB/折线) 已由 08-draw.js 的 TradingView 画线组件渲染 ----
       // ---- Shift+拖动 测距: 两点间波动距离(波幅矩形 + 对角线 + 读数) ----
       const m = window._measure;
       if (m){
         const mx1 = X(m.t1), my1 = Y(m.p1), mx2 = X(m.t2), my2 = Y(m.p2);
         if (mx1 != null && my1 != null && mx2 != null && my2 != null){
           ctx.save();
-          ctx.fillStyle = m.dir >= 0 ? 'rgba(47,191,143,.10)' : 'rgba(217,89,38,.10)';
+          ctx.fillStyle = m.dir >= 0 ? 'rgba(8,153,129,.10)' : 'rgba(242,54,69,.10)';
           ctx.fillRect(Math.min(mx1,mx2), Math.min(my1,my2), Math.abs(mx2-mx1), Math.abs(my2-my1));
           ctx.strokeStyle = m.color; ctx.lineWidth = 1.6; ctx.setLineDash([5,4]);
           ctx.beginPath(); ctx.moveTo(mx1,my1); ctx.lineTo(mx2,my2); ctx.stroke();
@@ -255,10 +235,10 @@ class ChanOverlayRenderer {
           let lx = mx2 + 12, ly = my2 - lh - 8;
           lx = Math.min(Math.max(4, lx), chartElW() - lw - 4);
           if (ly < 4) ly = my2 + 12;
-          ctx.fillStyle = th === 'dark' ? 'rgba(20,20,20,.92)' : 'rgba(255,255,255,.95)';
+          ctx.fillStyle = th === 'dark' ? 'rgba(42,46,57,.96)' : 'rgba(255,255,255,.97)';
           ctx.strokeStyle = m.color; ctx.lineWidth = 1;
           ctx.fillRect(lx, ly, lw, lh); ctx.strokeRect(lx, ly, lw, lh);
-          ctx.fillStyle = th === 'dark' ? '#e6e3dc' : '#22211f';
+          ctx.fillStyle = th === 'dark' ? '#d1d4dc' : '#131722';
           ctx.textBaseline = 'top';
           lines.forEach((s,i) => {
             ctx.fillStyle = i === 0 ? m.color : ctx.fillStyle;   // 首行价格变动用主题色
@@ -377,7 +357,7 @@ function setupMeasure(){
     if (!measuring){
       // 第1次 Shift+单击: 锚定起点; 松开左键后移动鼠标仍实时测量
       measuring = true;
-      window._measure = { t1: pt.t, p1: pt.p, t2: pt.t, p2: pt.p, dir: 1, color: '#4a90d9', label: 'Δ 0.00' };
+      window._measure = { t1: pt.t, p1: pt.p, t2: pt.t, p2: pt.p, dir: 1, color: '#2962ff', label: 'Δ 0.00' };
       flashBtn('snapshotBtn', '测距: 起点已定, 移动鼠标读数; 再 Shift+单击固定终点');
     } else {
       // 第2次 Shift+单击: 固定终点, 读数保留(单击/Esc清除)

@@ -1,341 +1,448 @@
-  :root[data-theme="dark"] {
-    --surface: #1a1a19;
-    --plane:   #0d0d0d;
-    --ink:     #ffffff;
-    --ink-2:   #c3c2b7;
-    --muted:   #898781;
-    --grid:    #2c2c2a;
-    --border:  #383835;
-    --up:      #0ca30c;
-    --down:    #e66767;
-    --top:     #9085e9;
-    --bottom:  #3987e5;
-    --seg-up:  #199e70;
-    --seg-down:#d95926;
-    --buy1:    #d55181;
-    --buy2:    #008300;
-    --buy3:    #c98500;
-    --sell1:   #0094a6;
-    --sell2:   #e5484d;
-    --sell3:   #9c5fff;
-    --fast-alert: #ad7a00;
-    --fast-buy:   #0f9d5c;
-    --fast-sell:  #e85f2a;
-    --pivot-fill: rgba(255,255,255,0.07);
-    --pivot-edge: rgba(255,255,255,0.30);
-  }
-  :root[data-theme="light"] {
-    --surface: #ffffff;
-    --plane:   #ffffff;
-    --ink:     #0b0b0b;
-    --ink-2:   #52514e;
-    --muted:   #898781;
-    --grid:    #ececea;
-    --border:  #d8d7d2;
-    --up:      #008300;
-    --down:    #e34948;
-    --top:     #4a3aa7;
-    --bottom:  #2a78d6;
-    --seg-up:  #1baf7a;
-    --seg-down:#eb6834;
-    --buy1:    #e87ba4;
-    --buy2:    #008300;
-    --buy3:    #eda100;
-    --sell1:   #007a9e;
-    --sell2:   #c03028;
-    --sell3:   #7a3fe0;
-    --fast-alert: #b07a00;
-    --fast-buy:   #00845f;
-    --fast-sell:  #d95400;
-    --pivot-fill: rgba(11,11,11,0.06);
-    --pivot-edge: rgba(11,11,11,0.30);
-  }
+/* =====================================================================
+   main.css — TradingView 风格主题
+   调色板与 js/01-config.js 的 THEMES 保持同源:
+     暗色  plane #131722 / surface #1e222d / panel #2a2e39
+     亮色  plane #f0f3fa / surface #ffffff / panel #e0e3eb
+   强调色 #2962ff, 涨 #089981, 跌 #f23645
+   ===================================================================== */
+:root[data-theme="dark"] {
+  --plane:   #131722;   /* 页面/图表画布 */
+  --surface: #1e222d;   /* 工具条/侧栏/卡片 */
+  --panel:   #2a2e39;   /* 悬浮/激活/输入等抬升面 */
+  --hover:   rgba(120,123,134,.16);
+  --ink:     #d1d4dc;
+  --ink-2:   #b2b5be;
+  --muted:   #787b86;
+  --grid:    #1e222d;
+  --border:  #2a2e39;
+  --accent:  #2962ff;
+  --up:      #089981;
+  --down:    #f23645;
+  --top:     #ff9800;
+  --bottom:  #2962ff;
+  --seg-up:  #26a69a;
+  --seg-down:#ef5350;
+  --buy1:    #e91e63;
+  --buy2:    #089981;
+  --buy3:    #ff9800;
+  --sell1:   #00bcd4;
+  --sell2:   #f23645;
+  --sell3:   #9c27b0;
+  --fast-alert: #ffb74d;
+  --fast-buy:   #26a69a;
+  --fast-sell:  #ff5722;
+  --pivot-fill: rgba(41,98,255,.07);
+  --pivot-edge: rgba(120,123,134,.45);
+  --shadow:  0 8px 24px rgba(0,0,0,.5);
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --plane:   #f0f3fa;
+  --surface: #ffffff;
+  --panel:   #e0e3eb;
+  --hover:   rgba(19,23,34,.06);
+  --ink:     #131722;
+  --ink-2:   #434651;
+  --muted:   #787b86;
+  --grid:    #f0f3fa;
+  --border:  #e0e3eb;
+  --accent:  #2962ff;
+  --up:      #089981;
+  --down:    #f23645;
+  --top:     #ff9800;
+  --bottom:  #2962ff;
+  --seg-up:  #26a69a;
+  --seg-down:#ef5350;
+  --buy1:    #e91e63;
+  --buy2:    #089981;
+  --buy3:    #ff9800;
+  --sell1:   #00bcd4;
+  --sell2:   #f23645;
+  --sell3:   #9c27b0;
+  --fast-alert: #f57c00;
+  --fast-buy:   #26a69a;
+  --fast-sell:  #ff5722;
+  --pivot-fill: rgba(41,98,255,.05);
+  --pivot-edge: rgba(41,98,255,.35);
+  --shadow:  0 8px 24px rgba(19,23,34,.16);
+  color-scheme: light;
+}
 
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: var(--plane);
-    color: var(--ink);
-    font-size: 13px;
-  }
-  #app { display: flex; flex-direction: column; height: 100%; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--plane);
+  color: var(--ink);
+  font-size: 12px;
+  -webkit-font-smoothing: antialiased;
+}
+#app { display: flex; flex-direction: column; height: 100%; }
 
-  /* ---- 顶部工具条 ---- */
-  .toolbar {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; padding: 10px 16px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex: 0 0 auto; flex-wrap: wrap;
-  }
-  .brand { display: flex; align-items: baseline; gap: 10px; }
-  .brand-title { font-size: 15px; font-weight: 600; letter-spacing: .5px; }
-  .brand-sub {
-    font-size: 11px; color: var(--muted);
-    font-variant-numeric: tabular-nums;
-    border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px;
-  }
-  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .controls-label { font-size: 11px; color: var(--muted); }
+/* ---- 顶部工具条 ---- */
+.toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 0 12px; min-height: 46px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto; flex-wrap: wrap;
+  transition: box-shadow .2s ease;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-title { font-size: 14px; font-weight: 600; letter-spacing: .2px; }
+.brand-sub {
+  font-size: 11px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  background: var(--panel); border-radius: 4px; padding: 2px 6px;
+}
+.controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.controls-label {
+  display: inline-flex; align-items: center;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .3px;
+  padding: 1px 7px; border-radius: 4px;
+  color: var(--muted); background: transparent;
+}
+/* 顶部分区标签用重点色(替代灰色): 周期/视角/复盘/练习/画线/MA 各自语义色 */
+.controls-label.cl-tf      { color: #00bcd4; background: rgba(0,188,212,.13); }
+.controls-label.cl-view    { color: var(--accent); background: rgba(41,98,255,.12); }
+.controls-label.cl-replay  { color: var(--accent); background: rgba(41,98,255,.12); }
+.controls-label.cl-trainer { color: #ff9800; background: rgba(255,152,0,.15); }
+.controls-label.cl-draw    { color: #9c27b0; background: rgba(156,39,176,.15); }
+.controls-label.cl-ma      { color: #26a69a; background: rgba(38,166,154,.15); }
+body.trainer-blind .controls-label.cl-replay { display: none; }   /* 盲测时复盘入口隐藏, 标签同步隐藏 */
+/* 已练习局数(工具栏, 随存档自动更新) */
+.practice-count {
+  font-size: 11px; font-weight: 600; color: #ff9800; white-space: nowrap;
+  background: rgba(255,152,0,.13); border-radius: 4px; padding: 1px 7px;
+  font-variant-numeric: tabular-nums;
+}
+.practice-count b { font-size: 12.5px; }
+body.trainer-blind .practice-count { background: rgba(255,152,0,.2); }
 
-  .seg { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-  .sym-select {
-    background: var(--plane); color: var(--ink);
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 4px 8px; font: inherit; font-size: 12px; cursor: pointer;
-  }
-  .seg button {
-    background: transparent; color: var(--ink-2); border: none;
-    padding: 5px 11px; font-size: 12px; cursor: pointer; font-family: inherit;
-  }
-  .seg button.active { background: var(--ink); color: var(--surface); font-weight: 600; }
-  .btn {
-    background: transparent; color: var(--ink-2);
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
-  }
-  .btn:hover { border-color: var(--muted); color: var(--ink); }
+.seg {
+  display: flex; align-items: center; gap: 2px;
+  background: var(--plane); border: 1px solid var(--border);
+  border-radius: 6px; padding: 2px;
+}
+.sym-select {
+  background: var(--panel); color: var(--ink);
+  border: 1px solid transparent; border-radius: 4px;
+  padding: 4px 8px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.sym-select:hover { border-color: var(--muted); }
+.seg button {
+  background: transparent; color: var(--muted); border: none; border-radius: 4px;
+  padding: 3px 9px; font-size: 12px; line-height: 1.5; cursor: pointer; font-family: inherit;
+  white-space: nowrap;
+}
+.seg button:hover { background: var(--hover); color: var(--ink-2); }
+.seg button.active { background: var(--panel); color: var(--ink); font-weight: 600; }
+.btn {
+  background: transparent; color: var(--ink-2);
+  border: 1px solid transparent; border-radius: 4px;
+  padding: 4px 10px; font-size: 12px; line-height: 1.5; cursor: pointer; font-family: inherit;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--hover); color: var(--ink); }
+.btn:active { background: var(--panel); }
+.btn.active { background: var(--panel); color: var(--ink); font-weight: 600; }
 
-  /* ---- 主布局 ---- */
-  .layout { display: flex; flex: 1 1 auto; min-height: 0; }
+/* ---- 模式重点色: 复盘=蓝 / 练习=橙(盲测更醒目) ---- */
+.mode-badge { display: none; font-size: 11px; font-weight: 700; letter-spacing: .3px; padding: 2px 9px; border-radius: 999px; border: 1px solid transparent; }
+.mode-badge.replay { display: inline-flex; color: var(--accent); background: rgba(41,98,255,.14); border-color: rgba(41,98,255,.45); }
+.mode-badge.trainer { display: inline-flex; color: #ff9800; background: rgba(255,152,0,.15); border-color: rgba(255,152,0,.5); }
+body.mode-replay .toolbar { box-shadow: inset 0 -2px 0 var(--accent); }
+body.mode-trainer .toolbar { box-shadow: inset 0 -2px 0 #ff9800; }
+body.mode-replay #replayCtl { background: rgba(41,98,255,.08); border: 1px solid rgba(41,98,255,.25); border-radius: 6px; padding: 2px 5px; }
+body.mode-trainer #trainerCtl { background: rgba(255,152,0,.08); border: 1px solid rgba(255,152,0,.28); border-radius: 6px; padding: 2px 5px; }
+body.mode-replay #replayBtn.active { background: rgba(41,98,255,.16); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(41,98,255,.5); }
+body.mode-trainer #trainerBtn.active { background: rgba(255,152,0,.16); color: #ff9800; box-shadow: inset 0 0 0 1px rgba(255,152,0,.55); }
+body.trainer-blind .brand-sub { color: #ff9800; box-shadow: inset 0 0 0 1px rgba(255,152,0,.45); }
+input, select, textarea { font-family: inherit; }
+::placeholder { color: var(--muted); opacity: .85; }
 
-  .chart-pane { flex: 1 1 auto; min-width: 0; padding: 10px; display: flex; }
-  .chart-pane:fullscreen { background: var(--plane); padding: 6px; }
-  .chart-pane:fullscreen .chart-box { height: calc(100vh - 12px); }
-  .chart-box {
-    position: relative; flex: 1; min-height: 0;
-    display: flex; flex-direction: column;
-    background: var(--surface);
-    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
-  }
-  #chart { flex: 1 1 auto; min-height: 0; }
-  #volume { height: 90px; flex: 0 0 auto; border-top: 1px solid var(--border); }
-  #macd   { height: 100px; flex: 0 0 auto; border-top: 1px solid var(--border); }
+/* ---- 主布局: 图表贴边, 右侧面板同底色(TradingView 工作区) ---- */
+.layout { display: flex; flex: 1 1 auto; min-height: 0; }
 
-  /* ---- 图例覆盖层 ---- */
-  .legend {
-    position: absolute; top: 8px; left: 10px; z-index: 5;
-    display: flex; align-items: center; gap: 10px;
-    padding: 4px 8px; border-radius: 6px;
-    background: color-mix(in srgb, var(--surface) 82%, transparent);
-    border: 1px solid var(--border);
-    font-size: 11px; font-variant-numeric: tabular-nums;
-    pointer-events: none;
-  }
-  .legend-symbol { font-weight: 600; }
-  .legend-date { color: var(--muted); }
-  .legend-ohlc { color: var(--ink-2); }
-  .legend-chg { font-weight: 600; }
+.chart-pane { flex: 1 1 auto; min-width: 0; padding: 0; display: flex; }
+.chart-pane:fullscreen { background: var(--plane); padding: 0; }
+.chart-pane:fullscreen .chart-box { height: 100vh; }
+.chart-box {
+  position: relative; flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  background: var(--plane);
+  border: none; border-radius: 0; overflow: hidden;
+}
+#chart { flex: 1 1 auto; min-height: 0; }
+#volume { height: 90px; flex: 0 0 auto; border-top: 1px solid var(--border); }
+#macd   { height: 100px; flex: 0 0 auto; border-top: 1px solid var(--border); }
 
-  .marker-tip {
-    position: absolute; top: 8px; right: 10px; z-index: 5;
-    display: none; padding: 4px 8px; border-radius: 6px;
-    background: color-mix(in srgb, var(--surface) 82%, transparent);
-    border: 1px solid var(--border);
-    font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
-    pointer-events: none;
-  }
-  /* ---- 信号悬停详情卡(跟随光标): 买卖点/背驰/盘整/交易的生成依据 ---- */
-  .point-card {
-    position: fixed; z-index: 60; display: none; pointer-events: none;
-    max-width: 350px; padding: 8px 10px; border-radius: 8px;
-    font-size: 11px; line-height: 1.55; text-align: left;
-    background: color-mix(in srgb, var(--surface) 94%, transparent);
-    border: 1px solid var(--border);
-    box-shadow: 0 6px 18px rgba(0,0,0,.28);
-    font-variant-numeric: tabular-nums;
-  }
-  .point-card .pc-t { font-weight: 700; margin-bottom: 2px; }
-  .point-card .pc-k { color: var(--muted); margin-right: 5px; }
-  .point-card .pc-v { margin-right: 10px; }
-  .point-card .pc-why { margin-top: 4px; opacity: .88; }
+/* ---- 图例覆盖层(TradingView 风格: 无底色, 贴图表左上) ---- */
+.legend {
+  position: absolute; top: 6px; left: 8px; z-index: 5;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0; border-radius: 0;
+  background: transparent; border: none;
+  font-size: 11px; font-variant-numeric: tabular-nums;
+  pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+:root[data-theme="light"] .legend { text-shadow: 0 1px 2px rgba(255,255,255,.7); }
+.legend-symbol { font-weight: 600; font-size: 12px; }
+.legend-date { color: var(--muted); }
+.legend-ohlc { color: var(--ink-2); }
+.legend-chg { font-weight: 600; }
+/* MA 图例: 左上角显示各均线颜色对应 */
+.legend-ma { display: inline-flex; align-items: center; gap: 8px; }
+.legend-ma .ma-item { display: inline-flex; align-items: center; gap: 3px; color: var(--ink-2); font-weight: 600; }
+.legend-ma .ma-item i { display: inline-block; width: 12px; height: 2px; border-radius: 1px; }
+/* 距最新读数: 贴右侧价格栏, 随十字光标纵向移动 */
+.dist-tag {
+  position: absolute; right: 2px; z-index: 6; display: none;
+  padding: 1px 6px; border-radius: 3px;
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--ink-2); font-size: 11px; font-variant-numeric: tabular-nums;
+  pointer-events: none; transform: translateY(-50%); white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
 
-  /* ---- 右侧面板 ---- */
-  .side {
-    flex: 0 0 340px; min-width: 0;
-    padding: 10px 12px 10px 0;
-    overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
-  }
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border); border-radius: 8px;
-    padding: 12px 14px;
-  }
-  .card h3 {
-    margin: 0 0 10px; font-size: 12px; font-weight: 600;
-    color: var(--muted); letter-spacing: 1px; text-transform: uppercase;
-  }
-  .legend-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: var(--ink-2); }
-  .swatch { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
-  .swatch.up    { background: var(--up); }
-  .swatch.down  { background: var(--down); }
-  .swatch.top   { background: var(--top); clip-path: polygon(50% 0, 0 100%, 100% 100%); }
-  .swatch.bottom{ background: var(--bottom); clip-path: polygon(0 0, 100% 0, 50% 100%); }
-  .swatch.stroke{ background: var(--muted); }
-  .swatch.seg-up   { background: var(--seg-up); }
-  .swatch.seg-down { background: var(--seg-down); }
-  .swatch.pivot { background: var(--pivot-edge); border: 1px solid var(--border); }
-  .swatch.b1 { background: var(--buy1); border-radius: 50%; }
-  .swatch.b2 { background: var(--buy2); border-radius: 50%; }
-  .swatch.b3 { background: var(--buy3); border-radius: 50%; }
-  .swatch.s1 { background: var(--sell1); }
-  .swatch.s2 { background: var(--sell2); }
-  .swatch.s3 { background: var(--sell3); }
-  .swatch.fa { background: var(--fast-alert); border-radius: 50%; }
-  .swatch.fb { background: var(--fast-buy); border-radius: 50%; }
-  .swatch.fs { background: var(--fast-sell); border-radius: 50%; }
+.marker-tip {
+  position: absolute; top: 6px; right: 8px; z-index: 5;
+  display: none; padding: 3px 8px; border-radius: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+/* ---- 信号悬停详情卡(跟随光标): 买卖点/背驰/盘整/交易的生成依据 ---- */
+.point-card {
+  position: fixed; z-index: 60; display: none; pointer-events: none;
+  max-width: 350px; padding: 8px 10px; border-radius: 6px;
+  font-size: 11px; line-height: 1.6; text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  font-variant-numeric: tabular-nums;
+}
+.point-card .pc-t { font-weight: 700; margin-bottom: 2px; }
+.point-card .pc-k { color: var(--muted); margin-right: 5px; }
+.point-card .pc-v { margin-right: 10px; }
+.point-card .pc-why { margin-top: 4px; color: var(--ink-2); }
 
-  .stat-grid { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; }
-  .stat-grid .k { color: var(--muted); }
-  .stat-grid .v { color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
-  .stat-grid .v strong { color: var(--ink); font-weight: 600; }
+/* ---- 右侧面板: 卡片不再描边, 以分隔线分区 ---- */
+.side {
+  flex: 0 0 320px; min-width: 0;
+  padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+}
+.card {
+  background: transparent;
+  border: none; border-bottom: 1px solid var(--border); border-radius: 0;
+  padding: 12px 14px;
+}
+.card:last-child { border-bottom: none; }
+.card h3 {
+  margin: 0 0 8px; font-size: 11px; font-weight: 600;
+  color: var(--muted); letter-spacing: .8px; text-transform: uppercase;
+}
+.legend-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: var(--ink-2); }
+.swatch { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
+.swatch.up    { background: var(--up); }
+.swatch.down  { background: var(--down); }
+.swatch.top   { background: var(--top); clip-path: polygon(50% 0, 0 100%, 100% 100%); }
+.swatch.bottom{ background: var(--bottom); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.swatch.stroke{ background: var(--muted); }
+.swatch.seg-up   { background: var(--seg-up); }
+.swatch.seg-down { background: var(--seg-down); }
+.swatch.pivot { background: var(--pivot-edge); border: 1px solid var(--border); }
+.swatch.b1 { background: var(--buy1); border-radius: 50%; }
+.swatch.b2 { background: var(--buy2); border-radius: 50%; }
+.swatch.b3 { background: var(--buy3); border-radius: 50%; }
+.swatch.s1 { background: var(--sell1); }
+.swatch.s2 { background: var(--sell2); }
+.swatch.s3 { background: var(--sell3); }
+.swatch.fa { background: var(--fast-alert); border-radius: 50%; }
+.swatch.fb { background: var(--fast-buy); border-radius: 50%; }
+.swatch.fs { background: var(--fast-sell); border-radius: 50%; }
 
-  .algo-card ol { margin: 0; padding-left: 18px; color: var(--ink-2); line-height: 1.65; }
-  .algo-card li { margin-bottom: 6px; }
-  .algo-card code { background: var(--grid); padding: 0 4px; border-radius: 3px; font-size: 11px; }
-  .note { color: var(--muted); font-size: 11px; line-height: 1.6; margin-top: 6px; }
+.stat-grid { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; }
+.stat-grid .k { color: var(--muted); }
+.stat-grid .v { color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+.stat-grid .v strong { color: var(--ink); font-weight: 600; }
 
-  /* ---- 买卖点列表 ---- */
-  .buy-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
-  .buy-group { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; font-size: 11px; font-weight: 600; }
-  .buy-group:first-child { margin-top: 0; }
-  .buy-count { color: var(--muted); font-weight: 400; }
-  .buy-row {
-    display: flex; justify-content: space-between; align-items: baseline;
-    padding: 2px 6px; border-radius: 4px; cursor: pointer;
-    color: var(--ink-2); font-variant-numeric: tabular-nums;
-  }
-  .buy-row:hover { background: var(--grid); color: var(--ink); }
-  .buy-date { font-size: 11px; }
-  .buy-price { font-size: 11px; font-weight: 600; }
+.algo-card ol { margin: 0; padding-left: 18px; color: var(--ink-2); line-height: 1.7; }
+.algo-card li { margin-bottom: 6px; }
+.algo-card code { background: var(--panel); padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--ink); }
+.note { color: var(--muted); font-size: 11px; line-height: 1.65; margin-top: 6px; }
 
-  .buy-detail {
-    margin-top: 8px; padding: 8px 10px; border-radius: 6px;
-    background: var(--plane); border: 1px solid var(--border);
-    font-size: 11px; line-height: 1.7; color: var(--ink-2);
-    word-break: break-all;
-  }
-  .buy-detail .dk { font-weight: 600; font-size: 12px; margin-bottom: 4px; }
-  .buy-detail .dsub { color: var(--muted); margin-top: 3px; }
+/* ---- 开单逻辑快捷标签(可多选, 选中后文字可留空) ---- */
+.logic-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.logic-tags-label { color: var(--muted); font-size: 11px; }
+.logic-tag {
+  padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px;
+  background: transparent; color: var(--ink-2); font: inherit; font-size: 11.5px;
+  cursor: pointer; line-height: 1.4;
+}
+.logic-tag:hover { background: var(--hover); color: var(--ink); }
+.logic-tag.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-  /* ---- 回测交易面板 ---- */
-  .trade-list { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
-  .trade-group { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; font-size: 11px; font-weight: 600; }
-  .trade-group:first-child { margin-top: 0; }
-  .trade-row {
-    display: flex; justify-content: space-between; align-items: baseline;
-    padding: 2px 6px; border-radius: 4px; cursor: pointer;
-    color: var(--ink-2); font-variant-numeric: tabular-nums;
-  }
-  .trade-row:hover { background: var(--grid); color: var(--ink); }
-  .trade-row.sel { background: var(--grid); color: var(--ink); }
-  .trade-ret { font-size: 11px; font-weight: 600; }
-  .trade-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 10px; margin-bottom: 10px; }
-  .trade-stats .k { color: var(--muted); font-size: 10px; display: block; margin-bottom: 1px; }
-  .trade-stats .v { color: var(--ink-2); font-variant-numeric: tabular-nums; }
-  .trade-stats .v strong { color: var(--ink); font-weight: 600; font-size: 12px; }
-  .trade-detail {
-    margin-top: 8px; padding: 8px 10px; border-radius: 6px;
-    background: var(--plane); border: 1px solid var(--border);
-    font-size: 11px; line-height: 1.7; color: var(--ink-2);
-    word-break: break-all;
-  }
-  .trade-detail .dk { font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+/* ---- 两级入场标签: 一级分类(市场环境/入场信号必填) → 二级选项 ---- */
+.logic-tags2 { display: flex; flex-direction: column; gap: 5px; }
+.lt-cats { display: flex; flex-wrap: wrap; gap: 4px; }
+.lt-cat {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border: 1px solid var(--border); border-radius: 4px;
+  background: transparent; color: var(--ink-2); font: inherit; font-size: 11.5px; cursor: pointer;
+}
+.lt-cat:hover { background: var(--hover); color: var(--ink); }
+.lt-cat.active { border-color: var(--accent); color: var(--accent); }
+.lt-cat .lt-req { font-size: 9px; font-weight: 400; color: var(--down); border: 1px solid var(--down); border-radius: 3px; padding: 0 3px; }
+.lt-count {
+  display: none; min-width: 15px; height: 15px; line-height: 15px; text-align: center;
+  border-radius: 999px; background: var(--accent); color: #fff; font-size: 9px; padding: 0 3px;
+}
+.lt-count.on { display: inline-block; }
+.lt-panel { flex-direction: column; gap: 5px; padding: 5px 6px; border: 1px dashed var(--border); border-radius: 5px; }
+.lt-group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.lt-glabel { color: var(--muted); font-size: 10.5px; }
 
-  @media (max-width: 900px) {
-    .layout { flex-direction: column; }
-    .side { flex: 0 0 auto; width: 100%; flex-direction: row; flex-wrap: wrap; padding: 0 10px 10px; }
-    .side .card { flex: 1 1 260px; }
-  }
+/* ---- 练习: 专项/错题/净值曲线 ---- */
+.ts-mini { padding: 1px 7px; font-size: 10.5px; border-radius: 4px; }
+.ts-badge { display: inline-block; padding: 0 6px; border-radius: 999px; background: var(--panel); color: var(--ink-2); font-size: 10px; margin-left: 6px; }
+.ts-flag { color: var(--fast-alert); }
+#trCurveLive { cursor: default; }
+#trCurveLive svg { display: block; }
 
-  /* ---- 盘感练习器 ---- */
-  #trainerBanner {
-    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-    z-index: 30; display: none; align-items: center; gap: 14px; flex-wrap: wrap;
-    max-width: calc(100% - 24px);
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-    padding: 7px 14px; font-size: 12.5px; color: var(--ink-2);
-    box-shadow: 0 4px 18px rgba(0,0,0,.35);
-  }
-  #trainerBanner b { color: var(--ink); font-size: 13px; }
-  #trainerConfig {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    z-index: 40; display: none; flex-direction: column; gap: 12px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-    padding: 18px 22px; font-size: 13px; box-shadow: 0 8px 30px rgba(0,0,0,.45);
-    min-width: 280px;
-  }
-  /* 盲测态: 隐藏一切泄露品种名/绝对时间的入口(统计卡的 edge 信息为硬编码日期串, 只能整体隐藏) */
-  body.trainer-blind #symSelect,
-  body.trainer-blind #tfWrap,
-  body.trainer-blind #replayToggle,
-  body.trainer-blind #statsCard,
-  body.trainer-blind #trMktSel,
-  body.trainer-blind #trTfSel,
-  body.trainer-blind #trainerConfig,
-  body.trainer-blind #dataNote { display: none !important; }
-  /* 分钟级(15F/1F)裸K模式: 结构类工具不适用, 置灰禁点 */
-  body.tf-chunked #layerToggle,
-  body.tf-chunked #pivotToggle,
-  body.tf-chunked #stdToggle,
-  body.tf-chunked #tradeModeToggle { opacity: .35; pointer-events: none; }
+/* ---- 买卖点列表 ---- */
+.buy-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+.buy-group { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; font-size: 11px; font-weight: 600; }
+.buy-group:first-child { margin-top: 0; }
+.buy-count { color: var(--muted); font-weight: 400; }
+.buy-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 3px 6px; border-radius: 4px; cursor: pointer;
+  color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+.buy-row:hover { background: var(--hover); color: var(--ink); }
+.buy-date { font-size: 11px; }
+.buy-price { font-size: 11px; font-weight: 600; }
 
-/* ===== 优化增补(2026-08): 加载态 / 滚动条 / 过渡 / 响应式 ===== */
-/* 分片加载指示: 右上角徽章 + 顶部流动细条 */
+.buy-detail {
+  margin-top: 8px; padding: 8px 10px; border-radius: 4px;
+  background: var(--plane); border: 1px solid var(--border);
+  font-size: 11px; line-height: 1.75; color: var(--ink-2);
+  word-break: break-all;
+}
+.buy-detail .dk { font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+.buy-detail .dsub { color: var(--muted); margin-top: 3px; }
+
+/* ---- 回测交易面板 ---- */
+.trade-list { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+.trade-group { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; font-size: 11px; font-weight: 600; }
+.trade-group:first-child { margin-top: 0; }
+.trade-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 3px 6px; border-radius: 4px; cursor: pointer;
+  color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+.trade-row:hover { background: var(--hover); color: var(--ink); }
+.trade-row.sel { background: var(--hover); color: var(--ink); }
+.trade-ret { font-size: 11px; font-weight: 600; }
+.trade-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 10px; margin-bottom: 10px; }
+.trade-stats .k { color: var(--muted); font-size: 10px; display: block; margin-bottom: 1px; }
+.trade-stats .v { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.trade-stats .v strong { color: var(--ink); font-weight: 600; font-size: 12px; }
+.trade-detail {
+  margin-top: 8px; padding: 8px 10px; border-radius: 4px;
+  background: var(--plane); border: 1px solid var(--border);
+  font-size: 11px; line-height: 1.75; color: var(--ink-2);
+  word-break: break-all;
+}
+.trade-detail .dk { font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+
+/* ---- 盘感练习器 ---- */
+#trainerBanner {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  z-index: 30; display: none; align-items: center; gap: 14px; flex-wrap: wrap;
+  max-width: calc(100% - 24px);
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 14px; font-size: 12.5px; color: var(--ink-2);
+  box-shadow: var(--shadow);
+}
+#trainerBanner b { color: var(--ink); font-size: 13px; }
+#trainerConfig {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 40; display: none; flex-direction: column; gap: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 18px 22px; font-size: 13px; box-shadow: var(--shadow);
+  min-width: 280px;
+}
+/* 盲测态: 隐藏一切泄露品种名/绝对时间的入口(统计卡的 edge 信息为硬编码日期串, 只能整体隐藏) */
+body.trainer-blind #symSelect,
+body.trainer-blind #tfWrap,
+body.trainer-blind #replayToggle,
+body.trainer-blind #statsCard,
+body.trainer-blind #trMktSel,
+body.trainer-blind #trTfSel,
+body.trainer-blind #trainerConfig,
+body.trainer-blind #dataNote { display: none !important; }
+/* 分钟级(15F/1F)裸K模式: 结构类工具不适用, 置灰禁点 */
+body.tf-chunked #layerToggle,
+body.tf-chunked #pivotToggle,
+body.tf-chunked #stdToggle,
+body.tf-chunked #tradeModeToggle { opacity: .35; pointer-events: none; }
+
+/* ---- 加载态: 右上角徽章 + 顶部流动细条 ---- */
 body.chunk-loading::after {
   content: '⟳ 分片加载中…';
-  position: absolute; top: 8px; right: 12px; z-index: 35;
+  position: absolute; top: 48px; right: 12px; z-index: 35;
   font-size: 11px; color: var(--muted);
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 6px; padding: 3px 8px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 4px; padding: 3px 8px;
 }
 body.chunk-loading .chart-box::before {
   content: ''; position: absolute; top: 0; left: 0; height: 2px; width: 40%;
-  background: linear-gradient(90deg, transparent, var(--up), transparent);
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
   animation: chunkbar 1.1s linear infinite; z-index: 36;
 }
 @keyframes chunkbar { from { transform: translateX(-100%); } to { transform: translateX(350%); } }
 
-/* 主题/悬浮过渡 */
-.toolbar, .card, .btn, .seg button, .side { transition: background-color .18s ease, border-color .18s ease; }
+/* ---- 交互态 ---- */
+.toolbar, .card, .btn, .seg button, .side, input, select, textarea { transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
 .btn:active { transform: translateY(1px); }
 .btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible,
-.seg button:focus-visible { outline: 2px solid var(--up); outline-offset: 1px; }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-/* 统一细滚动条 */
-.trade-list::-webkit-scrollbar, .buy-list::-webkit-scrollbar,
-.backtestTradeList::-webkit-scrollbar, #trHistory::-webkit-scrollbar,
-.toolbar::-webkit-scrollbar, .side::-webkit-scrollbar { width: 6px; height: 6px; }
-.trade-list::-webkit-scrollbar-thumb, .buy-list::-webkit-scrollbar-thumb,
-#trHistory::-webkit-scrollbar-thumb, .toolbar::-webkit-scrollbar-thumb,
-.side::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+/* ---- 统一细滚动条(TradingView 风格) ---- */
+* { scrollbar-width: thin; scrollbar-color: var(--panel) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--panel); border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 #trHistory { max-height: 320px; overflow-y: auto; }
 
-/* 工具条: 窄屏横向滚动而不是换行错乱 */
+/* ---- 响应式 ---- */
 @media (max-width: 1280px) {
-  .toolbar { overflow-x: auto; }
+  .toolbar { overflow-x: auto; flex-wrap: nowrap; }
   .toolbar .controls { flex: 0 0 auto; }
 }
+@media (max-width: 900px) {
+  .layout { flex-direction: column; }
+  .chart-pane { min-height: 420px; }
+  .side { flex: 0 0 auto; width: 100%; flex-direction: row; flex-wrap: wrap; padding: 10px; gap: 10px; border-left: none; border-top: 1px solid var(--border); background: var(--plane); }
+  .side .card { flex: 1 1 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+}
 
-/* 侧栏折叠: 图表占满全宽 */
+/* ---- 侧栏折叠 ---- */
 body.side-collapsed .side { display: none; }
 body.side-collapsed .layout { flex-direction: column; }
 #sideToggleBtn { white-space: nowrap; }
 
-/* 窄屏图表最小高度保护 */
-@media (max-width: 900px) {
-  .chart-pane { min-height: 420px; }
-}
-
-/* 工具条组间细分隔 */
-.toolbar .controls + .controls { border-left: 1px solid var(--border); padding-left: 12px; }
-
-/* 持仓快捷弹层(点击图上持仓虚线弹出) */
+/* ---- 持仓快捷弹层(点击图上持仓虚线弹出) ---- */
 .pos-popup {
   position: fixed; z-index: 60; display: none; flex-direction: column; gap: 6px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-  padding: 10px 12px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 12px; font-size: 12px; box-shadow: var(--shadow);
   min-width: 180px;
 }
 .pos-popup .pp-head { font-weight: 700; font-size: 13px; }
@@ -347,10 +454,6 @@ body.side-collapsed .layout { flex-direction: column; }
   border-radius: 4px; padding: 3px 6px; width: 100px; font: inherit;
 }
 
-/* 缠论细节条(收纳中枢/笔口径/回测/图层/原始合并) */
-#chanDetails { display: none; align-items: center; gap: 8px; }
-#chanDetails .controls-label { color: var(--muted); }
-
-/* 缠论细节条(收纳中枢/笔口径/回测/图层/原始合并) */
+/* ---- 缠论细节条(收纳中枢/笔口径/回测/图层/原始合并) ---- */
 #chanDetails { display: none; align-items: center; gap: 8px; }
 #chanDetails .controls-label { color: var(--muted); }

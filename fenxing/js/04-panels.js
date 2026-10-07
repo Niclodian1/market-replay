@@ -50,6 +50,14 @@ function buildMarkers(v){
         text: `#${e.pid}${e.isAdd ? '+' : ''}`, size: 0.5 });
     }
   });
+  // 练习: 信号K(⚡ aboveBar 橙) 与 观察(观 belowBar 灰) —— 揭示后保留供复盘
+  if (typeof TR !== 'undefined' && (TR.marks || []).length){
+    for (const m of TR.marks){
+      out.push(m.kind === 'signal'
+        ? { time: m.t, position: 'aboveBar', color: T.top, shape: 'circle', text: '⚡', size: 0.5 }
+        : { time: m.t, position: 'belowBar', color: T.muted, shape: 'circle', text: '观', size: 0.5 });
+    }
+  }
   // 注: 回测交易不在 setMarkers 中画点 —— TradeOverlay 已在入场价处画 ●,
   //     避免同一位置双重圆点; 悬停提示走 markerMap(见 buildMaps)。
   out.sort((a,b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
@@ -58,7 +66,8 @@ function buildMarkers(v){
 
 function buildVolData(v){
   const T = t(), cs = candlesFor(v), vols = volArrFor(v);
-  return cs.map((c,i) => ({ time:c.time, value:vols[i], color: c.close >= c.open ? T.up : T.down }));
+  // TradingView 风格: 量柱用半透明涨跌色
+  return cs.map((c,i) => ({ time:c.time, value:vols[i], color: (c.close >= c.open ? T.up : T.down) + '99' }));
 }
 
 function buildMacdData(v){
@@ -299,11 +308,29 @@ function setReplayT(ts){
   checkAccountBlowup();      // 账户级爆仓: 净值≤0 强平并结束本局
   refreshAll({ light: true });   // 步进轻量刷新: 图表立即更新, 侧栏面板 rAF 合并
 }
+// 模式徽标与重点色: 复盘=蓝 / 练习=橙; body class 统一由这里维护
+function updateModeBadge(){
+  const on = !!TR.active;
+  document.body.classList.toggle('mode-trainer', on);
+  document.body.classList.toggle('mode-replay', !on && inReplay());
+  const el = document.getElementById('modeBadge');
+  if (!el) return;
+  let txt = '', cls = '';
+  if (on){
+    txt = TR.revealed ? '练习 · 已揭示' : (document.body.classList.contains('trainer-blind') ? '练习中 · 盲测' : '练习中');
+    cls = 'trainer';
+  } else if (inReplay()){
+    txt = '复盘中'; cls = 'replay';
+  }
+  el.textContent = txt;
+  el.className = 'mode-badge' + (cls ? ' ' + cls : '');
+}
 function enterReplay(ts){
   replayT = ts || allTimes()[Math.floor(allTimes().length * 0.8)];
   document.getElementById('replayCtl').style.display = 'flex';
   document.getElementById('replayBtn').textContent = '复盘中…';
   document.getElementById('replayBtn').classList.add('active');
+  updateModeBadge();
   {
     const d = new Date(replayT * 1000);
     const ymd = `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}`;
@@ -321,6 +348,7 @@ function exitReplay(){
   document.getElementById('replayBtn').textContent = '进入复盘';
   document.getElementById('replayBtn').classList.remove('active');
   document.getElementById('replayInfo').textContent = '';
+  updateModeBadge();
   renderJournal();   // 退出复盘: 刷新模式显示与按钮可用态
   refreshAll();
   chart.timeScale().fitContent();
@@ -393,7 +421,7 @@ function setupSnapshot(){
       const out = document.createElement('canvas');
       out.width = W; out.height = H;
       const ctx = out.getContext('2d');
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--plane').trim() || '#0d0d0d';
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--plane').trim() || '#131722';
       ctx.fillRect(0, 0, W, H);
       // 标题行
       ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#fff';

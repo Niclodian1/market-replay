@@ -12,6 +12,7 @@
     <div class="brand">
       <span class="brand-title">缠论多级别联动</span>
       <span class="brand-sub" id="symbolBadge">BTC/USD · 1D</span>
+      <span class="mode-badge" id="modeBadge"></span>
       <select id="symSelect" class="sym-select" title="切换品种">
         <option value="BTC" selected>BTC · 比特币</option>
         <option value="ETH">ETH · 以太坊</option>
@@ -20,6 +21,11 @@
         <option value="HYPE">HYPE · Hyperliquid</option>
         <option value="XAUUSD">XAUUSD · 现货黄金</option>
         <option value="XAGUSD">XAGUSD · 现货白银</option>
+        <option value="N225">N225 · 日经225</option>
+        <option value="SPX">SPX · 标普500</option>
+        <option value="NDX">NDX · 纳斯达克100</option>
+        <option value="399006_SZ">399006.SZ · 创业板指数</option>
+        <option value="000688_SS">000688.SS · 科创50</option>
         <option value="AAPL">AAPL · 苹果</option>
         <option value="MSFT">MSFT · 微软</option>
         <option value="NVDA">NVDA · 英伟达</option>
@@ -36,6 +42,8 @@
         <option value="WMT">WMT · 沃尔玛</option>
         <option value="AMD">AMD · 超威半导体</option>
         <option value="NFLX">NFLX · 奈飞</option>
+        <option value="INTC">INTC · 英特尔</option>
+        <option value="SNDK">SNDK · 闪迪</option>
         <option value="0700_HK">0700.HK · 腾讯</option>
         <option value="9988_HK">9988.HK · 阿里巴巴</option>
         <option value="600519_SS">600519.SS · 贵州茅台</option>
@@ -49,14 +57,14 @@
     </div>
     <div class="controls">
       <span id="tfWrap" style="display:inline-flex; align-items:center; gap:8px;">
-        <span class="controls-label">周期</span>
+        <span class="controls-label cl-tf">周期</span>
         <div class="seg" id="tfToggle">
           <button data-tf="1D" class="active">1D</button>
           <button data-tf="4H">4H</button>
           <button data-tf="1H">1H</button>
         </div>
       </span>
-      <span class="controls-label">视角</span>
+      <span class="controls-label cl-view">视角</span>
       <div class="seg" id="overlayToggle">
         <button data-ov="chan" class="active" title="缠论结构图层总开关(分型/笔/中枢/买卖点…)">缠论</button>
         <button data-ov="ma" class="active" title="均线 MA(周期可在右侧改)">MA</button>
@@ -96,12 +104,12 @@
         <button data-view="merged">合并K线</button>
       </div>
       </div>
-      <span class="controls-label">复盘</span>
+      <span class="controls-label cl-replay">复盘</span>
       <div class="seg" id="replayToggle">
         <button id="replayBtn">进入复盘</button>
       </div>
       <div id="replayCtl" style="display:none; align-items:center; gap:6px;">
-        <input type="date" id="replayDate" style="background:var(--panel,#161616); color:inherit; border:1px solid rgba(128,128,128,.4); border-radius:6px; padding:4px 6px; font:inherit;">
+        <input type="date" id="replayDate" style="background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:4px; padding:4px 6px; font:inherit;">
         <button class="btn" id="replayGo">定位</button>
         <button class="btn" id="replayPrev">◀</button>
         <button class="btn" id="replayPlay">▶ 播放</button>
@@ -109,30 +117,37 @@
         <button class="btn" id="replayExit">退出</button>
         <span id="replayInfo" style="font-size:12px; opacity:.7;"></span>
       </div>
-      <span class="controls-label">练习</span>
+      <span class="controls-label cl-trainer">练习</span>
       <div class="seg" id="trainerToggle">
         <button id="trainerBtn">开始练习</button>
       </div>
+      <span class="practice-count" id="practiceCount" title="已练习局数">已练 0 局</span>
       <div id="trainerCtl" style="display:none; align-items:center; gap:6px;">
         <span class="btn" id="trainerProgress" title="已走根数/步数上限 · 本局已平仓笔数" style="cursor:default; font-variant-numeric:tabular-nums;">0/200</span>
+        <span class="btn" id="trainerElapsed" style="cursor:default; font-variant-numeric:tabular-nums;" title="本局答题用时">00:00</span>
+        <span id="trCurveLive" style="display:none; align-items:center;" title="本局净值曲线: 实线=实际, 灰虚线=不加仓对照(保持原出场时点)"></span>
         <button class="btn" id="trainerNext" title="快捷键 → 或空格">▶ 下一根</button>
+        <button class="btn" id="trainerSignal" title="把当前K线标记为信号K线(重点观察); 再点一次取消">⚡ 信号K</button>
+        <button class="btn" id="trainerWatch" title="信号出现但不符合入场条件 → 标记为观察; 再点一次取消">👁 观察</button>
         <button class="btn" id="trainerReveal">揭示答案</button>
         <button class="btn" id="trainerQuit">放弃</button>
         <button class="btn" id="trainerEnd" style="display:none;">✕ 结束</button>
         <button class="btn" id="trainerAgain" style="display:none;">🔄 再来一局</button>
       </div>
       <button class="btn" id="fitBtn">适应</button>
-      <span class="controls-label">画线</span>
+      <span class="controls-label cl-draw">画线</span>
       <div class="seg" id="drawToggle">
-        <button data-tool="none" class="active">关</button>
-        <button data-tool="trend" title="点击两个点画趋势线">趋势线</button>
-        <button data-tool="sandr" title="点击一个价位画水平支撑/阻力线">支撑阻力</button>
+        <button data-tool="none" class="active" title="选择/编辑: 单击选中画线, 拖动整体移动, 拖端点改锚点, Delete 删除, Esc/右键取消">选择</button>
+        <button data-tool="trend" title="TradingView 趋势线: 依次单击两个点; 可拖动端点/整体, 右键取消">趋势线</button>
+        <button data-tool="sandr" title="TradingView 水平线(支撑/阻力): 单击一个价位; 可上下拖动, 右键取消">水平线</button>
+        <button data-tool="fib" title="TradingView 斐波那契回撤: 依次单击波段高/低两点; 可拖动端点/整体, 右键取消">斐波那契</button>
+        <button data-tool="poly" title="连续线段/折线: 逐点单击拐点, 双击或单击最后一个点结束; 可拖动锚点, 右键取消">折线</button>
       </div>
       <button class="btn" id="drawClear" title="清除全部手绘线条">清线</button>
       <button class="btn" id="fsBtn">⛶ 全屏</button>
-      <span class="controls-label">MA</span>
-      <input id="maPeriods" value="20,60" title="均线周期, 逗号分隔(最多6条), 留空隐藏。例: 5,10,20,60"
-             style="width:90px; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:6px; padding:4px 6px; font:inherit; font-size:12px;">
+      <span class="controls-label cl-ma">MA</span>
+      <input id="maPeriods" value="20,60,120" title="均线周期, 逗号分隔(最多6条), 留空隐藏。例: 5,10,20,60"
+             style="width:90px; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:4px; padding:4px 6px; font:inherit; font-size:12px;">
       <button class="btn" id="snapshotBtn">📷 快照</button>
       <button class="btn" id="themeBtn">☀️ 浅色</button>
       <button class="btn" id="sideToggleBtn" title="收起/展开右侧面板">⇱ 侧栏</button>
@@ -145,11 +160,13 @@
         <div id="chart" title="按住 Shift 单击锚定起点后松开, 移动鼠标实时测量两点波动距离(Δ价格/波幅%/K线数/时间跨度); 再按 Shift+单击固定终点; 单击或 Esc 清除"></div>
         <div id="volume"></div>
         <div id="macd"></div>
+        <div class="dist-tag" id="distTag"></div>
         <div class="legend">
           <span class="legend-symbol">BTC/USD</span>
           <span class="legend-date" id="legendDate">—</span>
           <span class="legend-ohlc" id="legendOhlc">—</span>
           <span class="legend-chg" id="legendChg"></span>
+          <span class="legend-ma" id="legendMa"></span>
         </div>
         <div class="marker-tip" id="markerTip"></div>
         <div id="trainerBanner"></div>
@@ -157,23 +174,23 @@
           <div style="font-weight:700; font-size:14px; text-align:center;">练习设置</div>
           <div style="display:flex; align-items:center; gap:10px;">
             <span style="width:36px; color:var(--muted);" title="不选=随机">品种</span>
-            <select id="trSymSel" style="flex:1; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:6px; padding:5px 8px; font:inherit;">
+            <select id="trSymSel" style="flex:1; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:4px; padding:5px 8px; font:inherit;">
               <option value="">随机</option>
             </select>
             <span style="color:var(--muted); font-size:11px;">与市场互斥</span>
           </div>
           <div style="display:flex; align-items:center; gap:10px;">
             <span style="width:36px; color:var(--muted);">市场</span>
-            <select id="trMktSel" style="flex:1; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:6px; padding:5px 8px; font:inherit;">
+            <select id="trMktSel" style="flex:1; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:4px; padding:5px 8px; font:inherit;">
               <option value="">随机</option>
               <option value="加密">加密</option><option value="美股">美股</option><option value="A股">A股</option>
-              <option value="港股">港股</option><option value="贵金属">贵金属</option>
+              <option value="港股">港股</option><option value="贵金属">贵金属</option><option value="指数">指数</option>
             </select>
             <span style="color:var(--muted); font-size:11px;">留空=全市场</span>
           </div>
           <div style="display:flex; align-items:center; gap:10px;">
             <span style="width:36px; color:var(--muted);">级别</span>
-            <select id="trTfSel" style="flex:1; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:6px; padding:5px 8px; font:inherit;">
+            <select id="trTfSel" style="flex:1; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:4px; padding:5px 8px; font:inherit;">
               <option value="">随机</option>
               <option value="1D">1D</option><option value="4H">4H</option><option value="1H">1H</option>
               <option value="15F">15F</option>
@@ -181,8 +198,26 @@
             <span style="color:var(--muted); font-size:11px;">分钟级仅加密</span>
           </div>
           <div style="display:flex; align-items:center; gap:10px;">
+            <span style="width:36px; color:var(--muted);" title="按本局窗口形态挑起点; 练习中未来仍然隐藏">专项</span>
+            <select id="trDrillSel" style="flex:1; background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:4px; padding:5px 8px; font:inherit;">
+              <option value="">随机</option>
+              <option value="突破失败">突破失败</option>
+              <option value="震荡反复止损">震荡反复止损</option>
+              <option value="趋势持有">趋势持有</option>
+              <option value="加仓后回撤">加仓后回撤</option>
+            </select>
+            <label style="display:flex; align-items:center; gap:4px; color:var(--muted); font-size:11px; white-space:nowrap; cursor:pointer;" title="避开最近练过的相邻区间, 同一区间隔一段时间再练">
+              <input type="checkbox" id="trAvoidRecent" checked> 避开最近
+            </label>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="width:36px; color:var(--muted);" title="每局独立本金, 与复盘账户分开">本金</span>
+            <input type="number" id="trCapitalInput" value="100000" min="1000" max="1000000000" step="10000" style="background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:4px; padding:5px 8px; font:inherit; width:110px;">
+            <span style="color:var(--muted); font-size:11px;">U · 默认 100,000</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
             <span style="width:36px; color:var(--muted);">步数</span>
-            <input type="number" id="trStepsInput" value="200" min="20" max="500" style="background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:6px; padding:5px 8px; font:inherit; width:90px;">
+            <input type="number" id="trStepsInput" value="200" min="20" max="500" style="background:var(--plane); color:inherit; border:1px solid var(--border); border-radius:4px; padding:5px 8px; font:inherit; width:90px;">
             <span style="color:var(--muted); font-size:11px;">走满自动揭示</span>
           </div>
           <div style="display:flex; gap:8px; margin-top:4px; justify-content:center;">
@@ -206,16 +241,65 @@
             <label style="flex:2">开仓价(默认当前收盘)<input type="number" id="jEntry" placeholder="留空=当前价" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"></label>
             <label style="flex:2">止损价(可选)<input type="number" id="jStop" placeholder="留空=不止损" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"></label>
           </div>
-          <label>开单逻辑 / 信号依据 (必填)<textarea id="jLogic" rows="2" placeholder="例: 4H一买·段确认+次级别盘整背驰共振, 回抽不破前低" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font:inherit;"></textarea></label>
+          <div id="jStopLoss" style="font-size:11px; min-height:14px; color:var(--muted); line-height:1.3;">输入止损价可预估亏损金额</div>
+          <div class="logic-tags2" id="jLogicTags">
+            <div class="lt-cats">
+              <button type="button" class="lt-cat" data-cat="market">市场环境<b class="lt-req">必填</b><span class="lt-count" data-count="market">0</span></button>
+              <button type="button" class="lt-cat" data-cat="entry">入场信号<b class="lt-req">必填</b><span class="lt-count" data-count="entry">0</span></button>
+              <button type="button" class="lt-cat" data-cat="pattern">形态<span class="lt-count" data-count="pattern">0</span></button>
+            </div>
+            <div class="lt-panel" data-panel="market" style="display:none;">
+              <div class="lt-group"><span class="lt-glabel">MA120方向</span>
+                <button type="button" class="logic-tag" data-cat="market" data-group="ma120dir" data-val="MA120向上">MA120向上</button>
+                <button type="button" class="logic-tag" data-cat="market" data-group="ma120dir" data-val="MA120向下">MA120向下</button>
+                <button type="button" class="logic-tag" data-cat="market" data-group="ma120dir" data-val="MA120走平">MA120走平</button>
+              </div>
+              <div class="lt-group"><span class="lt-glabel">价格位置</span>
+                <button type="button" class="logic-tag" data-cat="market" data-group="pricepos" data-val="价格在MA120以上">价格在MA120以上</button>
+                <button type="button" class="logic-tag" data-cat="market" data-group="pricepos" data-val="价格在MA120以下">价格在MA120以下</button>
+              </div>
+            </div>
+            <div class="lt-panel" data-panel="entry" style="display:none;">
+              <div class="lt-group"><span class="lt-glabel">MA突破</span>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_break" data-val="突破MA20">突破MA20</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_break" data-val="突破MA60">突破MA60</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_break" data-val="突破MA120">突破MA120</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_break" data-val="MA20与MA60双均线突破">MA20与MA60双均线突破</button>
+              </div>
+              <div class="lt-group"><span class="lt-glabel">MA回踩</span>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_pullback" data-val="回踩MA20">回踩MA20</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_pullback" data-val="回踩MA60">回踩MA60</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_pullback" data-val="回踩MA120">回踩MA120</button>
+              </div>
+              <div class="lt-group"><span class="lt-glabel">动能</span>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="momentum" data-val="MACD背离">MACD背离</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="momentum" data-val="中枢背离">中枢背离</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="momentum" data-val="盘整背离">盘整背离</button>
+              </div>
+              <div class="lt-group"><span class="lt-glabel">裸K</span>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="candle" data-val="Pinbar">Pinbar</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="candle" data-val="吞没">吞没</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="candle" data-val="假突破">假突破</button>
+              </div>
+            </div>
+            <div class="lt-panel" data-panel="pattern" style="display:none;">
+              <div class="lt-group">
+                <button type="button" class="logic-tag" data-cat="pattern" data-val="三角形中继">三角形中继</button>
+                <button type="button" class="logic-tag" data-cat="pattern" data-val="下降趋势线">下降趋势线</button>
+                <button type="button" class="logic-tag" data-cat="pattern" data-val="蓄势">蓄势</button>
+              </div>
+            </div>
+          </div>
+          <label>开单逻辑 / 信号依据 (市场环境/入场信号必选, 文字可选)<textarea id="jLogic" rows="2" placeholder="补充说明(可选): 例 回抽不破前低, 次级别共振" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font:inherit;"></textarea></label>
           <button class="btn" id="jOpen" style="align-self:flex-start;">开单(按当前K线)</button>
         </div>
         <div id="jPositions"></div>
-        <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
+        <div style="display:flex; gap:6px; margin-top:8px; align-items:center; flex-wrap:wrap;">
           <button class="btn" id="jExport">导出 CSV</button>
           <button class="btn" id="jClear">清空</button>
           <span id="jSummary" style="font-size:11.5px; opacity:.75;"></span>
         </div>
-        <p class="note">仅在<b>复盘模式</b>下可用。账户制：每模式独立本金 <b>100,000U</b>（localStorage 持久化），开仓占用保证金、平仓结算盈亏；<b>可同时持有多笔</b>不同方向的仓位，各自独立止损/加仓/平仓。<b>平仓支持比例%</b>（部分落袋）。单笔亏损≥其保证金自动离场；<b>账户净值≤0 即爆仓</b>——练习强制结束、复盘重置本金。盈利加仓只能用本笔浮盈。逻辑必填——沉淀你自己的开仓/加仓/离场规则→结果数据集。</p>
+        <p class="note">仅在<b>复盘模式</b>下可用。账户制：每模式独立本金 <b>100,000U</b>（localStorage 持久化），开仓占用保证金、平仓结算盈亏；<b>可同时持有多笔</b>不同方向的仓位，各自独立止损/加仓/平仓。<b>平仓支持比例%</b>（部分落袋）。单笔亏损≥其保证金自动离场；<b>账户净值≤0 即爆仓</b>——练习强制结束、复盘重置本金。盈利加仓只能用本笔浮盈；练习模式加仓理由可留空（自动记为「浮盈加仓」），并可用 <b>⚡ 一键加满</b> 把该笔全部浮盈一次加为保证金。逻辑必填——沉淀你自己的开仓/加仓/离场规则→结果数据集。开单前先点开「市场环境」（MA120方向 + 价格位置）与「入场信号」二级标签（MA突破/MA回踩/动能/裸K 任选其一即可），形态可选，并可补充文字说明。</p>
       </section>
 
       <section class="card" id="statsCard">
@@ -227,7 +311,12 @@
         <h3>练习战绩 <span style="text-transform:none;font-weight:400" id="trStatMode"></span></h3>
         <div class="trade-stats" id="trStatsGrid"></div>
         <div id="trPerSym" style="font-size:11px; color:var(--muted); line-height:1.9;"></div>
-        <div style="font-size:11px; font-weight:600; margin-top:8px; color:var(--ink-2);">历史练习（点击展开逐笔明细）</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px;">
+          <span style="font-size:11px; font-weight:600; color:var(--ink-2);">历史练习（点击展开逐笔明细）</span>
+          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:var(--muted); cursor:pointer;" title="只显示标记为错题/待重练的练习局">
+            <input type="checkbox" id="trOnlyFlagged"> 只看错题
+          </label>
+        </div>
         <div id="trHistory"></div>
         <div style="display:flex; gap:6px; margin-top:8px;">
           <button class="btn" id="trStatsClear">清零战绩</button>
@@ -273,6 +362,7 @@
 </div>
 
 <script src="lightweight-charts.standalone.production.js"></script>
+<script src="lightweight-charts-drawing.standalone.production.js"></script>
 <script src="data-view/data.js"></script>
 <script src="data-view/trades_data.js"></script>
 <script src="js/00-app-core.js"></script>
@@ -283,6 +373,7 @@
 <script src="js/05-journal.js"></script>
 <script src="js/06-trainer.js"></script>
 <script src="js/07-main.js"></script>
+<script src="js/08-draw.js"></script>
 </script>
 </body>
 </html>
