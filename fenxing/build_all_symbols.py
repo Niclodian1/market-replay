@@ -6,6 +6,7 @@
   crypto : BTC/ETH   (1D+4H+1H 三级别联动)
   stocks : AAPL MSFT NVDA GOOGL META TSLA AMZN BRK_B JPM (1D)
   gold   : XAUUSD    (1D)
+  indices: N225 SPX NDX 399006_SZ 000688_SS (1D)
   hk     : 0700_HK 9988_HK (1D)
   cn     : 600519_SS (1D)
 
@@ -46,6 +47,11 @@ PANELS: list[tuple[str, str, dict[str, str]]] = [
     }),
     ("XAUUSD", "XAUUSD 现货黄金", {"1D": "gold/XAUUSD_1day.parquet"}),
     ("XAGUSD", "XAGUSD 现货白银", {"1D": "gold/XAGUSD_1day.parquet"}),
+    ("N225", "N225 日经225", {"1D": "indices/N225_1day.parquet"}),
+    ("SPX", "SPX 标普500", {"1D": "indices/SPX_1day.parquet"}),
+    ("NDX", "NDX 纳斯达克100", {"1D": "indices/NDX_1day.parquet"}),
+    ("399006_SZ", "399006.SZ 创业板指数", {"1D": "indices/399006_SZ_1day.parquet"}),
+    ("000688_SS", "000688.SS 科创50", {"1D": "indices/000688_SS_1day.parquet"}),
     ("AAPL", "AAPL 苹果", {"1D": "stocks/AAPL_1day.parquet"}),
     ("MSFT", "MSFT 微软", {"1D": "stocks/MSFT_1day.parquet"}),
     ("NVDA", "NVDA 英伟达", {"1D": "stocks/NVDA_1day.parquet"}),
@@ -66,6 +72,8 @@ PANELS: list[tuple[str, str, dict[str, str]]] = [
     ("WMT", "WMT 沃尔玛", {"1D": "stocks/WMT_1day.parquet"}),
     ("AMD", "AMD 超威半导体", {"1D": "stocks/AMD_1day.parquet"}),
     ("NFLX", "NFLX 奈飞", {"1D": "stocks/NFLX_1day.parquet"}),
+    ("INTC", "INTC 英特尔", {"1D": "stocks/INTC_1day.parquet"}),
+    ("SNDK", "SNDK 闪迪", {"1D": "stocks/SNDK_1day.parquet"}),
     ("SOL", "SOL Solana", {
         "1D": "crypto/SOL_USD_1day.parquet",
         "4H": "crypto/SOL_USD_4h.parquet",

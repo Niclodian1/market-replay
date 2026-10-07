@@ -3,8 +3,11 @@
 
 覆盖范围:
   - 美股: AAPL MSFT NVDA GOOGL META TSLA AMZN BRK-B JPM
-          + PLTR COIN AVGO MU WMT AMD NFLX          (Yahoo Finance, auto_adjust)
+          + PLTR COIN AVGO MU WMT AMD NFLX INTC SNDK (Yahoo Finance, auto_adjust)
   - A股:  002460.SZ 300750.SZ 600900.SS 000333.SZ 603259.SS 300033.SZ (同上)
+  - 指数: ^N225 日经225 / ^GSPC 标普500 / ^NDX 纳斯达克100 (Yahoo Finance)
+          / 399006.SZ 创业板指 / 000688.SS 科创50 (东方财富日线, Yahoo 无历史)
+          均落盘 data/indices/
   - 贵金属: XAUUSD + XAGUSD白银 (Dukascopy → 刷新 data/market/<SYM>_1d.parquet 缓存,
           并同步到 data/gold/<SYM>_1day.parquet)
   - 加密新品种(仅 --init-new): SOL PEPE (Binance现货) / HYPE (Hyperliquid原生)
@@ -50,15 +53,34 @@ STOCK_PANELS = {
     "WMT_1day": ("WMT", "Walmart", "stocks"),
     "AMD_1day": ("AMD", "AMD", "stocks"),
     "NFLX_1day": ("NFLX", "Netflix", "stocks"),
+    "INTC_1day": ("INTC", "Intel", "stocks"),
+    "SNDK_1day": ("SNDK", "SanDisk", "stocks"),
 }
-# A股: panel_id → (yahoo_symbol, 显示名); 落盘 cn_equity/, 与 600519_SS 同源同口径
+# A股: panel_id → (yahoo_symbol, 显示名); 落盘 cn_equity/
 CN_PANELS = {
+    "600519_SS_1day": ("600519.SS", "贵州茅台"),
     "002460_SZ_1day": ("002460.SZ", "赣锋锂业"),
     "300750_SZ_1day": ("300750.SZ", "宁德时代"),
     "600900_SS_1day": ("600900.SS", "长江电力"),
     "000333_SZ_1day": ("000333.SZ", "美的集团"),
     "603259_SS_1day": ("603259.SS", "药明康德"),
     "300033_SZ_1day": ("300033.SZ", "同花顺"),
+}
+# 港股: 与 A 股同一套 yfinance 增量，避免再停在旧截止日期
+HK_PANELS = {
+    "0700_HK_1day": ("0700.HK", "腾讯"),
+    "9988_HK_1day": ("9988.HK", "阿里巴巴"),
+}
+# 指数: 与股票同一套 yfinance 日线增量, 落盘 data/indices/
+INDEX_PANELS = {
+    "N225_1day": ("^N225", "日经225"),
+    "SPX_1day": ("^GSPC", "标普500"),
+    "NDX_1day": ("^NDX", "纳斯达克100"),
+}
+# A股指数: Yahoo 没有完整日线, 走东方财富 K 线; panel_id → (secid, 代码, 显示名)
+CN_INDEX_PANELS = {
+    "399006_SZ_1day": ("0.399006", "399006.SZ", "创业板指数"),
+    "000688_SS_1day": ("1.000688", "000688.SS", "科创50"),
 }
 # 加密三级别: panel前缀 → (canonical_symbol, 来源); 1D+4H+1H 对齐 BTC/ETH 口径
 CRYPTO_INIT = {
@@ -205,11 +227,97 @@ def init_new_panels() -> None:
                   if not (DATA_ROOT / "cn_equity" / f"{pid}.parquet").exists()]
     for pid, sym in missing_cn:
         init_stock_full(pid, sym, "cn_equity")
+    missing_hk = [(pid, sym) for pid, (sym, _n) in HK_PANELS.items()
+                  if not (DATA_ROOT / "hk_equity" / f"{pid}.parquet").exists()]
+    for pid, sym in missing_hk:
+        init_stock_full(pid, sym, "hk_equity")
+    missing_idx = [(pid, sym) for pid, (sym, _n) in INDEX_PANELS.items()
+                   if not (DATA_ROOT / "indices" / f"{pid}.parquet").exists()]
+    for pid, sym in missing_idx:
+        init_stock_full(pid, sym, "indices")
+    missing_cn_idx = [pid for pid in CN_INDEX_PANELS
+                      if not (DATA_ROOT / "indices" / f"{pid}.parquet").exists()]
+    for pid in missing_cn_idx:
+        update_cn_index(pid)
     for prefix, (canonical, source) in CRYPTO_INIT.items():
         if any(not (DATA_ROOT / "crypto" / f"{prefix}_{tf}.parquet").exists() for tf in TF_SECONDS):
             init_crypto(prefix, canonical, source)
-    print(f"[init-new] 完成: 新增美股 {len(missing_stocks)} / A股 {len(missing_cn)} / 加密 "
+    print(f"[init-new] 完成: 新增美股 {len(missing_stocks)} / A股 {len(missing_cn)} / 港股 {len(missing_hk)} "
+          f"/ 指数 {len(missing_idx)} / A股指数 {len(missing_cn_idx)} / 加密 "
           f"{sum(1 for p in CRYPTO_INIT if (DATA_ROOT / 'crypto' / f'{p}_1day.parquet').exists())} 个品种")
+
+
+def _fetch_eastmoney_index(secid: str) -> pd.DataFrame:
+    """东方财富日K: date,open,close,high,low,volume,... 时间戳用 UTC 零点对齐 Yahoo A股。"""
+    import time as _time
+
+    import httpx
+
+    url = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
+    params = {
+        "secid": secid,
+        "ut": "fa5fd1943c7b386f172d6893dbfba10b",
+        "fields1": "f1,f2,f3,f4,f5,f6",
+        "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+        "klt": "101",
+        "fqt": "0",
+        "beg": "0",
+        "end": "20500101",
+        "lmt": "10000",
+    }
+    last_err: Exception | None = None
+    response = None
+    for attempt in range(4):
+        try:
+            response = httpx.get(
+                url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=45.0
+            )
+            response.raise_for_status()
+            break
+        except Exception as exc:
+            last_err = exc
+            _time.sleep(1.5 * (attempt + 1))
+    else:
+        raise RuntimeError(f"东方财富 {secid} 拉取失败") from last_err
+    klines = ((response.json() or {}).get("data") or {}).get("klines") or []
+    rows = []
+    for line in klines:
+        parts = str(line).split(",")
+        if len(parts) < 6:
+            continue
+        day = pd.Timestamp(parts[0], tz="UTC")
+        rows.append({
+            "time": int(day.timestamp()),
+            "open": float(parts[1]),
+            "high": float(parts[3]),
+            "low": float(parts[4]),
+            "close": float(parts[2]),
+            "volume": float(parts[5]),
+        })
+    if not rows:
+        return pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
+    return (
+        pd.DataFrame(rows)
+        .astype({"time": "int64"})
+        .sort_values("time")
+        .drop_duplicates("time")
+        .reset_index(drop=True)
+    )
+
+
+def update_cn_index(panel_id: str) -> None:
+    """A股指数全日线覆盖写入(东方财富单次返回全历史, 比增量更稳)。"""
+    secid, symbol, _name = CN_INDEX_PANELS[panel_id]
+    path = DATA_ROOT / "indices" / f"{panel_id}.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    old = pd.read_parquet(path) if path.exists() else None
+    frame = _drop_incomplete_candle(_fetch_eastmoney_index(secid))
+    if frame.empty:
+        raise RuntimeError(f"{symbol} 东方财富日线为空")
+    frame.to_parquet(path, index=False)
+    added = len(frame) - (0 if old is None else len(old))
+    last = pd.to_datetime(int(frame["time"].iloc[-1]), unit="s", utc=True).date()
+    print(f"[index]  {symbol:<10} {len(frame):>6} 根 {added:+d} → 截止 {last}")
 
 
 def update_metal(panel_id: str) -> None:
@@ -240,6 +348,18 @@ def rebuild_manifest() -> None:
         rows.append(_row(panel_id, symbol, name,
                          "1day", "CN equity", "Yahoo Finance adjusted",
                          DATA_ROOT / "cn_equity" / f"{panel_id}.parquet"))
+    for panel_id, (symbol, name) in HK_PANELS.items():
+        rows.append(_row(panel_id, symbol, name,
+                         "1day", "HK equity", "Yahoo Finance adjusted",
+                         DATA_ROOT / "hk_equity" / f"{panel_id}.parquet"))
+    for panel_id, (symbol, name) in INDEX_PANELS.items():
+        rows.append(_row(panel_id, symbol, name,
+                         "1day", "index", "Yahoo Finance adjusted",
+                         DATA_ROOT / "indices" / f"{panel_id}.parquet"))
+    for panel_id, (_secid, symbol, name) in CN_INDEX_PANELS.items():
+        rows.append(_row(panel_id, symbol, name,
+                         "1day", "index", "East Money daily",
+                         DATA_ROOT / "indices" / f"{panel_id}.parquet"))
     for panel_id in METAL_PANELS:
         pair, product = METAL_PANELS[panel_id]
         rows.append(_row(panel_id, product, product, "1day", "gold", "Dukascopy snapshot",
@@ -302,6 +422,12 @@ def main() -> None:
         update_stock(panel_id, symbol, subdir=subdir)
     for panel_id, (symbol, _name) in CN_PANELS.items():
         update_stock(panel_id, symbol, subdir="cn_equity")
+    for panel_id, (symbol, _name) in HK_PANELS.items():
+        update_stock(panel_id, symbol, subdir="hk_equity")
+    for panel_id, (symbol, _name) in INDEX_PANELS.items():
+        update_stock(panel_id, symbol, subdir="indices")
+    for panel_id in CN_INDEX_PANELS:
+        update_cn_index(panel_id)
     for panel_id in METAL_PANELS:
         update_metal(panel_id)
     rebuild_manifest()
