@@ -1,0 +1,80 @@
+{
+  "fetched_at": "2026-09-21T03:07:02.524447+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2051162772982071564",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2051162772982071564",
+      "id": "2051162772982071564",
+      "text": "4月底超级财报周安稳度过，几乎所有科技公司1季度财报都超了市场预期。所以这个阶段市场是完全信任ai叙事的，也不用担心泡沫这个阶段破灭。3月抄底的各个市场要继续持有。\n\n5月份关注点\n1：老美通胀+就业\n2：公司财报\n            光模块巨头：lite/cohr\n            芯片巨头：nvda，arm，amd\n            中概龙头：阿里\n            线下消费巨头：沃尔玛\n3：美联储新主席的思路，是否会快速缩表。日央表态，是否会6月加息。这两个都会抽走流动性，虽然下个月才可能发生，但这个月会有蛛丝马迹。\n4：特访华会宣布哪些胜利",
+      "raw_text": {
+        "text": "4月底超级财报周安稳度过，几乎所有科技公司1季度财报都超了市场预期。所以这个阶段市场是完全信任ai叙事的，也不用担心泡沫这个阶段破灭。3月抄底的各个市场要继续持有。\n\n5月份关注点\n1：老美通胀+就业\n2：公司财报\n            光模块巨头：lite/cohr\n            芯片巨头：nvda，arm，amd\n            中概龙头：阿里\n            线下消费巨头：沃尔玛\n3：美联储新主席的思路，是否会快速缩表。日央表态，是否会6月加息。这两个都会抽走流动性，虽然下个月才可能发生，但这个月会有蛛丝马迹。\n4：特访华会宣布哪些胜利",
+        "display_text_range": [
+          0,
+          288
+        ],
+        "facets": []
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 5,
+      "retweets": 8,
+      "likes": 38,
+      "bookmarks": 21,
+      "quotes": 1,
+      "created_at": "Mon May 04 04:51:28 +0000 2026",
+      "created_timestamp": 1777870288,
+      "views": 11854,
+      "is_note_tweet": true,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": null,
+      "replying_to_status": null,
+      "source": "Twitter Web App",
+      "twitter_card": "tweet",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

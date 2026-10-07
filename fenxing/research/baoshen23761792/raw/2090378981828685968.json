@@ -1,0 +1,145 @@
+{
+  "fetched_at": "2026-09-21T03:07:30.801694+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2090378981828685968",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2090378981828685968",
+      "id": "2090378981828685968",
+      "text": "说个特别玄学的事情\n\n昨天我去看电影牛来。结果开场经理跟我们说放映失败了建议退票，没有牛来了。当时我看美股a股都是最低点附近，都是阴线。过了二十分钟，经理跟我们说可以不用退票，他们技术员恢复放映。然后从下午到晚上就一直都是各路利好。海力士巨额回购股票，今天三星跟进回购股票，美国财政部托底长债利好股市，昨夜白宫和加密领袖开会。然后一夜之间加密和股市都涨了。真解释不清，我还拍了经理发言的视频发了微博，不是编造的剧情。《牛来》里面主角唯一的朋友叫豹啦，牛来遇到危险的时候是豹啦拯救了牛来。。。。\n-------------------\n\n昨天突破刚开始的时候64900加仓了。因为当时在突破边缘有可能性就加仓了。不过还是加少了。现在先看7.3w能否突破把。之前6.9-7.3是一个巨大阻力区，5月底6月初产生的。已经几个月没有突破了。我也不知道这波能不能突破，不过如果站上去，那就可以继续参考23年1月下旬走势。",
+      "raw_text": {
+        "text": "说个特别玄学的事情\n\n昨天我去看电影牛来。结果开场经理跟我们说放映失败了建议退票，没有牛来了。当时我看美股a股都是最低点附近，都是阴线。过了二十分钟，经理跟我们说可以不用退票，他们技术员恢复放映。然后从下午到晚上就一直都是各路利好。海力士巨额回购股票，今天三星跟进回购股票，美国财政部托底长债利好股市，昨夜白宫和加密领袖开会。然后一夜之间加密和股市都涨了。真解释不清，我还拍了经理发言的视频发了微博，不是编造的剧情。《牛来》里面主角唯一的朋友叫豹啦，牛来遇到危险的时候是豹啦拯救了牛来。。。。\n-------------------\n\n昨天突破刚开始的时候64900加仓了。因为当时在突破边缘有可能性就加仓了。不过还是加少了。现在先看7.3w能否突破把。之前6.9-7.3是一个巨大阻力区，5月底6月初产生的。已经几个月没有突破了。我也不知道这波能不能突破，不过如果站上去，那就可以继续参考23年1月下旬走势。",
+        "display_text_range": [
+          0,
+          405
+        ],
+        "facets": [
+          {
+            "type": "media",
+            "indices": [
+              10,
+              33
+            ],
+            "id": "2090378492047486976",
+            "display": "pic.x.com/dJIiZ4R5u7",
+            "original": "https://t.co/dJIiZ4R5u7",
+            "replacement": "https://x.com/baoshen23761792/status/2090378981828685968/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [
+              10,
+              33
+            ],
+            "id": "2090378821115822080",
+            "display": "pic.x.com/dJIiZ4R5u7",
+            "original": "https://t.co/dJIiZ4R5u7",
+            "replacement": "https://x.com/baoshen23761792/status/2090378981828685968/photo/1"
+          }
+        ]
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 45,
+      "retweets": 7,
+      "likes": 26,
+      "bookmarks": 4,
+      "quotes": 1,
+      "created_at": "Thu Aug 20 10:02:41 +0000 2026",
+      "created_timestamp": 1787220161,
+      "possibly_sensitive": false,
+      "views": 6930,
+      "is_note_tweet": true,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": null,
+      "replying_to_status": null,
+      "media": {
+        "all": [
+          {
+            "type": "photo",
+            "id": "2090378492047486976",
+            "url": "https://pbs.twimg.com/media/HQKEKcibcAAc8gn.jpg?name=orig",
+            "width": 2560,
+            "height": 1274
+          },
+          {
+            "type": "photo",
+            "id": "2090378821115822080",
+            "url": "https://pbs.twimg.com/media/HQKEdmabwAAPZ9Q.jpg?name=orig",
+            "width": 2560,
+            "height": 1274
+          }
+        ],
+        "photos": [
+          {
+            "type": "photo",
+            "id": "2090378492047486976",
+            "url": "https://pbs.twimg.com/media/HQKEKcibcAAc8gn.jpg?name=orig",
+            "width": 2560,
+            "height": 1274
+          },
+          {
+            "type": "photo",
+            "id": "2090378821115822080",
+            "url": "https://pbs.twimg.com/media/HQKEdmabwAAPZ9Q.jpg?name=orig",
+            "width": 2560,
+            "height": 1274
+          }
+        ],
+        "mosaic": {
+          "type": "mosaic_photo",
+          "formats": {
+            "jpeg": "https://mosaic.fxtwitter.com/jpeg/2090378981828685968/HQKEKcibcAAc8gn/HQKEdmabwAAPZ9Q",
+            "webp": "https://mosaic.fxtwitter.com/webp/2090378981828685968/HQKEKcibcAAc8gn/HQKEdmabwAAPZ9Q"
+          }
+        }
+      },
+      "source": "Twitter Web App",
+      "twitter_card": "summary_large_image",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

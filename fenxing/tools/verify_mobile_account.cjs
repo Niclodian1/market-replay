@@ -1,0 +1,95 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const context = vm.createContext({ console });
+vm.runInContext(`
+  const INIT_CAPITAL = 100000;
+  const TR = { active: true, revealed: false, session: [] };
+  const sessionCapital = () => INIT_CAPITAL;
+  let account = { trainer: 90000 };
+  const acctLoad = () => account;
+  const acctSave = a => { account = a; };
+  const persistFlush = () => {};
+  const currentSym = 'BTC', activeTF = '1D';
+  const DATA = { meta: { symbol: 'BTC' } };
+  let bar = { time: 2, close: 110, low: 110, high: 110 };
+  const candlesFor = () => [bar];
+  const inReplay = () => true;
+  const fmtTimeReal = String;
+  const fmt = String;
+  const roundPrice = n => +Number(n).toFixed(12);
+  const alert = m => { throw new Error(m); };
+  const toast = () => {};
+`, context);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '../mobile/js/journal.js'), 'utf8'), context);
+vm.runInContext(`
+  renderJournal = syncMarginInput = recordEquity = () => {};
+  function refreshAll() {}
+  function updateTrainerUI() {}
+  function reset() {
+    account = { trainer: 90000 }; TR.session = [];
+    bar = { time: 2, close: 101, low: 101, high: 101 };
+    positions = [{ id: 1, sym: 'BTC', tf: '1D', side: '多', stop: null,
+      entries: [{ t: 1, price: 100, capital: 10000, leverage: 10, logic: '' }] }];
+  }
+`, context);
+const run = code => vm.runInContext(code, context);
+const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 0.0001, `${actual} != ${expected}`);
+run('reset()');
+near(run('acctEquity()'), 101000);
+near(run('posGrossNotional()'), 101000);
+near(run('effectiveLeverage()'), 1);
+assert.equal(run('formatLev(1)'), '1.00x');
+assert.equal(run('formatLev(0)'), '0x');
+run('positions = []');
+assert.equal(run('effectiveLeverage()'), 0);
+run('reset()');
+near(run('acctEquity()'), 101000);
+run('addMaxFloat(positions[0])');
+near(run('acctEquity()'), 101000);
+run("closePosObj(positions[0], .5, 'half')");
+near(run('acctEquity()'), 101000);
+run("closePosObj(positions[0], 1, 'rest')");
+near(run('acctBal()'), 101000);
+near(run('TR.session.reduce((s, r) => s + r.pnl_u, 0)'), 1000);
+run('reset(); addMaxFloat(positions[0]); positions[0].stop = 100; bar = { time: 3, close: 100, low: 99, high: 101 }; checkStopAndLiquidate()');
+near(run('acctBal() - INIT_CAPITAL'), run('TR.session[0].pnl_u'));
+assert.equal(run('positions.length'), 0);
+run('reset(); bar.close = 110; addMaxFloat(positions[0]); bar = { time: 3, close: 98, low: 98, high: 110 }; checkStopAndLiquidate()');
+// Cash margin 10,000, total PnL -12,909: synthetic add margin cannot extend the cash loss budget.
+assert.equal(run('positions.length'), 0, 'cash margin exhausted: position must liquidate');
+near(run('acctBal()'), 90000);
+run("reset(); bar.close = 110; addMaxFloat(positions[0]); bar.close = 80; closePosObj(positions[0], 1, 'exit')");
+near(run('acctBal()'), 90000);
+run("reset(); bar.close = 110; addMaxFloat(positions[0]); closePosObj(positions[0], 1, 'exit')");
+assert.equal(run('TR.session[0].adds'), 1);
+assert.equal(run('TR.session[0].entries.length'), 2);
+assert.equal(run('TR.session[0].entries[1].logic'), '浮盈加仓');
+assert.ok(run('TR.session[0].entries[1].capital > 0'));
+run("reset(); positions[0].tp = 110; bar = { time: 3, close: 108, low: 104, high: 111 }; checkStopAndLiquidate()");
+assert.equal(run('positions.length'), 0);
+assert.equal(run('TR.session[0].exit_reason'), '触发止盈');
+near(run('TR.session[0].exit_price'), 110);
+run("reset(); positions[0].stop = 99; positions[0].tp = 110; bar = { time: 3, close: 105, low: 98, high: 111 }; checkStopAndLiquidate()");
+assert.equal(run('TR.session[0].exit_reason'), '触发止损');
+near(run('TR.session[0].exit_price'), 99);
+run("reset(); applyPosLevels(positions[0], 95, 120)");
+assert.equal(run('positions[0].stop'), 95);
+assert.equal(run('positions[0].tp'), 120);
+assert.match(run("applyPosLevels(positions[0], 105, 120)"), /止损须低于均价/);
+run('reset()');
+assert.equal(run('rMultiple(positions[0], 110)'), null);
+run('positions[0].stop = 90; ensureRBasis(positions[0])');
+near(run('rMultiple(positions[0], 110)'), 1);
+near(run('rMultiple(positions[0], 90)'), -1);
+assert.equal(run('formatR(1)'), '+1.00R');
+run('positions[0].stop = 95; ensureRBasis(positions[0])');
+near(run('positions[0].rStop'), 90);
+run('bar = { time: 3, close: 110, low: 100, high: 130 }; touchPosR(positions[0], bar)');
+near(run('positions[0].curR'), 1);
+near(run('positions[0].maxR'), 3);
+run("closePosObj(positions[0], 1, 'exit')");
+near(run('TR.session[0].r_mult'), 1);
+near(run('TR.session[0].max_r'), 3);
+console.log('PASS: add, partial/full close, stop/tp and cash-margin liquidation preserve account value');

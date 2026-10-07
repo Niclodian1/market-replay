@@ -1,0 +1,91 @@
+import assert from 'node:assert/strict';
+const origin = process.env.MOBILE_TEST_URL || 'http://127.0.0.1:8876';
+const tabs = await (await fetch('http://127.0.0.1:9336/json/list')).json();
+const page = tabs.find(t => t.type === 'page');
+if (!page) throw new Error('no CDP page: ' + JSON.stringify(tabs));
+const ws = new WebSocket(page.webSocketDebuggerUrl);
+await new Promise(r => { ws.onopen = r; ws.onerror = r; });
+let id = 0;
+const pending = new Map();
+ws.onmessage = e => {
+  const m = JSON.parse(e.data);
+  if (m.id) {
+    const p = pending.get(m.id);
+    pending.delete(m.id);
+    m.error ? p.reject(m.error) : p.resolve(m.result);
+  }
+};
+const call = (method, params = {}) => new Promise((resolve, reject) => {
+  const n = ++id; pending.set(n, { resolve, reject }); ws.send(JSON.stringify({ id: n, method, params }));
+});
+const ev = async expression => {
+  const r = await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+  if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails));
+  return r.result.value;
+};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const until = async (expression, timeout = 20000) => {
+  const start = Date.now();
+  while (Date.now() - start < timeout) { if (await ev(expression)) return; await sleep(100); }
+  throw new Error('Timed out: ' + expression);
+};
+
+await call('Runtime.enable');
+await call('Page.enable');
+await call('Network.enable');
+await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+await call('Page.navigate', { url: 'about:blank' });
+await sleep(200);
+await call('Network.setCacheDisabled', { cacheDisabled: true });
+await call('Storage.clearDataForOrigin', { origin, storageTypes: 'all' });
+await call('Page.navigate', { url: origin + '/' });
+await until("typeof offlineReady !== 'undefined' && offlineReady && typeof TR !== 'undefined'");
+await ev("document.getElementById('trSymSel').value='BTC';document.getElementById('trTfSel').value='1D';document.getElementById('trStepsInput').value='20';document.getElementById('trCapitalInput').value='50000';document.getElementById('trainerBtn').click()");
+await until('TR.active && document.getElementById("loading").hidden && !!chart');
+assert.equal(await ev('TR.initCapital'), 50000);
+assert.equal(await ev("document.getElementById('signalBar').hidden"), false);
+assert.ok(await ev("document.getElementById('positionSummary').innerText.includes('杠杆 0x')"));
+await ev("document.getElementById('jCapital').value='10000';document.getElementById('jLeverage').value='10';document.getElementById('jOpen').click()");
+assert.ok(await ev("effectiveLeverage() > 1.5 && effectiveLeverage() < 2.5"));
+assert.ok(await ev("document.getElementById('positionSummary').innerText.includes('杠杆')"));
+assert.ok(await ev("document.querySelector('[data-lev]').textContent.includes('x')"));
+await ev("applyPosLevels(positions[0], posAvgEntry(positions[0]) * 0.99, null); renderJournal()");
+assert.ok(await ev("document.querySelector('[data-r]').textContent.includes('R')"));
+assert.ok(await ev("positions[0].maxR != null"));
+await ev('closeAllPositions()');
+assert.ok(await ev("TR.session[0].r_mult !== '' && TR.session[0].max_r !== ''"));
+assert.equal(await ev('effectiveLeverage()'), 0);
+await ev('upsertSignal("量不够先观察")');
+assert.equal(await ev("TR.signals.length"), 1);
+await ev('while (trLocked()) trainerStep()');
+await until('TR.revealed && document.getElementById("trainerBanner").style.display === "flex"');
+assert.equal(await ev("document.getElementById('trainerBanner').innerText.includes('这局是好练习题吗？')"), true);
+assert.equal(await ev("document.getElementById('trainerBanner').innerText.includes('题目结构')"), true);
+assert.equal(await ev("document.getElementById('trainerBanner').innerText.includes('趋势转换')"), true);
+assert.equal(await ev("document.getElementById('trainerBanner').innerText.includes('用时')"), true);
+assert.equal(await ev("document.querySelectorAll('#trainerBanner [data-tag=quality]').length"), 2);
+await ev("document.querySelector('#trainerBanner [data-tag=quality][data-val=good]').click(); persistQueue");
+await ev("document.querySelector('#trainerBanner [data-tag=structure][data-val=强趋势]').click(); persistQueue");
+await ev("document.querySelector('#trainerBanner [data-tag=turn][data-val=下跌转涨]').click(); persistQueue");
+assert.equal(await ev("tsLoad()[0].quality"), 'good');
+assert.equal(await ev("tsLoad()[0].structure"), '强趋势');
+assert.equal(await ev("tsLoad()[0].turn"), '下跌转涨');
+assert.equal(await ev("tsLoad()[0].capital"), 50000);
+assert.ok(await ev("tsLoad()[0].durationMs >= 0"));
+assert.equal(await ev("tsLoad()[0].signals.length"), 1);
+assert.equal(await ev("document.querySelector('#trainerBanner [data-tag=quality][data-val=good]').classList.contains('active')"), true);
+await ev('endTrainer(); persistQueue');
+const hist = await ev("document.querySelector('.ts-item').innerText");
+assert.equal(hist.includes('好题'), true);
+assert.equal(hist.includes('强趋势'), true);
+assert.equal(hist.includes('回撤'), true);
+assert.equal(hist.includes('%'), true);
+await ev("document.querySelector('.ts-item').open = true; document.querySelector('.ts-item [data-tag=quality][data-val=poor]').click(); persistQueue");
+assert.equal(await ev("tsLoad()[0].quality"), 'poor');
+assert.equal(await ev("document.querySelector('.ts-item').innerText.includes('没意义')"), true);
+assert.ok(await ev("buildTrainerCsv().includes('没意义')"));
+assert.ok(await ev("buildTrainerCsv().includes('强趋势')"));
+assert.ok(await ev("buildTrainerCsv().includes('下跌转涨')"));
+console.log('PASS quality tags, duration, signals, capital, history pnl/dd, CSV');
+ws.close();
+process.exit(0);

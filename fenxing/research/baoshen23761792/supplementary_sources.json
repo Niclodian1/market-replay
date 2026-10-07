@@ -1,0 +1,32 @@
+[
+  {
+    "source_url": "https://www6.twstalker.com/baoshen23761792",
+    "accessed_on": "2026-09-21",
+    "access_method": "web search cache",
+    "tweet_id": null,
+    "publication_date_verified": false,
+    "included_in_archived_tweet_count": false,
+    "summary": "缓存补充了 EMA24（日、周线）、历史偏离比较、低频减仓后接回，以及周期受参与者和外部市场影响的讨论。仅作为有待单条核验的补充，不据相对日期补造发布时间。",
+    "confidence": "lower_than_id_resolved_archive"
+  },
+  {
+    "source_url": "https://w.twstalker.com/masite_BTC",
+    "accessed_on": "2026-09-21",
+    "access_method": "web search cache of another user's reposts",
+    "tweet_id": null,
+    "publication_date_verified": false,
+    "included_in_archived_tweet_count": false,
+    "summary": "有标注目标账号的周线结构和仓位讨论，但页面混有他人内容，部分检索结果边界不清。因此未将其中的菱形加仓法或具体配比归入作者方法论。",
+    "confidence": "not_used_for_core_conclusions"
+  },
+  {
+    "source_url": "https://x.com/baoshen23761792/status/2082462371700994530",
+    "local_image": "media/2082462371700994530_1.jpg",
+    "accessed_on": "2026-09-21",
+    "access_method": "visual inspection of an archived tweet attachment",
+    "embedded_tweet_id": null,
+    "embedded_display_date": "6月23日",
+    "included_as_extra_tweet_in_archived_count": false,
+    "summary": "附件展示一条旧推文的截图，说明偏离过大时减仓，同时未确认长期顶部；图表可见 EMA24、52、144。它支持观点追溯，但截图不是原始发布记录或交割单。"
+  }
+]

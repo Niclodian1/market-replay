@@ -1,0 +1,80 @@
+{
+  "fetched_at": "2026-09-21T03:07:17.194933+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2037694163869966618",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2037694163869966618",
+      "id": "2037694163869966618",
+      "text": "美股尤其是科技股跌的真惨，还好这波抄底的是大A还有韩国存储。大A赚钱已经回到了指数4050时候的价格，韩国存储微亏。如果抄底纳指成分股那要跌到姥姥家了。\n\n现在宏观环境还有很多变数，首先就是海峡封锁多久，其次是AI基建投资回报质疑，这个需要等4月主要公司财报才能一一打消疑虑。反而私募信贷风险关注的人已经不多了。\n\n如果战争不能再4月缓和，那输入性通胀，能源问题，化肥问题导致的粮食问题都会逐步发酵。所以配置标的的时候最好配置一些不管有没有战争都有一定利好的板块。这样才能一定程度对冲风险。\n\n比如储能，锂电产业链去年没有战争的时候涨过，今年有战争的时候也涨。但是油气板块战争时候涨，战争缓和就得回调。这样即使4月份战事升级导致中美股指继续下探，也可以做到自己账户少亏甚至赚钱。大概就这个思路，当然不用局限在这两个板块。现在有这么多AI，按照这个思路问问AI就行。\n\n另外，us100平均市盈率已经略微跌破过去十年的平均值，就是继续回调的话，科技巨头们中长期性价比就逐渐出来了。还是要重点关注财报，只要原本的营收没问题，ai投资又有对应的回报。那就不用担心巨头们的基本面，找个技术面低位买就行。",
+      "raw_text": {
+        "text": "美股尤其是科技股跌的真惨，还好这波抄底的是大A还有韩国存储。大A赚钱已经回到了指数4050时候的价格，韩国存储微亏。如果抄底纳指成分股那要跌到姥姥家了。\n\n现在宏观环境还有很多变数，首先就是海峡封锁多久，其次是AI基建投资回报质疑，这个需要等4月主要公司财报才能一一打消疑虑。反而私募信贷风险关注的人已经不多了。\n\n如果战争不能再4月缓和，那输入性通胀，能源问题，化肥问题导致的粮食问题都会逐步发酵。所以配置标的的时候最好配置一些不管有没有战争都有一定利好的板块。这样才能一定程度对冲风险。\n\n比如储能，锂电产业链去年没有战争的时候涨过，今年有战争的时候也涨。但是油气板块战争时候涨，战争缓和就得回调。这样即使4月份战事升级导致中美股指继续下探，也可以做到自己账户少亏甚至赚钱。大概就这个思路，当然不用局限在这两个板块。现在有这么多AI，按照这个思路问问AI就行。\n\n另外，us100平均市盈率已经略微跌破过去十年的平均值，就是继续回调的话，科技巨头们中长期性价比就逐渐出来了。还是要重点关注财报，只要原本的营收没问题，ai投资又有对应的回报。那就不用担心巨头们的基本面，找个技术面低位买就行。",
+        "display_text_range": [
+          0,
+          497
+        ],
+        "facets": []
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 3,
+      "retweets": 1,
+      "likes": 23,
+      "bookmarks": 2,
+      "quotes": 0,
+      "created_at": "Sat Mar 28 00:52:01 +0000 2026",
+      "created_timestamp": 1774659121,
+      "views": 3952,
+      "is_note_tweet": true,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": null,
+      "replying_to_status": null,
+      "source": "Twitter Web App",
+      "twitter_card": "tweet",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

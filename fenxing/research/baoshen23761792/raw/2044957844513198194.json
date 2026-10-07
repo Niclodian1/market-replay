@@ -1,0 +1,195 @@
+{
+  "fetched_at": "2026-09-21T03:07:09.574637+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2044957844513198194",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2044957844513198194",
+      "id": "2044957844513198194",
+      "text": "美股过去几年的下跌有个特点，就是起来的方式大多是v反，而不是底部筑底很长时间二探三探四探之类的。今年3月的战争，去年4月的关税战，24年8月的carry trade等。本质上就是基本面没问题的情况下，受到消息的冲击而导致的局部利空。消息一变，行情就重新回到增长的主旋律上。\n\n所以对于美股只要判断基本面没问题，长拿是最优先的，做T需要放弃掉追求底部买入的想法。例如半个月内的美光，如果还有印象，当时什么谷歌最新架构对存储的冲击啊，美光超预期的资本支出，都是看多了会恐慌的那种。结果短短11个交易日就回到ATH附近了。今年2,3月AI正在重复00年互联网危机崩盘这种论调也是很多人相信。\n\n那么到底要看什么，一个是看宏观基本面就是看老美GDP增速，失业率还有通胀这些基本经济数据。没有连续负的GDP，没有连续加息预期，那宏观就没问题。行业这边，看龙头公司们的季度财报，财报基本符合预期，就不会有真正的崩盘。那么每一次中蹲深蹲反而是买入做T的机会，并且要放弃最低点买入的想法。只有龙头公司们好几家财报不及预期，那你才要真正警惕是不是这个行业过热了，该减仓了之类的。",
+      "raw_text": {
+        "text": "美股过去几年的下跌有个特点，就是起来的方式大多是v反，而不是底部筑底很长时间二探三探四探之类的。今年3月的战争，去年4月的关税战，24年8月的carry trade等。本质上就是基本面没问题的情况下，受到消息的冲击而导致的局部利空。消息一变，行情就重新回到增长的主旋律上。\n\n所以对于美股只要判断基本面没问题，长拿是最优先的，做T需要放弃掉追求底部买入的想法。例如半个月内的美光，如果还有印象，当时什么谷歌最新架构对存储的冲击啊，美光超预期的资本支出，都是看多了会恐慌的那种。结果短短11个交易日就回到ATH附近了。今年2,3月AI正在重复00年互联网危机崩盘这种论调也是很多人相信。\n\n那么到底要看什么，一个是看宏观基本面就是看老美GDP增速，失业率还有通胀这些基本经济数据。没有连续负的GDP，没有连续加息预期，那宏观就没问题。行业这边，看龙头公司们的季度财报，财报基本符合预期，就不会有真正的崩盘。那么每一次中蹲深蹲反而是买入做T的机会，并且要放弃最低点买入的想法。只有龙头公司们好几家财报不及预期，那你才要真正警惕是不是这个行业过热了，该减仓了之类的。",
+        "display_text_range": [
+          0,
+          480
+        ],
+        "facets": [
+          {
+            "type": "media",
+            "indices": [
+              137,
+              160
+            ],
+            "id": "2044953903771615232",
+            "display": "pic.x.com/XM5VAI0B7U",
+            "original": "https://t.co/XM5VAI0B7U",
+            "replacement": "https://x.com/baoshen23761792/status/2044957844513198194/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [
+              137,
+              160
+            ],
+            "id": "2044953977931149312",
+            "display": "pic.x.com/XM5VAI0B7U",
+            "original": "https://t.co/XM5VAI0B7U",
+            "replacement": "https://x.com/baoshen23761792/status/2044957844513198194/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [
+              137,
+              160
+            ],
+            "id": "2044954044872134656",
+            "display": "pic.x.com/XM5VAI0B7U",
+            "original": "https://t.co/XM5VAI0B7U",
+            "replacement": "https://x.com/baoshen23761792/status/2044957844513198194/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [
+              137,
+              160
+            ],
+            "id": "2044954145631916032",
+            "display": "pic.x.com/XM5VAI0B7U",
+            "original": "https://t.co/XM5VAI0B7U",
+            "replacement": "https://x.com/baoshen23761792/status/2044957844513198194/photo/1"
+          }
+        ]
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 14,
+      "retweets": 8,
+      "likes": 51,
+      "bookmarks": 31,
+      "quotes": 1,
+      "created_at": "Fri Apr 17 01:55:18 +0000 2026",
+      "created_timestamp": 1776390918,
+      "possibly_sensitive": false,
+      "views": 10548,
+      "is_note_tweet": true,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": null,
+      "replying_to_status": null,
+      "media": {
+        "all": [
+          {
+            "type": "photo",
+            "id": "2044953903771615232",
+            "url": "https://pbs.twimg.com/media/HGEivahbAAA56dd.jpg?name=orig",
+            "width": 2560,
+            "height": 1502
+          },
+          {
+            "type": "photo",
+            "id": "2044953977931149312",
+            "url": "https://pbs.twimg.com/media/HGEizuybsAAUcVt.jpg?name=orig",
+            "width": 2560,
+            "height": 1502
+          },
+          {
+            "type": "photo",
+            "id": "2044954044872134656",
+            "url": "https://pbs.twimg.com/media/HGEi3oKaEAAjKFz.jpg?name=orig",
+            "width": 2560,
+            "height": 1502
+          },
+          {
+            "type": "photo",
+            "id": "2044954145631916032",
+            "url": "https://pbs.twimg.com/media/HGEi9fhaUAA1VTr.jpg?name=orig",
+            "width": 2560,
+            "height": 1502
+          }
+        ],
+        "photos": [
+          {
+            "type": "photo",
+            "id": "2044953903771615232",
+            "url": "https://pbs.twimg.com/media/HGEivahbAAA56dd.jpg?name=orig",
+            "width": 2560,
+            "height": 1502
+          },
+          {
+            "type": "photo",
+            "id": "2044953977931149312",
+            "url": "https://pbs.twimg.com/media/HGEizuybsAAUcVt.jpg?name=orig",
+            "width": 2560,
+            "height": 1502
+          },
+          {
+            "type": "photo",
+            "id": "2044954044872134656",
+            "url": "https://pbs.twimg.com/media/HGEi3oKaEAAjKFz.jpg?name=orig",
+            "width": 2560,
+            "height": 1502
+          },
+          {
+            "type": "photo",
+            "id": "2044954145631916032",
+            "url": "https://pbs.twimg.com/media/HGEi9fhaUAA1VTr.jpg?name=orig",
+            "width": 2560,
+            "height": 1502
+          }
+        ],
+        "mosaic": {
+          "type": "mosaic_photo",
+          "formats": {
+            "jpeg": "https://mosaic.fxtwitter.com/jpeg/2044957844513198194/HGEivahbAAA56dd/HGEizuybsAAUcVt/HGEi3oKaEAAjKFz/HGEi9fhaUAA1VTr",
+            "webp": "https://mosaic.fxtwitter.com/webp/2044957844513198194/HGEivahbAAA56dd/HGEizuybsAAUcVt/HGEi3oKaEAAjKFz/HGEi9fhaUAA1VTr"
+          }
+        }
+      },
+      "source": "Twitter Web App",
+      "twitter_card": "summary_large_image",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

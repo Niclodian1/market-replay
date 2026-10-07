@@ -1,0 +1,90 @@
+{
+  "fetched_at": "2026-09-21T03:07:32.110019+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2090406015208747203",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2090406015208747203",
+      "id": "2090406015208747203",
+      "text": "@BravoLuo 现在不就在回调么，珍惜回调。可以先假设回调完还能突破8月高点。",
+      "raw_text": {
+        "text": "@BravoLuo 现在不就在回调么，珍惜回调。可以先假设回调完还能突破8月高点。",
+        "display_text_range": [
+          10,
+          41
+        ],
+        "facets": [
+          {
+            "type": "mention",
+            "indices": [
+              0,
+              9
+            ],
+            "original": "BravoLuo",
+            "id": "2693254909"
+          }
+        ]
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 1,
+      "retweets": 0,
+      "likes": 1,
+      "bookmarks": 0,
+      "quotes": 0,
+      "created_at": "Thu Aug 20 11:50:06 +0000 2026",
+      "created_timestamp": 1787226606,
+      "views": 514,
+      "is_note_tweet": false,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": "BravoLuo",
+      "replying_to_status": "2090404743034314909",
+      "source": "Twitter Web App",
+      "twitter_card": "tweet",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "fetched_at": "2026-09-21T03:07:13.348115+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2043143931584721389",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2043143931584721389",
+      "id": "2043143931584721389",
+      "text": "@9geV2DivVUAedj0 是的，加密比港美股A股弱。只要加密没有反弹超过3月17号的高点形成更高的高点这种形态，那之后都还不能排除还有新低。",
+      "raw_text": {
+        "text": "@9geV2DivVUAedj0 是的，加密比港美股A股弱。只要加密没有反弹超过3月17号的高点形成更高的高点这种形态，那之后都还不能排除还有新低。",
+        "display_text_range": [
+          17,
+          74
+        ],
+        "facets": [
+          {
+            "type": "mention",
+            "indices": [
+              0,
+              16
+            ],
+            "original": "9geV2DivVUAedj0",
+            "id": "1594712689648943114"
+          }
+        ]
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 0,
+      "retweets": 0,
+      "likes": 1,
+      "bookmarks": 1,
+      "quotes": 0,
+      "created_at": "Sun Apr 12 01:47:27 +0000 2026",
+      "created_timestamp": 1775958447,
+      "views": 253,
+      "is_note_tweet": false,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": "9geV2DivVUAedj0",
+      "replying_to_status": "2042638805333901619",
+      "source": "Twitter Web App",
+      "twitter_card": "tweet",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

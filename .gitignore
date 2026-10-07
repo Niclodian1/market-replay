@@ -48,6 +48,16 @@ fenxing/trades_detail.json
 fenxing/backtest_report.json
 fenxing/multilevel_profile.txt
 fenxing/*.txt
+fenxing/render_check.png*
+fenxing/tools/render_check.png*
+
+# fenxing 移动端过期副本: 发布源为独立仓库 kpractice, 不入库
+fenxing/mobile/
+
+# fenxing 研究抓取素材: 体积过大(约400MB), 仅保留脚本/清单/文档
+fenxing/research/**/v2/
+fenxing/research/**/images/
+fenxing/research/**/media/
 
 # Keep source market data (data/crypto/*.parquet, backend/data/fundamentals/)
 

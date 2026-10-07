@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-09-21T03:12:36.953814+00:00",
+  "username": "baoshen23761792",
+  "complete": false,
+  "collection_method": "Public search-discovered IDs + individual FxTwitter post responses + self-references",
+  "seed_count": 38,
+  "attempted_count": 38,
+  "unique_posts": 38,
+  "failed": [],
+  "pending_ids": [],
+  "oldest_post": "Fri Mar 20 01:08:58 +0000 2026",
+  "newest_post": "Wed Aug 26 04:23:54 +0000 2026",
+  "full_timeline_pagination_available": false,
+  "media_archive_status_file": "media_manifest.json",
+  "all_media_analyzed": false,
+  "limitations": [
+    "Third-party cached source, not an authenticated X export.",
+    "Known-ID sampling is incomplete and not representative.",
+    "No verified inventory of deleted, private, unindexed posts or edit history.",
+    "Media URLs are retained; photo download status is in media_manifest.json. Spaces not transcribed.",
+    "Date span does not imply continuous coverage."
+  ]
+}

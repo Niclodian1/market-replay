@@ -1,0 +1,113 @@
+{
+  "fetched_at": "2026-09-21T03:07:54.225806+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2082471735925059961",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2082471735925059961",
+      "id": "2082471735925059961",
+      "text": "接上一条。\n\n就是我炒股了以后发现大家很爱搞对立。老登博主和科技博主天天互怼。价投和波段思维也要打架，天天互相看不起。最后都是为了证明自己而证明自己。有点魔怔了。\n\n这玩意肯定是哪个市场好就去哪，哪种持仓体验符合你的性格你就用哪个。哪有什么非黑即白的思想。科技热情高就去科技，等消费白酒起来当然也要去消费白酒。搞宗教式排他投资纯属吃饱了撑得。多元化投资风格并存才健康对不。\n\n----------------------\n然后明后天继续回到财报考验，以及凌晨的fomc会议。我主要还是关注止跌到底是7月底还是8月。从今天白天存储的走势来看，有一点点的止跌迹象，但是还远远不够。需要明后天老美财报和宏观配合。我能接受第一段下跌的底部落在7月底到8月中这个范围即可。而且反弹总归是有反弹的，但反弹的时候肯定不要弹着弹着又去看新高了。哪怕存储能重复21年大饼519以后的走势，也要提前跑。",
+      "raw_text": {
+        "text": "接上一条。\n\n就是我炒股了以后发现大家很爱搞对立。老登博主和科技博主天天互怼。价投和波段思维也要打架，天天互相看不起。最后都是为了证明自己而证明自己。有点魔怔了。\n\n这玩意肯定是哪个市场好就去哪，哪种持仓体验符合你的性格你就用哪个。哪有什么非黑即白的思想。科技热情高就去科技，等消费白酒起来当然也要去消费白酒。搞宗教式排他投资纯属吃饱了撑得。多元化投资风格并存才健康对不。\n\n----------------------\n然后明后天继续回到财报考验，以及凌晨的fomc会议。我主要还是关注止跌到底是7月底还是8月。从今天白天存储的走势来看，有一点点的止跌迹象，但是还远远不够。需要明后天老美财报和宏观配合。我能接受第一段下跌的底部落在7月底到8月中这个范围即可。而且反弹总归是有反弹的，但反弹的时候肯定不要弹着弹着又去看新高了。哪怕存储能重复21年大饼519以后的走势，也要提前跑。",
+        "display_text_range": [
+          0,
+          391
+        ],
+        "facets": [
+          {
+            "type": "media",
+            "indices": [
+              82,
+              105
+            ],
+            "id": "2082468293575901184",
+            "display": "pic.x.com/RBA6qHw5Zr",
+            "original": "https://t.co/RBA6qHw5Zr",
+            "replacement": "https://x.com/baoshen23761792/status/2082471735925059961/photo/1"
+          }
+        ]
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 8,
+      "retweets": 1,
+      "likes": 23,
+      "bookmarks": 2,
+      "quotes": 0,
+      "created_at": "Wed Jul 29 14:22:06 +0000 2026",
+      "created_timestamp": 1785334926,
+      "possibly_sensitive": false,
+      "views": 2849,
+      "is_note_tweet": true,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": null,
+      "replying_to_status": null,
+      "media": {
+        "all": [
+          {
+            "type": "photo",
+            "id": "2082468293575901184",
+            "url": "https://pbs.twimg.com/media/HOZp4S6bAAAiLkf.jpg?name=orig",
+            "width": 1930,
+            "height": 1182
+          }
+        ],
+        "photos": [
+          {
+            "type": "photo",
+            "id": "2082468293575901184",
+            "url": "https://pbs.twimg.com/media/HOZp4S6bAAAiLkf.jpg?name=orig",
+            "width": 1930,
+            "height": 1182
+          }
+        ]
+      },
+      "source": "Twitter Web App",
+      "twitter_card": "summary_large_image",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

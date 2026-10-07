@@ -5,47 +5,77 @@ Headless Chrome 渲染验证: 缠论多级别联动前端。
 
 检查项:
   - 三周期(1D/4H/1H)加载: 0 console 报错 + 蜡烛已绘制。
-  - 买点标记(一买 #d55181)与卖点标记(一卖 #0094a6)像素存在。
+  - 卖点标记(三卖 #9c27b0)像素存在(?layers=buys,sells)。
   - ?detail=1 详情面板(产生说明/次级别确认)加载无报错。
   - 原始/合并、线段/笔中枢切换路径(带 ?view / ?pivot 参数)。
+  - ?fast=1 抢先背驰买点(#26a69a)。
 
-要点: Chrome headless 在本机 `--dump-dom` 会因 autoSize 挂起, 用截图+像素分析;
-      autoSize 首帧延迟用重试兜底。
+要点: 本机 Chrome headless `--dump-dom` 会因 autoSize 挂起, 用截图+像素分析;
+      stderr 必须落盘(不能 PIPE 不读, 日志写满管道会卡死 Chrome);
+      脚本自带临时 HTTP 服务(分钟级分片 fetch 在 file:// 下会被 CORS 拦, 属预期)。
 """
+import functools
+import http.server
 import os
+import shutil
 import signal
+import socketserver
 import subprocess
+import tempfile
+import threading
 import time
 
 from PIL import Image
 
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-HERE = os.path.dirname(os.path.abspath(__file__))
-URL = "file://" + HERE + "/index.html"
-SHOT = os.path.join(HERE, "render_check.png")
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # fenxing/ 根目录
+SHOT = os.path.join(HERE, "tools", "render_check.png")
 
-# 暗色主题标记色(像素检测目标)
-BUY1 = (213, 81, 129)     # 一买 #d55181
-SELL1 = (0, 148, 166)     # 一卖 #0094a6
-FAST_BUY = (15, 157, 92)  # 背驰买点 #0f9d5c (抢先层)
+# 暗色主题标记色(像素检测目标, TradingView 色板); 容差收紧到 10, 避免与蜡烛涨跌色混淆。
+# 注: 检测色须为当前数据实际出现的信号, 且不与 MA/图层默认色撞色(故用三卖紫/背驰买绿)。
+SELL3 = (156, 39, 176)    # 三卖 #9c27b0
+FAST_BUY = (38, 166, 154) # 背驰买点 #26a69a (抢先层)
+UP = (8, 153, 129)        # 涨 #089981
+DOWN = (242, 54, 69)      # 跌 #f23645
+MARKER_TOL = 10
+
+
+class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+
+def start_server():
+    handler = functools.partial(QuietHandler, directory=HERE)
+    httpd = socketserver.TCPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    return httpd, httpd.server_address[1]
 
 
 def shot(url, prof):
-    p = subprocess.Popen(
-        [CHROME, "--headless=new", "--disable-gpu", "--no-sandbox",
-         "--enable-logging=stderr", "--user-data-dir=" + prof,
-         "--window-size=1680,1000", "--screenshot=" + SHOT, url],
-        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
-    )
-    deadline = time.time() + 45
-    while not os.path.exists(SHOT) and time.time() < deadline:
-        time.sleep(0.3)
-    time.sleep(4.0)
-    p.send_signal(signal.SIGKILL)
-    try:
-        _, err = p.communicate(timeout=5)
-    except Exception:
-        err = ""
+    log = SHOT + ".log"
+    if os.path.exists(SHOT):
+        os.remove(SHOT)
+    with open(log, "w") as f:
+        p = subprocess.Popen(
+            [CHROME, "--headless=new", "--disable-gpu", "--no-sandbox",
+             "--enable-logging=stderr", "--user-data-dir=" + prof,
+             "--window-size=1680,1000", "--screenshot=" + SHOT, url],
+            stdout=subprocess.DEVNULL, stderr=f, text=True,
+        )
+        deadline = time.time() + 45
+        while time.time() < deadline:
+            if os.path.exists(SHOT) and os.path.getsize(SHOT) > 0:
+                break
+            time.sleep(0.3)
+        time.sleep(4.0)
+        p.send_signal(signal.SIGKILL)
+        try:
+            p.wait(timeout=5)
+        except Exception:
+            pass
+    with open(log, errors="ignore") as f:
+        err = f.read()
     return SHOT, err
 
 
@@ -55,9 +85,9 @@ def candles_painted(img):
     for x in range(0, W, 3):
         for y in range(0, H, 3):
             c = img.getpixel((x, y))
-            if abs(c[0] - 12) <= 28 and abs(c[1] - 163) <= 28 and abs(c[2] - 12) <= 28:
+            if all(abs(a - b) <= 28 for a, b in zip(c, UP)):
                 g += 1
-            if abs(c[0] - 230) <= 28 and abs(c[1] - 103) <= 28 and abs(c[2] - 103) <= 28:
+            if all(abs(a - b) <= 28 for a, b in zip(c, DOWN)):
                 r += 1
     return g, r
 
@@ -83,35 +113,38 @@ def load(url, prof, expect_candles=True, need_markers=()):
     for l in errs[:6]:
         print("      ", l.strip())
     for name, tc in need_markers:
-        n = find_color(img, tc, 30)
+        n = find_color(img, tc, MARKER_TOL)
         good = n > 5
         ok = ok and good
         print("  [%s] %-12s %6d px" % ("PASS" if good else "FAIL", name, n))
+    shutil.rmtree(prof, ignore_errors=True)
     return ok
 
 
 def main():
-    results = []
-    for attempt in range(3):  # autoSize 首帧延迟重试
-        # 1D 默认: 蜡烛 + 买点 + 卖点
-        ok1 = load(URL, "/tmp/chrome_vr_%d_1d" % attempt,
-                   need_markers=[("一买 marker", BUY1), ("一卖 marker", SELL1)])
-        ok2 = load(URL + "?tf=4H", "/tmp/chrome_vr_%d_4h" % attempt,
-                   need_markers=[("一买 marker", BUY1), ("一卖 marker", SELL1)])
-        ok3 = load(URL + "?tf=1H", "/tmp/chrome_vr_%d_1h" % attempt,
-                   need_markers=[("一买 marker", BUY1), ("一卖 marker", SELL1)])
-        ok4 = load(URL + "?tf=1D&detail=1", "/tmp/chrome_vr_%d_det" % attempt,
-                   expect_candles=False)
-        ok5 = load(URL + "?tf=4H&view=merged&pivot=stroke", "/tmp/chrome_vr_%d_vm" % attempt,
-                   expect_candles=False)
-        ok6 = load(URL + "?tf=1D&fast=1", "/tmp/chrome_vr_%d_fa" % attempt,
-                   need_markers=[("背驰买 marker", FAST_BUY)])
-        results = [ok1, ok2, ok3, ok4, ok5, ok6]
-        if all(results):
+    httpd, port = start_server()
+    base = "http://127.0.0.1:%d/index.html" % port
+    last = []
+    for attempt in range(3):  # autoSize 首帧延迟重试(每次用全新 profile, 避免缓存旧脚本)
+        run = tempfile.mkdtemp(prefix="chrome_vr_")
+        # 1D/4H/1H: 蜡烛 + 买/卖标记(?layers 深链直达结构图层)
+        for tf, tag in (("1D", "1d"), ("4H", "4h"), ("1H", "1h")):
+            last.append(load(
+                base + "?tf=%s&layers=buys,sells" % tf, os.path.join(run, tag),
+                need_markers=[("三卖 marker", SELL3)]))
+        last.append(load(base + "?tf=1D&detail=1", os.path.join(run, "det"),
+                         expect_candles=False))
+        last.append(load(base + "?tf=4H&view=merged&pivot=stroke", os.path.join(run, "vm"),
+                         expect_candles=False))
+        last.append(load(base + "?tf=1D&fast=1&layers=fast", os.path.join(run, "fa"),
+                         need_markers=[("背驰买 marker", FAST_BUY)]))
+        if all(last):
             break
+        last = []
         time.sleep(1)
-    print("=== " + ("PASS" if all(results) else "FAIL") + " ===")
-    return 0 if all(results) else 1
+    httpd.shutdown()
+    print("=== " + ("PASS" if all(last) else "FAIL") + " ===")
+    return 0 if all(last) else 1
 
 
 if __name__ == "__main__":

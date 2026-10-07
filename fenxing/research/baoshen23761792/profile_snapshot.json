@@ -1,0 +1,49 @@
+{
+  "retrieved_on": "2026-09-21",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "user": {
+      "screen_name": "baoshen23761792",
+      "url": "https://x.com/baoshen23761792",
+      "id": "1325994708913455104",
+      "followers": 7337,
+      "following": 58,
+      "likes": 66,
+      "media_count": 461,
+      "tweets": 1565,
+      "name": "BlackJack",
+      "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+      "raw_description": {
+        "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "facets": [
+          {
+            "type": "url",
+            "indices": [
+              26,
+              49
+            ],
+            "original": "https://t.co/IlKNaz5IgY",
+            "replacement": "https://www.okx.com/cn/join/89971375",
+            "display": "okx.com/cn/join/899713…"
+          }
+        ]
+      },
+      "location": "",
+      "banner_url": "",
+      "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_normal.jpg",
+      "joined": "Tue Nov 10 02:52:36 +0000 2020",
+      "protected": false,
+      "website": {
+        "url": "https://weibo.com/u/7011608550/",
+        "display_url": "weibo.com/u/7011608550/"
+      },
+      "verification": {
+        "verified": true,
+        "verified_at": null,
+        "type": "individual"
+      }
+    }
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "fetched_at": "2026-09-21T03:07:51.589075+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2082462371700994530",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2082462371700994530",
+      "id": "2082462371700994530",
+      "text": "想起来6月下旬海力士我做T的一条推文当时还引发了争议。当时我减仓的原因就是海力士的日线周线偏离均线的幅度太大，达到了它的历史极值，按照经验来说有回归均线的需求。当时被一位美股博主骂我扰乱市场带坏节奏，说科技股就要长持不动，带头做T是坏种。现在一个月过去了，也不知道这位美股博主长持的怎么样了。今天突然想起来是也是时间过去一个月了，可以回顾历史了。下次再遇到这种偏离均线到历史极值的情况，是继续长拿还是减仓？绝大部分人不是巴菲特这种投资周期，那么遇到一两年才能碰到一次的腰斩级别回调，该跑还是跑对吧。",
+      "raw_text": {
+        "text": "想起来6月下旬海力士我做T的一条推文当时还引发了争议。当时我减仓的原因就是海力士的日线周线偏离均线的幅度太大，达到了它的历史极值，按照经验来说有回归均线的需求。当时被一位美股博主骂我扰乱市场带坏节奏，说科技股就要长持不动，带头做T是坏种。现在一个月过去了，也不知道这位美股博主长持的怎么样了。今天突然想起来是也是时间过去一个月了，可以回顾历史了。下次再遇到这种偏离均线到历史极值的情况，是继续长拿还是减仓？绝大部分人不是巴菲特这种投资周期，那么遇到一两年才能碰到一次的腰斩级别回调，该跑还是跑对吧。",
+        "display_text_range": [
+          0,
+          249
+        ],
+        "facets": [
+          {
+            "type": "media",
+            "indices": [
+              142,
+              165
+            ],
+            "id": "2082459977860726784",
+            "display": "pic.x.com/t0209Tm9jf",
+            "original": "https://t.co/t0209Tm9jf",
+            "replacement": "https://x.com/baoshen23761792/status/2082462371700994530/photo/1"
+          }
+        ]
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 29,
+      "retweets": 4,
+      "likes": 29,
+      "bookmarks": 9,
+      "quotes": 0,
+      "created_at": "Wed Jul 29 13:44:54 +0000 2026",
+      "created_timestamp": 1785332694,
+      "possibly_sensitive": false,
+      "views": 4876,
+      "is_note_tweet": true,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": null,
+      "replying_to_status": null,
+      "media": {
+        "all": [
+          {
+            "type": "photo",
+            "id": "2082459977860726784",
+            "url": "https://pbs.twimg.com/media/HOZiUQdbQAAWyMt.jpg?name=orig",
+            "width": 1082,
+            "height": 972
+          }
+        ],
+        "photos": [
+          {
+            "type": "photo",
+            "id": "2082459977860726784",
+            "url": "https://pbs.twimg.com/media/HOZiUQdbQAAWyMt.jpg?name=orig",
+            "width": 1082,
+            "height": 972
+          }
+        ]
+      },
+      "source": "Twitter Web App",
+      "twitter_card": "summary_large_image",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

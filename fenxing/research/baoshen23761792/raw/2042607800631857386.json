@@ -1,0 +1,80 @@
+{
+  "fetched_at": "2026-09-21T03:07:12.096138+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2042607800631857386",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2042607800631857386",
+      "id": "2042607800631857386",
+      "text": "到目前为止股市走势和过去几个月的预期都还是一致的，3月下旬几次抄底现在来看基本都在最低附近。大A港股黄金都是3月23最低点，美股延后一周。目前多个市场的仓位已经在7-9层不等。\n\n过去一个月的几大宏观利空\n1：战争影响包含原油通胀问题（已经开始减弱但还没有完全消除）\n2：AI高昂投资回报疑虑（等待4月中下旬这些公司财报）\n3：欧美私募信贷风险（还在发酵中，可能向外延伸影响流动性）\n\n至少两项风险接近解除，市场才能确认重回牛市，尤其是第二点是决定AI叙事是否持续的重要指标。所以虽然预判并且抄底成功，但也只能说暂时成功。还需要更多时间来验证基本面是否安全。\n\n加密因为宏观走强，暂时是跌不动的，能反弹多高也不确定。我有现货但不到一半。",
+      "raw_text": {
+        "text": "到目前为止股市走势和过去几个月的预期都还是一致的，3月下旬几次抄底现在来看基本都在最低附近。大A港股黄金都是3月23最低点，美股延后一周。目前多个市场的仓位已经在7-9层不等。\n\n过去一个月的几大宏观利空\n1：战争影响包含原油通胀问题（已经开始减弱但还没有完全消除）\n2：AI高昂投资回报疑虑（等待4月中下旬这些公司财报）\n3：欧美私募信贷风险（还在发酵中，可能向外延伸影响流动性）\n\n至少两项风险接近解除，市场才能确认重回牛市，尤其是第二点是决定AI叙事是否持续的重要指标。所以虽然预判并且抄底成功，但也只能说暂时成功。还需要更多时间来验证基本面是否安全。\n\n加密因为宏观走强，暂时是跌不动的，能反弹多高也不确定。我有现货但不到一半。",
+        "display_text_range": [
+          0,
+          318
+        ],
+        "facets": []
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 6,
+      "retweets": 2,
+      "likes": 27,
+      "bookmarks": 3,
+      "quotes": 0,
+      "created_at": "Fri Apr 10 14:17:04 +0000 2026",
+      "created_timestamp": 1775830624,
+      "views": 5884,
+      "is_note_tweet": true,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": null,
+      "replying_to_status": null,
+      "source": "Twitter Web App",
+      "twitter_card": "tweet",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "fetched_at": "2026-09-21T03:07:41.042225+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2083191541338911152",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2083191541338911152",
+      "id": "2083191541338911152",
+      "text": "存储第一波大奇迹日反弹都在下降趋势线遇阻。应该第一波大反弹结束了，接下来继续震荡。什么时候有第二波上涨边走边看吧。另外国内的科技板块，尤其是国内的存储相关，今天非常多封板高开，然后开板最后小涨收场。说明反弹持续性都不够。对待国内科技要忘掉过去一年的主升浪记忆，它已经不是市场主流了。即使未来两个月还有上涨也都只是反弹。不要迷恋了。",
+      "raw_text": {
+        "text": "存储第一波大奇迹日反弹都在下降趋势线遇阻。应该第一波大反弹结束了，接下来继续震荡。什么时候有第二波上涨边走边看吧。另外国内的科技板块，尤其是国内的存储相关，今天非常多封板高开，然后开板最后小涨收场。说明反弹持续性都不够。对待国内科技要忘掉过去一年的主升浪记忆，它已经不是市场主流了。即使未来两个月还有上涨也都只是反弹。不要迷恋了。",
+        "display_text_range": [
+          0,
+          165
+        ],
+        "facets": [
+          {
+            "type": "media",
+            "indices": [
+              141,
+              164
+            ],
+            "id": "2083189591310540800",
+            "display": "pic.x.com/B7mUaYvWII",
+            "original": "https://t.co/B7mUaYvWII",
+            "replacement": "https://x.com/baoshen23761792/status/2083191541338911152/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [
+              141,
+              164
+            ],
+            "id": "2083189706897154048",
+            "display": "pic.x.com/B7mUaYvWII",
+            "original": "https://t.co/B7mUaYvWII",
+            "replacement": "https://x.com/baoshen23761792/status/2083191541338911152/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [
+              141,
+              164
+            ],
+            "id": "2083189789147426816",
+            "display": "pic.x.com/B7mUaYvWII",
+            "original": "https://t.co/B7mUaYvWII",
+            "replacement": "https://x.com/baoshen23761792/status/2083191541338911152/photo/1"
+          }
+        ]
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 61,
+      "retweets": 1,
+      "likes": 31,
+      "bookmarks": 15,
+      "quotes": 0,
+      "created_at": "Fri Jul 31 14:02:21 +0000 2026",
+      "created_timestamp": 1785506541,
+      "possibly_sensitive": false,
+      "views": 11201,
+      "is_note_tweet": true,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": null,
+      "replying_to_status": null,
+      "media": {
+        "all": [
+          {
+            "type": "photo",
+            "id": "2083189591310540800",
+            "url": "https://pbs.twimg.com/media/HOj55WXbIAA26tg.jpg?name=orig",
+            "width": 2558,
+            "height": 1280
+          },
+          {
+            "type": "photo",
+            "id": "2083189706897154048",
+            "url": "https://pbs.twimg.com/media/HOj6AE9a4AAf4HO.png?name=orig",
+            "width": 2558,
+            "height": 1272
+          },
+          {
+            "type": "photo",
+            "id": "2083189789147426816",
+            "url": "https://pbs.twimg.com/media/HOj6E3XacAAlipq.png?name=orig",
+            "width": 2558,
+            "height": 1278
+          }
+        ],
+        "photos": [
+          {
+            "type": "photo",
+            "id": "2083189591310540800",
+            "url": "https://pbs.twimg.com/media/HOj55WXbIAA26tg.jpg?name=orig",
+            "width": 2558,
+            "height": 1280
+          },
+          {
+            "type": "photo",
+            "id": "2083189706897154048",
+            "url": "https://pbs.twimg.com/media/HOj6AE9a4AAf4HO.png?name=orig",
+            "width": 2558,
+            "height": 1272
+          },
+          {
+            "type": "photo",
+            "id": "2083189789147426816",
+            "url": "https://pbs.twimg.com/media/HOj6E3XacAAlipq.png?name=orig",
+            "width": 2558,
+            "height": 1278
+          }
+        ],
+        "mosaic": {
+          "type": "mosaic_photo",
+          "formats": {
+            "jpeg": "https://mosaic.fxtwitter.com/jpeg/2083191541338911152/HOj55WXbIAA26tg/HOj6AE9a4AAf4HO/HOj6E3XacAAlipq",
+            "webp": "https://mosaic.fxtwitter.com/webp/2083191541338911152/HOj55WXbIAA26tg/HOj6AE9a4AAf4HO/HOj6E3XacAAlipq"
+          }
+        }
+      },
+      "source": "Twitter Web App",
+      "twitter_card": "summary_large_image",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

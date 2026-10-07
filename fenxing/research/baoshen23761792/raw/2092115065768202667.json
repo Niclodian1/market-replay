@@ -1,0 +1,145 @@
+{
+  "fetched_at": "2026-09-21T03:07:28.312769+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2092115065768202667",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2092115065768202667",
+      "id": "2092115065768202667",
+      "text": "8.1w我把杠杆卸载了，现货继续拿。这里有个潜在的4h背离。\n\n一般超级强势拉升以后，比较少直接圣诞树下来，而是容易在高位进行强势横盘震荡通过连续背离来消耗上涨势头，例如23年1月份。所以现货还没减仓，继续拿了再看1-2礼拜。",
+      "raw_text": {
+        "text": "8.1w我把杠杆卸载了，现货继续拿。这里有个潜在的4h背离。\n\n一般超级强势拉升以后，比较少直接圣诞树下来，而是容易在高位进行强势横盘震荡通过连续背离来消耗上涨势头，例如23年1月份。所以现货还没减仓，继续拿了再看1-2礼拜。 https://t.co/yqFkP4ajLf",
+        "display_text_range": [
+          0,
+          113
+        ],
+        "facets": [
+          {
+            "type": "media",
+            "indices": [
+              114,
+              137
+            ],
+            "id": "2092114245387440128",
+            "display": "pic.x.com/yqFkP4ajLf",
+            "original": "https://t.co/yqFkP4ajLf",
+            "replacement": "https://x.com/baoshen23761792/status/2092115065768202667/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [
+              114,
+              137
+            ],
+            "id": "2092114869017526272",
+            "display": "pic.x.com/yqFkP4ajLf",
+            "original": "https://t.co/yqFkP4ajLf",
+            "replacement": "https://x.com/baoshen23761792/status/2092115065768202667/photo/1"
+          }
+        ]
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 64,
+      "retweets": 5,
+      "likes": 45,
+      "bookmarks": 7,
+      "quotes": 0,
+      "created_at": "Tue Aug 25 05:01:15 +0000 2026",
+      "created_timestamp": 1787634075,
+      "possibly_sensitive": false,
+      "views": 13929,
+      "is_note_tweet": false,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": null,
+      "replying_to_status": null,
+      "media": {
+        "all": [
+          {
+            "type": "photo",
+            "id": "2092114245387440128",
+            "url": "https://pbs.twimg.com/media/HQiu0lnaUAAcgOh.jpg?name=orig",
+            "width": 2560,
+            "height": 1274
+          },
+          {
+            "type": "photo",
+            "id": "2092114869017526272",
+            "url": "https://pbs.twimg.com/media/HQivY40aQAAxVoq.jpg?name=orig",
+            "width": 2560,
+            "height": 1274
+          }
+        ],
+        "photos": [
+          {
+            "type": "photo",
+            "id": "2092114245387440128",
+            "url": "https://pbs.twimg.com/media/HQiu0lnaUAAcgOh.jpg?name=orig",
+            "width": 2560,
+            "height": 1274
+          },
+          {
+            "type": "photo",
+            "id": "2092114869017526272",
+            "url": "https://pbs.twimg.com/media/HQivY40aQAAxVoq.jpg?name=orig",
+            "width": 2560,
+            "height": 1274
+          }
+        ],
+        "mosaic": {
+          "type": "mosaic_photo",
+          "formats": {
+            "jpeg": "https://mosaic.fxtwitter.com/jpeg/2092115065768202667/HQiu0lnaUAAcgOh/HQivY40aQAAxVoq",
+            "webp": "https://mosaic.fxtwitter.com/webp/2092115065768202667/HQiu0lnaUAAcgOh/HQivY40aQAAxVoq"
+          }
+        }
+      },
+      "source": "Twitter Web App",
+      "twitter_card": "summary_large_image",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

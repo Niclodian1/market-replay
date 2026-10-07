@@ -1,0 +1,145 @@
+{
+  "fetched_at": "2026-09-21T03:07:34.793699+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2084866246336455064",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2084866246336455064",
+      "id": "2084866246336455064",
+      "text": "6月底7月初预判这波国内外要调整一个月左右结束。现在短短4天时间，标普，道指都已经历史新高，纳指也吃掉了整个67月跌幅的80%。这就是美股和大A的区别。\n\n美股虽然每隔十几年就会经历一次危机，但牛长熊短，每次牛中的调整多半都是v反。所以最好的策略不是避开下跌而是要多数时候都在车上。毕竟精准抄底是个概率很低的事情，晚了几天就可能错过大段上涨。大A就反过来，熊长牛短。因此每次明显的下跌能避还是要避的。\n\n下半年的行情预期也是一样，对待老美科技要依然预期会新高。对待国内科技要预期大部分只有大跌后的反弹。仓位和心态还有预期都要区分开。然后老美内部的科技也有区分，过去一年涨了快60倍的闪迪新高概率显然小于只涨了11倍的美光。国内科技内部也有强弱区分，热炒过的模组的反弹预期＜存储芯片设计反弹预期。而国内的设备以及AI算力软件板块的反弹预期要强于存储芯片设计。\n\n图是标普和上证均线，同一套均线下的强弱一目了然。k线都在均线下方的阶段只能当反弹看。什么时候站稳均线了再考虑上证新高可能。",
+      "raw_text": {
+        "text": "6月底7月初预判这波国内外要调整一个月左右结束。现在短短4天时间，标普，道指都已经历史新高，纳指也吃掉了整个67月跌幅的80%。这就是美股和大A的区别。\n\n美股虽然每隔十几年就会经历一次危机，但牛长熊短，每次牛中的调整多半都是v反。所以最好的策略不是避开下跌而是要多数时候都在车上。毕竟精准抄底是个概率很低的事情，晚了几天就可能错过大段上涨。大A就反过来，熊长牛短。因此每次明显的下跌能避还是要避的。\n\n下半年的行情预期也是一样，对待老美科技要依然预期会新高。对待国内科技要预期大部分只有大跌后的反弹。仓位和心态还有预期都要区分开。然后老美内部的科技也有区分，过去一年涨了快60倍的闪迪新高概率显然小于只涨了11倍的美光。国内科技内部也有强弱区分，热炒过的模组的反弹预期＜存储芯片设计反弹预期。而国内的设备以及AI算力软件板块的反弹预期要强于存储芯片设计。\n\n图是标普和上证均线，同一套均线下的强弱一目了然。k线都在均线下方的阶段只能当反弹看。什么时候站稳均线了再考虑上证新高可能。",
+        "display_text_range": [
+          0,
+          441
+        ],
+        "facets": [
+          {
+            "type": "media",
+            "indices": [
+              77,
+              100
+            ],
+            "id": "2084866185666220032",
+            "display": "pic.x.com/T0NaRo1YOb",
+            "original": "https://t.co/T0NaRo1YOb",
+            "replacement": "https://x.com/baoshen23761792/status/2084866246336455064/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [
+              77,
+              100
+            ],
+            "id": "2084866225839210499",
+            "display": "pic.x.com/T0NaRo1YOb",
+            "original": "https://t.co/T0NaRo1YOb",
+            "replacement": "https://x.com/baoshen23761792/status/2084866246336455064/photo/1"
+          }
+        ]
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 56,
+      "retweets": 4,
+      "likes": 45,
+      "bookmarks": 19,
+      "quotes": 1,
+      "created_at": "Wed Aug 05 04:57:02 +0000 2026",
+      "created_timestamp": 1785905822,
+      "possibly_sensitive": false,
+      "views": 11990,
+      "is_note_tweet": true,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": null,
+      "replying_to_status": null,
+      "media": {
+        "all": [
+          {
+            "type": "photo",
+            "id": "2084866185666220032",
+            "url": "https://pbs.twimg.com/media/HO7uv_Db0AAGVKj.png?name=orig",
+            "width": 690,
+            "height": 343
+          },
+          {
+            "type": "photo",
+            "id": "2084866225839210499",
+            "url": "https://pbs.twimg.com/media/HO7uyUtbAAMtN5L.png?name=orig",
+            "width": 690,
+            "height": 343
+          }
+        ],
+        "photos": [
+          {
+            "type": "photo",
+            "id": "2084866185666220032",
+            "url": "https://pbs.twimg.com/media/HO7uv_Db0AAGVKj.png?name=orig",
+            "width": 690,
+            "height": 343
+          },
+          {
+            "type": "photo",
+            "id": "2084866225839210499",
+            "url": "https://pbs.twimg.com/media/HO7uyUtbAAMtN5L.png?name=orig",
+            "width": 690,
+            "height": 343
+          }
+        ],
+        "mosaic": {
+          "type": "mosaic_photo",
+          "formats": {
+            "jpeg": "https://mosaic.fxtwitter.com/jpeg/2084866246336455064/HO7uv_Db0AAGVKj/HO7uyUtbAAMtN5L",
+            "webp": "https://mosaic.fxtwitter.com/webp/2084866246336455064/HO7uv_Db0AAGVKj/HO7uyUtbAAMtN5L"
+          }
+        }
+      },
+      "source": "Twitter Web App",
+      "twitter_card": "summary_large_image",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}

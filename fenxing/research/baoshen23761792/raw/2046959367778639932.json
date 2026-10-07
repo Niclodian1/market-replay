@@ -1,0 +1,170 @@
+{
+  "fetched_at": "2026-09-21T03:07:05.603102+00:00",
+  "source_url": "https://api.fxtwitter.com/baoshen23761792/status/2046959367778639932",
+  "response": {
+    "code": 200,
+    "message": "OK",
+    "tweet": {
+      "url": "https://x.com/baoshen23761792/status/2046959367778639932",
+      "id": "2046959367778639932",
+      "text": "大A这个月暂时跑赢93%同行，港美股账户这个月暂时75%收益，超额完成任务。\n\n下周就要到科技公司财报周了，以及60天战争免授权截止日，各个风险市场都有一定变数。不过由于4月16号最大晶圆代工厂台积电财报不错，预感科技公司们财报应该不会太差。希望5月上旬是个震荡调整而不是掉头向下。\n\n加密四年周期还在不在这个话题，关注我的老粉应该知道我已经连续谈了一年多这个逻辑了。ETF上线后它就是自身周期和美科技股的混合体。它的牛熊受到两者的共同影响，并且随着时间推移美股影响权重越来越大。所以目前这个阶段把它当做弱一点的美科技股就行。用概率来说就是6w做26年底的概率到了6层以上了。",
+      "raw_text": {
+        "text": "大A这个月暂时跑赢93%同行，港美股账户这个月暂时75%收益，超额完成任务。\n\n下周就要到科技公司财报周了，以及60天战争免授权截止日，各个风险市场都有一定变数。不过由于4月16号最大晶圆代工厂台积电财报不错，预感科技公司们财报应该不会太差。希望5月上旬是个震荡调整而不是掉头向下。\n\n加密四年周期还在不在这个话题，关注我的老粉应该知道我已经连续谈了一年多这个逻辑了。ETF上线后它就是自身周期和美科技股的混合体。它的牛熊受到两者的共同影响，并且随着时间推移美股影响权重越来越大。所以目前这个阶段把它当做弱一点的美科技股就行。用概率来说就是6w做26年底的概率到了6层以上了。",
+        "display_text_range": [
+          0,
+          288
+        ],
+        "facets": [
+          {
+            "type": "media",
+            "indices": [
+              142,
+              165
+            ],
+            "id": "2046959136328577025",
+            "display": "pic.x.com/1MUobcUlni",
+            "original": "https://t.co/1MUobcUlni",
+            "replacement": "https://x.com/baoshen23761792/status/2046959367778639932/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [
+              142,
+              165
+            ],
+            "id": "2046959278246985728",
+            "display": "pic.x.com/1MUobcUlni",
+            "original": "https://t.co/1MUobcUlni",
+            "replacement": "https://x.com/baoshen23761792/status/2046959367778639932/photo/1"
+          },
+          {
+            "type": "media",
+            "indices": [
+              142,
+              165
+            ],
+            "id": "2046959357653610496",
+            "display": "pic.x.com/1MUobcUlni",
+            "original": "https://t.co/1MUobcUlni",
+            "replacement": "https://x.com/baoshen23761792/status/2046959367778639932/photo/1"
+          }
+        ]
+      },
+      "author": {
+        "screen_name": "baoshen23761792",
+        "url": "https://x.com/baoshen23761792",
+        "id": "1325994708913455104",
+        "followers": 7337,
+        "following": 58,
+        "likes": 66,
+        "media_count": 461,
+        "name": "BlackJack",
+        "description": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://www.okx.com/cn/join/89971375\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+        "raw_description": {
+          "text": "回归微博的BlackJack  \n\n欧易20%返佣\nhttps://t.co/IlKNaz5IgY\n\n币安返佣以及其他联系方式见置顶推特和评论区",
+          "facets": [
+            {
+              "type": "url",
+              "indices": [
+                26,
+                49
+              ],
+              "original": "https://t.co/IlKNaz5IgY",
+              "replacement": "https://www.okx.com/cn/join/89971375",
+              "display": "okx.com/cn/join/899713…"
+            }
+          ]
+        },
+        "location": "",
+        "banner_url": "",
+        "avatar_url": "https://pbs.twimg.com/profile_images/1401133352460066819/XK6NrMwL_200x200.jpg",
+        "joined": "Tue Nov 10 02:52:36 +0000 2020",
+        "protected": false,
+        "website": {
+          "url": "https://weibo.com/u/7011608550/",
+          "display_url": "weibo.com/u/7011608550/"
+        },
+        "verification": {
+          "verified": true,
+          "verified_at": null,
+          "type": "individual"
+        },
+        "avatar_color": null
+      },
+      "replies": 5,
+      "retweets": 1,
+      "likes": 12,
+      "bookmarks": 0,
+      "quotes": 0,
+      "created_at": "Wed Apr 22 14:28:38 +0000 2026",
+      "created_timestamp": 1776868118,
+      "possibly_sensitive": false,
+      "views": 4263,
+      "is_note_tweet": true,
+      "community_note": null,
+      "lang": "zh",
+      "replying_to": null,
+      "replying_to_status": null,
+      "media": {
+        "all": [
+          {
+            "type": "photo",
+            "id": "2046959136328577025",
+            "url": "https://pbs.twimg.com/media/HGhCfT6a8AE9LQC.png?name=orig",
+            "width": 484,
+            "height": 170
+          },
+          {
+            "type": "photo",
+            "id": "2046959278246985728",
+            "url": "https://pbs.twimg.com/media/HGhCnkmaAAAu8Wg.jpg?name=orig",
+            "width": 622,
+            "height": 1110
+          },
+          {
+            "type": "photo",
+            "id": "2046959357653610496",
+            "url": "https://pbs.twimg.com/media/HGhCsMaa8AAQ60T.png?name=orig",
+            "width": 1018,
+            "height": 928
+          }
+        ],
+        "photos": [
+          {
+            "type": "photo",
+            "id": "2046959136328577025",
+            "url": "https://pbs.twimg.com/media/HGhCfT6a8AE9LQC.png?name=orig",
+            "width": 484,
+            "height": 170
+          },
+          {
+            "type": "photo",
+            "id": "2046959278246985728",
+            "url": "https://pbs.twimg.com/media/HGhCnkmaAAAu8Wg.jpg?name=orig",
+            "width": 622,
+            "height": 1110
+          },
+          {
+            "type": "photo",
+            "id": "2046959357653610496",
+            "url": "https://pbs.twimg.com/media/HGhCsMaa8AAQ60T.png?name=orig",
+            "width": 1018,
+            "height": 928
+          }
+        ],
+        "mosaic": {
+          "type": "mosaic_photo",
+          "formats": {
+            "jpeg": "https://mosaic.fxtwitter.com/jpeg/2046959367778639932/HGhCfT6a8AE9LQC/HGhCnkmaAAAu8Wg/HGhCsMaa8AAQ60T",
+            "webp": "https://mosaic.fxtwitter.com/webp/2046959367778639932/HGhCfT6a8AE9LQC/HGhCnkmaAAAu8Wg/HGhCsMaa8AAQ60T"
+          }
+        }
+      },
+      "source": "Twitter Web App",
+      "twitter_card": "summary_large_image",
+      "color": null,
+      "provider": "twitter",
+      "reposted_by": null
+    }
+  }
+}
