@@ -30,7 +30,7 @@ from chanlun import (  # noqa: E402
     SUB_RELATION, _strip_internal, _sync_merged, analyze, link_levels,
 )
 
-REPO = _HERE.parent
+REPO = _HERE.parents[1]
 DATA = REPO / "data"
 
 # key, 显示名, {级别: parquet 相对 data/ 的路径}
@@ -143,13 +143,16 @@ def build(key: str, name: str, tf_paths: dict[str, str]) -> None:
     }
     # BTC 直接写主数据文件 data.js(页面默认加载, 与 chanlun.py main 默认一致)
     out_path = _HERE / "data-view" / ("data.js" if key == "BTC" else f"data_{key.lower()}.js")
-    with open(out_path, "w", encoding="utf-8") as f:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = out_path.with_suffix(".js.tmp")
+    with open(temporary, "w", encoding="utf-8") as f:
         f.write("window.MARKET_DATA = ")
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
         f.write(";\n")
         # 非 BTC 品种没有回测交易层, 显式清空避免残留上一品种的数据
         if key != "BTC":
             f.write("window.TRADES_DATA = null;\n")
+    temporary.replace(out_path)
 
     m = levels_out["1D"]["meta"]
     print(f"[{key:<10}] {name:<22} 级别{list(levels_out)} · 1D {m['nBars']}根 "

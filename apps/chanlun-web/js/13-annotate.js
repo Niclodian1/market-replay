@@ -1,13 +1,12 @@
-// js/13-annotate.js — 标注模式: 把实验信号逐个过一遍, 人工判定"这单我会不会做"
-// 目的: 用你的判断去收敛交易体系 —— 先看规则出的点, 再对你的裁决, 最后统计哪些条件真正有 edge。
+// js/13-annotate.js — 我的买点优先收集；已有实验源保留为独立的算法复核。
 // 数据存 localStorage(key = 品种|周期|实验|信号时间), 可导出 JSON。
 "use strict";
 
 const ANN = window.ANN = {
   on: false,
-  source: 'ma20_simple_v2',
+  source: MANUAL_SOURCE,
   ctx: 180,          // 信号左边留多少根做背景
-  hideFuture: true,  // 遮住信号右边的 K 线(盲判)
+  hideFuture: false, // 手选浏览默认不遮；回看样本明确标记，不能当作盲测。
   onlyUnmarked: false,
   sigs: [],
   idx: 0,
@@ -208,6 +207,7 @@ function annCancelChartPick(clear=false){
   document.getElementById('chart')?.classList.remove('ann-picking');
   document.querySelectorAll('[data-ann-pick]').forEach(b=>b.classList.remove('active'));
   for(const pr of ANN._prims||[])pr.requestUpdate();
+  if(ANN._built)annApplyBlind();
 }
 function annStartChartPick(field){
   if(!ANN.on||!annCoverActive()||!AnnotationForm.ANCHORS[field])return;
@@ -226,6 +226,7 @@ function annStartChartPick(field){
   document.querySelector(`[data-ann-pick="${field}"]`)?.classList.add('active');
 }
 function annHandleChartPick(param){
+  if(manualHandlePick(param))return;
   const field=ANN_CHART_PICK.target;if(!field)return;
   if(!ANN.on||!annCoverActive()||activeView!=='raw'||ANN_CHART_PICK.context!==annChartPickContext()){annCancelChartPick(true);return;}
   const cs=candlesFor('raw'),sg=ANN.sigs[ANN.idx];
@@ -250,12 +251,12 @@ function annAssessmentCard(d) {
   if(!annCoverActive())return '';
   const a=d?.assessment||{},cs=candlesFor('raw'),sg=ANN.sigs[ANN.idx];
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const select=key=>{const [label,...options]=AnnotationForm.FIELDS[key];return `<label class="ann-form-field"><span>${label}${key==='preferredEntry'?'（可选）':' *'}</span><select data-assessment="${key}"><option value="">请选择</option>${options.map(v=>`<option${a[key]===v?' selected':''}>${v}</option>`).join('')}</select></label>`;};
+  const select=key=>{const [label,...options]=AnnotationForm.FIELDS[key];return `<label class="ann-form-field"><span>${label}（可选）</span><select data-assessment="${key}"><option value="">请选择</option>${options.map(v=>`<option${a[key]===v?' selected':''}>${v}</option>`).join('')}</select></label>`;};
   const input=(key,label,placeholder,type='text')=>`<label class="ann-form-field"><span>${label}</span><span class="ann-date-pick-row"><input type="${type}" ${type==='number'?'step="any" min="0"':'list="annReferenceBars"'} data-assessment="${key}" value="${esc(a[key])}" placeholder="${placeholder}">${AnnotationForm.ANCHORS[key]?`<button type="button" class="lab-btn" data-ann-pick="${key}">图上选择</button>`:''}</span></label>`;
   const dateCounts=new Map();for(const c of cs.slice(0,sg.i+1)){const t=AnnotationForm.stamp(c,activeTF);dateCounts.set(t,(dateCounts.get(t)||0)+1);}
   const placeholder=activeTF==='1D'?'例如 2025-06-15':'例如 2025-06-15 08:00';
   return `<section class="ann-card ann-assessment"><div class="ann-sec">量化复盘表单</div>
-    <p class="ann-line">会做／不做前填写带 * 项；看不清可选不确定或不适用。自动保存，跳过不要求填全。</p>
+    <p class="ann-line">算法复核的补充描述，可按需要填写。不做时填写理由标签或备注即可。</p>
     <details><summary>填写示例与说明（虚构案例）</summary><p class="ann-line">假设信号日为2025-06-25：区域成立，本根足够强，行情为趋势回调，把握中；主要依据“调整充分且突破有效”；调整幅度与时间充分、波动明显收窄。参照范围可明确标出：调整开始2025-06-01、结束2025-06-24，前高2025-05-28；如有箱体，上沿2500、下沿2300。最后选“会做”。<br>如果位置合适但阳线弱：区域仍选成立，触发选力度不足，主要依据选“区域成立但触发不足”，最终对当前根选“不做”。<br>日期可点“图上选择”再点K线；也可输入完整年月日，日内周期还需时分，均为UTC。合并视角选取时自动切为原始K线。若日线同一天有多根，也需时分以精确定位。示例不会自动填入真实标注。</p></details>
     ${['region','trigger','regime','confidence','primaryReason'].map(select).join('')}
     <div class="ann-sec">调整与参照范围</div>
@@ -284,6 +285,7 @@ function annSaveAssessment() {
 }
 
 const ANN_SOURCES = {
+  [MANUAL_SOURCE]: {name:'我的买点 · 不限指标',group:'我的买点',hidden:true,build:manualBuild},
   ma20_simple_v2: { name: 'MA20 简化 v2 · 阳线上穿候选', group: '我的规则', build() { return annCoverBuild(false); } },
   ma20_simple_check_v2: { name: 'MA20 简化 v2 · 全部上穿查漏', group: '我的规则', build() { return annCoverBuild(true); } },
   zzy: {
@@ -442,9 +444,11 @@ function annSave() {
       void tip.offsetWidth;
       tip.classList.add('flash');
     }
+    return true;
   } catch (e) {
     const tip = document.getElementById('annSaveTip');
     if (tip) { tip.textContent = '⚠ 保存失败(存储已满?)'; tip.classList.add('err'); }
+    return false;
   }
 }
 function annDecision(i) { return ANN.decisions[annKey(i)] || null; }
@@ -592,6 +596,7 @@ class AnnRenderer {
       // 信号必须在这一屏里才遮: 否则整屏都会被盖住, 看起来像"图坏了"
       const onScreen = x >= 0 && x <= W;
       if (ANN.hideFuture && onScreen) {
+        if(ANN_CHART_PICK.target==='manualEntry')return;
         const x0 = Math.max(0, Math.min(W, x + 2));
         const w = W - x0;
         if (w > 1) {
@@ -602,6 +607,7 @@ class AnnRenderer {
         }
       }
       if (!main) return;
+      manualDrawInterval(ctx,chartOf,W,H);
       const picked=ANN_CHART_PICK.context===annChartPickContext()?ANN_CHART_PICK.selected:null;
       if(picked&&activeView==='raw'){
         const px=chartOf.timeScale().timeToCoordinate(picked.time),ph=this._prim._series.priceToCoordinate(picked.high),pl=this._prim._series.priceToCoordinate(picked.low);
@@ -700,7 +706,7 @@ function annApplyBlind() {
     try { c.priceScale('right').applyOptions({ visible: true }); } catch (e) {}
   }
   if (!cover) return;
-  const blind = ANN.on && ANN.hideFuture;
+  const blind = ANN.on && ANN.hideFuture && ANN.sigs.length>0 && ANN_CHART_PICK.target!=='manualEntry';
   let w = 0;
   for (const c of [chart, volumeChart, macdChart]) {
     try { w = Math.max(w, c.priceScale('right').width() || 0); } catch (e) {}
@@ -763,9 +769,10 @@ function annSourceMenuRender() {
   }
   menu.innerHTML = html;
   menu.querySelectorAll('.ann-sel-opt').forEach(b => b.addEventListener('click', () => {
+    annCancelChartPick(true);
     ANN.source = b.dataset.v; ANN.idx = 0;
     menu.classList.remove('open');
-    annBuildSigs(); annSourceMenuRender(); annGo(0);
+    annBuildSigs(); annSourceMenuRender(); annRender(); annApplyBlind(); annGo(0);
   }));
   const cur = ANN_SOURCES[ANN.source];
   if (label) label.textContent = cur ? cur.name : '—';
@@ -790,7 +797,11 @@ function annPanelBuild() {
         <button class="ann-collapse" id="annCollapse" title="收回到右侧">»</button>
       </div>
       <div class="ann-scroll">
-        <div class="lab-row">
+        <div class="ann-workflow" role="group" aria-label="标注流程">
+          <button type="button" class="lab-btn" data-ann-mode="manual">我的买点</button>
+          <button type="button" class="lab-btn" data-ann-mode="review">算法复核</button>
+        </div>
+        <div class="lab-row ann-review-source">
           <div class="ann-sel" id="annSel">
             <button class="ann-sel-btn" id="annSelBtn">
               <i class="ann-dot g-single" id="annSelDot"></i>
@@ -800,10 +811,11 @@ function annPanelBuild() {
             <div class="ann-sel-menu" id="annSelMenu"></div>
           </div>
         </div>
+        <p class="ann-line ann-review-source">这里保留现有算法及历史标注。先收集“我的买点”，再据此形成新规则；当前算法尚未根据本轮手选样本调整。</p>
         <select id="annSource" style="display:none"></select>
         <div class="lab-row">
-          <label class="ann-chk"><input type="checkbox" id="annHide" checked>遮住之后</label>
-          <label class="ann-chk"><input type="checkbox" id="annOnly">只看未标注</label>
+          <label class="ann-chk"><input type="checkbox" id="annHide">遮住所选点之后</label>
+          <label class="ann-chk ann-review-only"><input type="checkbox" id="annOnly">只看未标注</label>
           <span style="flex:1"></span>
           <span class="ann-pos" id="annPos">0/0</span>
         </div>
@@ -819,6 +831,11 @@ function annPanelBuild() {
           <button class="ann-btn skip" data-d="skip" title="跳过（快捷键 3）">跳过<i>3</i></button>
           <button class="ann-nav next" id="annNext" title="下一个待标注（→，自动跳过已标注）">▶</button>
         </div>
+        <div id="manualActions" class="manual-actions">
+          <button type="button" class="lab-btn" id="manualPrev">上一个买点</button>
+          <button type="button" class="lab-btn manual-save" id="manualSave">保存买点</button>
+          <button type="button" class="lab-btn" id="manualNext">下一个买点</button>
+        </div>
         <div class="ann-footbar">
           <span class="lab-hint" id="annSum">—</span>
           <span class="ann-saved" id="annSaveTip"></span>
@@ -833,6 +850,10 @@ function annPanelBuild() {
 
   const inp = q => el.querySelector(q);
   inp('#annCollapse').addEventListener('click', () => annSetOpen(false));
+  el.querySelectorAll('[data-ann-mode]').forEach(b=>b.addEventListener('click',()=>manualSetMode(b.dataset.annMode)));
+  inp('#manualSave').addEventListener('click',()=>manualSave(true));
+  inp('#manualPrev').addEventListener('click',()=>annStep(-1));
+  inp('#manualNext').addEventListener('click',()=>annStep(1));
   inp('#annSelBtn').addEventListener('click', e => {
     e.stopPropagation();
     const m = inp('#annSelMenu');
@@ -849,18 +870,25 @@ function annPanelBuild() {
   inp('#annNext').addEventListener('click', () => annGotoNext());
   el.querySelectorAll('.ann-btn').forEach(b => b.addEventListener('click', () => annMark(b.dataset.d)));
   inp('#annExport').addEventListener('click', annExport);
+  inp('#annImport').addEventListener('click',()=>inp('#annFile').click());
+  inp('#annFile').addEventListener('change',async e=>{
+    const file=e.target.files?.[0];if(!file)return;
+    try {annImportData(await file.text());}catch {annTip('读取导入文件失败',true);}
+    finally {e.target.value='';}
+  });
   let noteTimer = null;
-  const saveNote = (val) => {
-    const sg = ANN.sigs[ANN.idx]; if (!sg) return;
-    const k = annKey(sg.i); const d = ANN.decisions[k] || { d: null, reasons: [] };
+  const saveNote = (val,k) => {
+    if(!k)return;
+    const d = ANN.decisions[k] || { d: null, reasons: [] };
     d.note = val; d.ts = Date.now(); ANN.decisions[k] = d; annSave(); annSumRender();
   };
   inp('#annNote').addEventListener('input', e => {
     clearTimeout(noteTimer);
     const v = e.target.value;
-    noteTimer = setTimeout(() => saveNote(v), 350);   // 边打边存, 0.35s 防抖
+    const sg=ANN.sigs[ANN.idx],key=sg?annKey(sg.i):null;
+    noteTimer = setTimeout(() => saveNote(v,key), 350);   // 绑定当时的记录，切换流程不会写错样本。
   });
-  inp('#annNote').addEventListener('change', e => { clearTimeout(noteTimer); saveNote(e.target.value); });
+  inp('#annNote').addEventListener('change', e => { clearTimeout(noteTimer);const sg=ANN.sigs[ANN.idx];saveNote(e.target.value,sg?annKey(sg.i):null); });
   window.addEventListener('keydown', e => {
     if (!ANN.on) return;
     if(e.key==='Escape'&&ANN_CHART_PICK.target){e.preventDefault();annCancelChartPick();return;}
@@ -900,7 +928,9 @@ function annSetOpen(open) {
     annBuildSigs();
     annSourceMenuRender();
     annApplyBlind();
-    requestAnimationFrame(() => { annApplyBlind(); annGo(Math.min(ANN.idx, Math.max(0, ANN.sigs.length - 1))); });
+    annRender();
+    if(!manualActive())requestAnimationFrame(() => { annApplyBlind(); annGo(Math.min(ANN.idx, Math.max(0, ANN.sigs.length - 1))); });
+    else annDraw();
   } else {
     ANN.hideFuture = document.getElementById('annHide') ? document.getElementById('annHide').checked : true;
     annApplyBlind();
@@ -912,6 +942,7 @@ const ANS_OPEN_CLASS = () => !!ANN.on;
 
 // 下一个还没判定的信号(自动跳过已标注, 到末尾回绕; 全标完就提示)
 function annGotoNext() {
+  if(manualActive()){annStep(1);return;}
   const n = ANN.sigs.length;
   if (!n) return;
   for (let k = 1; k <= n; k++) {
@@ -931,6 +962,10 @@ function annGotoNext() {
 function annStep(dir) {
   if (!ANN.sigs.length) return;
   let k = ANN.idx + dir;
+  if(manualActive()){
+    if(k>=0&&k<ANN.sigs.length)annGo(k);
+    return;
+  }
   if (ANN.onlyUnmarked) {
     while (k >= 0 && k < ANN.sigs.length && annDecision(ANN.sigs[k].i)) k += dir;
     if (k < 0 || k >= ANN.sigs.length) { annRender(); return; }
@@ -939,17 +974,13 @@ function annStep(dir) {
 }
 
 function annMark(d) {
+  if(manualActive()){if(d==='yes')manualSave(true);return;}
   if(ANN_CHART_PICK.target)annCancelChartPick();
   const s = ANN.sigs[ANN.idx];
   if (!s) return;
   const k = annKey(s.i);
   if(annCoverActive()){
-    const check=annSaveAssessment();
-    if(d!=='skip'&&check?.errors.length){
-      const status=document.querySelector('.ann-assessment-status');
-      if(status){status.textContent=check.errors.join('；');status.scrollIntoView({block:'nearest'});}
-      annTip('请补充复盘表单；不确定也可明确选择',true);return;
-    }
+    annSaveAssessment();
   }
   const prev = ANN.decisions[k] || { reasons: [] };
   // 「不做」必须留下理由: 至少一个标签, 或写了备注
@@ -995,6 +1026,7 @@ function annToggleReason(r) {
 }
 
 function annSumRender() {
+  if(manualActive()){manualSummary();return;}
   const total = ANN.sigs.length;
   let yes = 0, no = 0, skip = 0, done = 0;
   for (const s of ANN.sigs) {
@@ -1014,6 +1046,8 @@ function annRender() {
   const body = document.getElementById('annBody');
   const pos = document.getElementById('annPos');
   if (!body) return;
+  manualModeUI();
+  if(manualActive()){manualRender();return;}
   if (!ANN.sigs.length) {
     body.innerHTML = '<div class="lab-note">当前品种/周期上，这个实验没有信号。</div>';
     if (pos) pos.textContent = '0/0';
@@ -1057,7 +1091,7 @@ function annRender() {
     ${evidence.type === 'ma_body_combo_v1' ? `<div class="ann-grid">${evidence.periods.map((p,k)=>`<span>SMA${p}</span><b>${fmt(evidence.maValues[k])}</b>`).join('')}<span>开盘 → 收盘</span><b>${fmt(evidence.open)} → ${fmt(evidence.close)}</b></div>`
       : `<div class="ann-grid"><span>参照低点</span><b>${annDate(evidence.referenceTime)} · ${fmt(evidence.referenceLow)}</b><span>当前新低</span><b>${fmt(evidence.currentLow)}</b><span>间隔</span><b>${s.i-evidence.referenceIndex} 根</b><span>${evidence.metric==='dif'?'DIF':'MACD柱'}：前低 → 当前</span><b>${evidence.referenceValue.toPrecision(5)} → ${evidence.currentValue.toPrecision(5)}</b></div><p class="ann-line">候选信号可继续下跌；不使用未来K线确认底部。</p>`}
   </section>`;
-  body.innerHTML = thin + annCoverCard(s.i) + annAssessmentCard(d) + signalCard + `
+  body.innerHTML = thin + annCoverCard(s.i) + (annCoverActive()?`<details class="ann-optional-assessment"><summary>复核补充描述（可选）</summary>${annAssessmentCard(d)}</details>`:'') + signalCard + `
     <div class="ann-date"><b>${annDate(snap.time)}</b><span class="ann-tag">${s.tag}</span>
       <span style="flex:1"></span><span style="color:var(--muted)">收</span><b>${snap.close.toLocaleString()}</b></div>
 
@@ -1150,6 +1184,9 @@ function annRender() {
 function annImportData(txt) {
   let obj = null;
   try { obj = JSON.parse(txt); } catch (e) { annTip('导入失败: 不是合法 JSON', true); return; }
+  if((obj.symbol&&obj.symbol!==currentSym)||(obj.tf&&obj.tf!==activeTF)){
+    annTip('请先切换到导出文件对应的品种和周期再导入',true);return;
+  }
   const items = (obj && obj.items) || [];
   if (!items.length) { annTip('导入失败: 文件里没有 items', true); return; }
   const cs = candlesFor('raw');
@@ -1173,6 +1210,9 @@ function annImportData(txt) {
       ...(it.assessment ? { assessment: it.assessment } : {}),
       ...(it.assessmentEvidence ? { assessmentEvidence: it.assessmentEvidence } : {}),
       ...(it.signalEvidence ? { signalEvidence: it.signalEvidence } : {}),
+      ...(it.manual ? { manual: it.manual } : {}),
+      ...(it.manualEvidence ? { manualEvidence: it.manualEvidence } : {}),
+      ...(it.features ? { features: it.features } : {}),
     };
     n++;
   }
@@ -1195,7 +1235,7 @@ function annExportData() {
   const prefix = `${currentSym}|${activeTF}|`;
   const items = [];
   for (const [key, rec] of Object.entries(ANN.decisions)) {
-    if (!key.startsWith(prefix) || !rec || !rec.d) continue;
+    if (!key.startsWith(prefix) || !rec || (!rec.d&&!rec.manual) || rec.manual?.archived) continue;
     const parts = key.split('|');
     const src = parts[2], tt = +parts[3];
     const i = idx.has(tt) ? idx.get(tt) : null;
@@ -1210,14 +1250,17 @@ function annExportData() {
       ...(rec.assessment ? { assessment: rec.assessment } : {}),
       ...(rec.assessmentEvidence ? { assessmentEvidence: rec.assessmentEvidence } : {}),
       ...(rec.signalEvidence ? { signalEvidence: rec.signalEvidence } : {}),
+      ...(rec.manual ? {manual:rec.manual,manualEvidence:rec.manualEvidence,
+        annotationStage:'positive_collection',sampleStatus:rec.d==='yes'?'confirmed_positive':'draft'} : {}),
       reasons: rec.reasons || [],
       note: rec.note || '',
       // 判定当时的特征快照(旧数据没有则按当前数据补算)
-      features: rec.features || (i != null ? annFeatures(i) : null),
+      features: rec.features || (i != null && !rec.manual ? annFeatures(i) : {time:tt}),
     });
   }
   items.sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : a.source < b.source ? -1 : 1));
   return { schema: 'chanlun.ann/2', symbol: currentSym, tf: activeTF,
+           unmarkedPolicy:'unknown',defaultManualExecution:'selected_bar_close',
            exportedAt: new Date().toISOString(), count: items.length, items };
 }
 
@@ -1275,12 +1318,14 @@ function annInit() {
   if (!btn) return;
   btn.addEventListener('click', () => annSetOpen(!ANN.on));
   annInit();
+  document.getElementById('manualAddToolbar')?.addEventListener('click',manualStartPick);
   // Shareable verification entry: open ETH/BTC with all MA20 crosses visible.
   const verifySymbol = new URLSearchParams(location.search).get('cover67');
   if (['ETH', 'BTC'].includes(verifySymbol)) {
     (async () => {
       if (currentSym !== verifySymbol) await switchSymbol(verifySymbol);
       ANN.source = 'ma20_simple_check_v2'; ANN.idx = 0;
+      ANN.hideFuture=true;document.getElementById('annHide').checked=true;
       annSetOpen(true);
     })().catch(e => console.error('MA20 verification entry failed', e));
   }

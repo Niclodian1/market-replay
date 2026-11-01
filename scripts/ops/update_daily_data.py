@@ -152,12 +152,14 @@ def update_stock(panel_id: str, symbol: str, overlap_days: int = 7, subdir: str 
     fresh = _drop_incomplete_candle(_fetch_yahoo_increment(symbol, start))
     merged = (
         pd.concat([old, fresh], ignore_index=True)
-        .sort_values("time")
         .drop_duplicates("time", keep="last")
+        .sort_values("time")
         .reset_index(drop=True)
     )
     added = len(merged) - len(old)
-    merged.to_parquet(path, index=False)
+    temporary=path.with_suffix('.parquet.tmp')
+    merged.to_parquet(temporary, index=False)
+    temporary.replace(path)
     new_last = pd.to_datetime(int(merged["time"].iloc[-1]), unit="s", utc=True).date()
     print(f"[stocks] {symbol:<6} +{added:>4} bars → 截止 {new_last}")
 
@@ -172,7 +174,7 @@ def _candles_frame(candles: list[dict]) -> pd.DataFrame:
 
 async def _fetch_crypto_full(canonical: str, source: str, interval: str) -> list[dict]:
     """全史K线。Binance 内部自动翻页; Hyperliquid 单次≤5000根, 这里手动向前翻页。"""
-    sys.path.insert(0, str(REPO / "backend"))
+    sys.path.insert(0, str(REPO / "apps" / "platform-api"))
     if source == "binance":
         from app.providers.binance import BinanceSpotProvider
 
@@ -247,29 +249,28 @@ def init_new_panels() -> None:
           f"{sum(1 for p in CRYPTO_INIT if (DATA_ROOT / 'crypto' / f'{p}_1day.parquet').exists())} 个品种")
 
 
-def _fetch_eastmoney_index(secid: str) -> pd.DataFrame:
+def _fetch_eastmoney_index(secid: str, start: str = '0') -> pd.DataFrame:
     """东方财富日K: date,open,close,high,low,volume,... 时间戳用 UTC 零点对齐 Yahoo A股。"""
     import time as _time
 
-    import httpx
+    import requests
 
     url = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
     params = {
         "secid": secid,
-        "ut": "fa5fd1943c7b386f172d6893dbfba10b",
-        "fields1": "f1,f2,f3,f4,f5,f6",
-        "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+        "fields1": "f1",
+        "fields2": "f51,f52,f53,f54,f55,f56",
         "klt": "101",
         "fqt": "0",
-        "beg": "0",
-        "end": "20500101",
-        "lmt": "10000",
+        "beg": start,
+        "end": pd.Timestamp.now(tz="UTC").strftime('%Y%m%d'),
+        "lmt": "10000" if start == '0' else "1000",
     }
     last_err: Exception | None = None
     response = None
     for attempt in range(4):
         try:
-            response = httpx.get(
+            response = requests.get(
                 url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=45.0
             )
             response.raise_for_status()
@@ -311,10 +312,15 @@ def update_cn_index(panel_id: str) -> None:
     path = DATA_ROOT / "indices" / f"{panel_id}.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
     old = pd.read_parquet(path) if path.exists() else None
-    frame = _drop_incomplete_candle(_fetch_eastmoney_index(secid))
+    start='0' if old is None else (pd.to_datetime(int(old.time.max()),unit='s',utc=True)-pd.Timedelta(days=7)).strftime('%Y%m%d')
+    frame = _drop_incomplete_candle(_fetch_eastmoney_index(secid,start))
     if frame.empty:
         raise RuntimeError(f"{symbol} 东方财富日线为空")
-    frame.to_parquet(path, index=False)
+    if old is not None:
+        frame=pd.concat([old,frame],ignore_index=True).drop_duplicates('time',keep='last').sort_values('time').reset_index(drop=True)
+    temporary=path.with_suffix('.parquet.tmp')
+    frame.to_parquet(temporary,index=False)
+    temporary.replace(path)
     added = len(frame) - (0 if old is None else len(old))
     last = pd.to_datetime(int(frame["time"].iloc[-1]), unit="s", utc=True).date()
     print(f"[index]  {symbol:<10} {len(frame):>6} 根 {added:+d} → 截止 {last}")
@@ -322,7 +328,7 @@ def update_cn_index(panel_id: str) -> None:
 
 def update_metal(panel_id: str) -> None:
     """贵金属日线增量(Dukascopy): provider 内部维护 market/ 缓存, 这里同步面板文件。"""
-    sys.path.insert(0, str(REPO / "backend"))
+    sys.path.insert(0, str(REPO / "apps" / "platform-api"))
     from app.providers.dukascopy import DukascopyMetalProvider
 
     pair, product = METAL_PANELS[panel_id]
@@ -330,6 +336,8 @@ def update_metal(panel_id: str) -> None:
 
     frame = pd.DataFrame(candles)[["time", "open", "high", "low", "close", "volume"]]
     complete = _drop_incomplete_candle(frame)
+    if complete.empty or int(complete.time.max()) < int(pd.Timestamp.now(tz='UTC').normalize().timestamp())-4*DAY_SECONDS:
+        raise RuntimeError(f'{product} 原数据源未返回最近行情，保留原文件')
     metal_path = DATA_ROOT / "gold" / f"{panel_id}.parquet"
     old = pd.read_parquet(metal_path) if metal_path.exists() else complete.iloc[0:0]
     complete.to_parquet(metal_path, index=False)
@@ -377,7 +385,7 @@ def rebuild_manifest() -> None:
         safe = symbol.replace("-", "_")
         for timeframe, tfs in (("1day", "1day"), ("4h", "4h"), ("1h", "1h")):
             rows.append(_row(f"{safe}_{timeframe}", symbol, symbol, timeframe, "crypto",
-                             "local parquet + OKX increment",
+                             "Binance spot closed candles; legacy timestamps preserved",
                              DATA_ROOT / "crypto" / f"{safe}_{tfs}.parquet"))
     manifest = pd.DataFrame([r for r in rows if r]).sort_values(["asset_class", "symbol", "timeframe"])
     manifest.to_csv(MANIFEST_PATH, index=False)

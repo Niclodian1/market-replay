@@ -164,8 +164,8 @@ const paneReady = id => {
   const el = document.getElementById(id);
   return !!el && !el.classList.contains('pane-off') && el.clientWidth >= 10 && el.clientHeight >= 10;
 };
-const syncAll = r => {
-  if (!r || _syncingRange) return;
+const syncAll = (r, source = 'chart') => {
+  if (!r || _syncingRange || !paneReady(source)) return;
   if (!Number.isFinite(r.from) || !Number.isFinite(r.to) || r.to - r.from <= 0) return;
   _syncingRange = true;
   try {
@@ -177,9 +177,9 @@ const syncAll = r => {
     }
   } finally { _syncingRange = false; }
 };
-chart.timeScale().subscribeVisibleLogicalRangeChange(syncAll);
-volumeChart.timeScale().subscribeVisibleLogicalRangeChange(syncAll);
-macdChart.timeScale().subscribeVisibleLogicalRangeChange(syncAll);
+chart.timeScale().subscribeVisibleLogicalRangeChange(r => syncAll(r, 'chart'));
+volumeChart.timeScale().subscribeVisibleLogicalRangeChange(r => syncAll(r, 'volume'));
+macdChart.timeScale().subscribeVisibleLogicalRangeChange(r => syncAll(r, 'macd'));
 // 分钟级复盘(非练习): 向左滚近窗口左缘自动前插上一分片, 并平移视口保持画面不跳
 // 练习模式(trLocked)不走此漫游——练习视口有硬边界, 只展示本次练习窗口
 chart.timeScale().subscribeVisibleLogicalRangeChange(r => {

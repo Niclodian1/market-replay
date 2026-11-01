@@ -19,12 +19,19 @@ python3 -m http.server 8081 --directory apps/chanlun-web
 重建方式：
 
 ```bash
+# 更新全部已有品种、重建图表和15分钟分片（Windows / macOS / Linux）
+python scripts/ops/update_all_data.py
+# 数据源暂不可用时保留原贵金属，更新其余品种
+python scripts/ops/update_all_data.py --skip-metals
+# 只更新行情，或只重建已有行情的图表
+python scripts/ops/update_all_data.py --fetch-only
+python scripts/ops/update_all_data.py --skip-fetch --skip-intraday
+
 # 1) 行情 parquet 增量更新（data/crypto、data/stocks…）
 python3 scripts/ops/update_data.py
 
 # 2) 重建 data-view/*.js（BTC/ETH 缠论全链）
-python3 apps/chanlun-web/chanlun.py BTC
-python3 apps/chanlun-web/chanlun.py ETH
+python3 apps/chanlun-web/build_all_symbols.py BTC ETH
 
 # 3) 重建分时月度分片（intraday/**/*.bin + manifest）
 python3 scripts/ops/build_intraday_chunks.py
@@ -35,7 +42,8 @@ python3 apps/chanlun-web/tools/build_trades_data.py
 python3 apps/chanlun-web/tools/build_tutorial_data.py
 ```
 
-> 一键脚本：`scripts/ops/update_all.sh`（拉行情 + 重建 BTC/ETH 的 data-view）。
+> 一键脚本：`scripts/ops/update_all.sh` 转发到全部品种的 Python 更新入口。
+> 更新前备份写入 `reports/data-update-*/backup.zip`；逐项失败写入 `result.json`，失败不覆盖原文件。
 
 ## 测试
 
@@ -68,17 +76,33 @@ pytest packages/chanlun-core/tests -q          # 引擎回归
 
 ### 标注模式（`🏷 标注`，独立右侧抽屉）
 
-规则先出信号，人再逐个复判"这单我会不会做"：11 个实验源（单均线突破 MA20/60/120、双均线金叉 20×60/60×120/20×120、
-趋势、突破+斜率、缠论买点·笔/线段、背驰买点），←/→ 逐笔过，1 会做 / 2 不做 / 3 跳过，
-可选 12 个理由标签 + 备注。默认遮住信号之后的走势（盲判，主图+量能+MACD 一起遮，并用覆盖层盖住右侧价格轴），未来 5/20/60 日收益折叠起来先判断再看。
-判定存 localStorage（按 品种|周期|实验 隔离），可导出 JSON 用于统计"你的判断 vs 规则口径"。
-实现在 `js/13-annotate.js`。
+默认进入“我的买点”：点击工具栏 `＋ 我的买点`，再点击任意原始K线，不限指标，
+默认按所选K线收盘价买入。必须明确描述买入理由，参考指标可选。
+选择“收敛后突破／盘整后突破”时，需标出买点之前的整理区间起止；支持输入UTC日期
+或图上点选，选定区间会高亮。自动计算截至买点的量比、区间均量、前后段真实波幅与均量比，
+不足数据留空，不预设筛选门槛，也不附带未来收益特征。
+
+草稿自动保存在 localStorage，点击“保存买点”确认正样本；未选位置始终为未知，不生成负样本。
+历史回看与复盘窗口选取分别记录，回看样本不作为盲测结果。移除买点可撤销，重新选择已移除的
+同一K线也会恢复原描述。导出包含草稿、理由、区间锚点、收盘执行价与量化证据；导入时校验
+品种和周期，避免错配。旧标注不自动转换成新的正样本。
+
+“算法复核”保留原有 MA20、均线、MACD、缠论等实验源及历史标注；原有算法尚未根据本轮
+手选样本调整。复核“不做”时选理由标签或填备注，详细结构表单改为可选。
+实现：`js/13-manual.js`（手选流程）、`13-manual-evidence.js`（因果特征）、`13-annotate.js`（复核与存储）。
+验证：`node --test apps/chanlun-web/tests/manual-evidence.test.mjs apps/chanlun-web/tests/manual-storage.test.mjs`。
 
 ### 副图（MACD / 量能）开关
 
 关掉的副图是"移到视口外"而不是 `display:none`：容器一旦变成 0×0，lightweight-charts
 的时间轴会退化并把渲染线程跑满（页面卡死 / 重新打开空白）。改样式时不要改回
 `display:none`。详见 `docs/refactor/IMPLEMENTATION_2026-10-22.md` §37。
+
+成交量默认高 140px、MACD 默认高 180px。拖动各副图上沿的分隔条可独立调高或调低，
+双击恢复默认高度；聚焦分隔条后用 ↑/↓ 每次调整 10px。高度自动保存在当前浏览器，
+关闭再打开、切换品种/周期、刷新后保留，窗口变小时自动收缩并为主图保留空间。
+`js/03-pane-layout.js` 统一处理尺寸、显示恢复和时间轴对齐；隐藏副图不作为时间轴同步源，
+切换主题保持副图 `autoSize: false`。
 
 ### 参数实验室与品种绑定
 
@@ -113,11 +137,11 @@ pytest packages/chanlun-core/tests -q          # 引擎回归
 
 ## MA20 简化 v2 校核
 
-顶部「标注 → 我的规则 → MA20 简化 v2 · 阳线上穿候选」。条件仅为前收盘≤前MA20、本收盘>本MA20且本根阳线；26条排除规则已退出页面。当前日线快照 BTC 181 条、ETH 170 条，0/1/2 项确认均保留。`index.html?cover67=ETH` 兼容原链接，进入全部上穿查漏模式。
+顶部「标注 → 算法复核 → 我的规则 → MA20 简化 v2 · 阳线上穿候选」。条件仅为前收盘≤前MA20、本收盘>本MA20且本根阳线；26条排除规则已退出页面。当前日线快照 BTC 181 条、ETH 170 条，0/1/2 项确认均保留。`index.html?cover67=ETH` 兼容原链接，进入全部上穿查漏模式。
 
 - 实体≥0.5ATR、量比≥1.2各计一项确认，只分级不过滤；量能颜色仍沿用高/普通/低三色。图上卡片可看相同确认项数量和相同量能档位的参考表现。
 - 新源 `ma20_simple_v2` / `ma20_simple_check_v2` 独立保存新判断，旧版标签不自动带入；历史记录仍保留并随导出按 source 区分。
-- 新增结构化复盘表单：区域、触发、行情类型、把握、主要依据、调整幅度/时间/收敛、结构参照状态为会做/不做前必填项，支持不确定/不适用，跳过免填全。可填写调整起止、参照高点、箱体及此前更好买点；日期旁「图上选择」可点击主图K线回填并高亮，Esc取消，合并视角自动切原始；内置虚构示例。保存、导入、导出保留 assessment 原始字段及 assessmentEvidence 时间价格与派生结构指标。量化参考展示力度、回撤、时间、收缩和震荡代理，不自动据此填写判断。
+- 结构化复盘表单收在“复核补充描述（可选）”中，旧记录继续保留。可填写调整起止、参照高点、箱体及此前更好买点；日期旁「图上选择」可点击主图K线回填并高亮，Esc取消，合并视角自动切原始；内置虚构示例。保存、导入、导出保留 assessment 原始字段及 assessmentEvidence 时间价格与派生结构指标。量化参考展示力度、回撤、时间、收缩和震荡代理，不自动据此填写判断。
 - 默认遮住未来，统计只纳入当前信号之前已经退出的交易。参考口径：次根开盘进场、信号低点止损、跌破MA20次根开盘退出、单边成本0.10%。
 - 说明与标注建议：`reports/ma20-simplification-2026-10-30/新一轮标注说明.md`。
 

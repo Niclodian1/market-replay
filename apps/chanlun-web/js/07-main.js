@@ -29,8 +29,8 @@ function applyTheme(){
     borderUpColor: t().up, borderDownColor: t().down,
     wickUpColor: t().up, wickDownColor: t().down,
   });
-  volumeChart.applyOptions({ ...chartOptions(), grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
-  macdChart.applyOptions({ ...chartOptions(), grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
+  volumeChart.applyOptions({ ...chartOptions(), autoSize: false, grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
+  macdChart.applyOptions({ ...chartOptions(), autoSize: false, grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
   macdLineSeries.applyOptions({ color: t().ink2 });
   macdSignalSeries.applyOptions({ color: t().muted });
   candleSeries.setMarkers(buildMarkers(activeView));
@@ -51,24 +51,7 @@ function applyTheme(){
 // 的像素 x 不同(约 25~50px 错位)。alignPanes() 收窄量/MACD 面板宽度, 使
 // (面板宽 - 自身价格轴宽) 三面板一致 → 时间刻度像素一致, 虚线真正贯穿同 bar。
 // 注: autoSize 按 clientWidth(含 padding) 自适应, 故必须改元素实际宽度而非 padding。
-function alignPanes(){
-  const Wm = chart.timeScale().width();
-  if (!Wm || Wm < 100) return;                 // 图表未完成布局时不写副图宽度(防止写死成极窄)
-  const setW = (id, ps, sub) => {
-    const el = document.getElementById(id);
-    if (!el || el.classList.contains('pane-off')) return;         // 离屏隐藏中: 不参与尺寸/范围同步
-    if (!el.clientWidth || el.clientHeight < 10) return;
-    if (ps && ps >= 20){
-      const target = Math.max(80, Math.round(Wm + ps));   // 副图最小可用宽度保护
-      if (el.clientWidth !== target) el.style.width = target + 'px';
-    }
-    const w = el.clientWidth, h = el.clientHeight;
-    const cur = sub.options();
-    if (cur.width !== w || cur.height !== h) sub.applyOptions({ width: w, height: h });   // 副图 autoSize 已关, 显式给尺寸
-  };
-  setW('volume', volumeChart.priceScale('right').width(), volumeChart);
-  setW('macd', macdChart.priceScale('right').width(), macdChart);
-}
+// alignPanes 与显示/高度控制统一在 03-pane-layout.js，隐藏的副图保留有效画布尺寸。
 // 副图自检: 容器无 canvas 或高度为 0 时提示(定位"副图空白")
 function assertSubPanes(){
   const v = document.getElementById('volume'), m = document.getElementById('macd');
@@ -485,6 +468,7 @@ try { if (localStorage.getItem(SIDE_KEY) === '1') setSideCollapsed(true); } catc
 // ---- 初始化 ----
 window.__INIT_OK = false;
 try {
+setupPaneLayout();
 document.title = document.title.replace('BTC/USD', DATA.meta.symbol);
 document.getElementById('symbolBadge').textContent = `${DATA.meta.symbol} · ${activeTF}`;
 syncTfTabs();
@@ -532,21 +516,7 @@ document.getElementById('overlayToggle').addEventListener('click', e => {
     document.getElementById('maPeriods').style.display = on ? '' : 'none';
     renderMaLegend();
   } else {
-    const isMacd = ov === 'macd';
-    const el = document.getElementById(isMacd ? 'macd' : 'volume');
-    const sub = isMacd ? macdChart : volumeChart;
-    el.classList.toggle('pane-off', !on);   // 离屏隐藏, 不把容器压成 0×0(见 css/main.css 注释)
-    if (on){
-      void el.offsetHeight;    // 强制重排, 让尺寸立刻参与布局
-      requestAnimationFrame(() => {
-        alignPanes();
-        // 隐藏期间该面板不参与三图同步, 重新显示时按主图当前范围对齐一次
-        const r = chart.timeScale().getVisibleLogicalRange();
-        if (r) sub.timeScale().setVisibleLogicalRange(r);
-      });
-    } else {
-      requestAnimationFrame(alignPanes);
-    }
+    setSubPaneVisible(ov === 'macd' ? 'macd' : 'volume', on);
   }
 });
 document.getElementById('chanDetailsBtn').addEventListener('click', () => {

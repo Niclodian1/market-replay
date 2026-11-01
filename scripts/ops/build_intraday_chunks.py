@@ -36,7 +36,7 @@ PARQUET_DIR = REPO / "data" / "crypto"
 
 ARCHIVE_TPL = ("https://data.binance.vision/data/spot/monthly/klines/"
                "{sym}USDT/{iv}/{sym}USDT-{iv}-{ym}.zip")
-API_KLINES = "https://api.binance.com/api/v3/klines"
+API_KLINES = "https://data-api.binance.vision/api/v3/klines"
 
 IV_SECONDS = {"15m": 900}   # 1m 已于 2026-09 停用(练习噪声大、维护缺口多); 如需恢复加 "1m": 60
 # 各币 Binance 现货上线月(仅用于缩小遍历范围; 缺月404会被自然跳过)
@@ -186,11 +186,23 @@ async def build_one(client: httpx.AsyncClient, sym: str, iv: str,
     if last_t:
         tail = await fetch_api_range(client, sym, iv, last_t + sec, int(now.timestamp()))
         if tail:
-            ym_tail = datetime.fromtimestamp(tail[-1][0], tz=timezone.utc).strftime("%Y-%m")
-            merged = {r[0]: r for r in buckets.get(ym_tail, [])}
-            merged.update({r[0]: r for r in tail})
-            buckets[ym_tail] = [merged[k] for k in sorted(merged)]
+            for row in tail:
+                ym_tail = datetime.fromtimestamp(row[0], tz=timezone.utc).strftime("%Y-%m")
+                buckets.setdefault(ym_tail, []).append(row)
             print(f"  [{sym} {iv}] API 补齐尾部 +{len(tail)} 根", flush=True)
+
+    # 尾部可能跨月；按月合并已有分片后原子落盘，不丢当月前半段或遗漏新月份。
+    for ym, rows in buckets.items():
+        if not rows:
+            continue
+        path=out_dir/f'{ym}.bin'
+        existing=[]
+        if path.exists():
+            values=struct.unpack(f'<{path.stat().st_size//8}d',path.read_bytes())
+            existing=[tuple(values[i:i+6]) for i in range(0,len(values),6)]
+        merged={int(row[0]):row for row in existing}
+        merged.update({int(row[0]):row for row in rows})
+        write_bin(path,[merged[key] for key in sorted(merged)])
 
     # ---- manifest: 扫描目录全部分片(含本次未动的历史片), 保证增量运行不丢片 ----
     # 同时产出每个分片的 .js 变体: file:// 协议下浏览器禁用 fetch,
@@ -207,7 +219,7 @@ async def build_one(client: httpx.AsyncClient, sym: str, iv: str,
             fh.seek(-48, 2)   # 最后一条记录的起始处(time 为记录首字段)
             t1 = int(struct.unpack("<d", fh.read(8))[0])
         js_path = bin_path.with_suffix(".js")
-        if not js_path.exists() or force_recent:
+        if not js_path.exists() or force_recent or js_path.stat().st_mtime < bin_path.stat().st_mtime:
             buf = struct.unpack(f"<{n*6}d", bin_path.read_bytes())
             rows = []
             for i in range(n):

@@ -763,9 +763,12 @@ def _leg_area(L, hist, merged, pos, mag):
 
 
 def _fmt_epoch(ts, tf):
-    from datetime import datetime, timezone
+    from datetime import datetime, timedelta, timezone
 
-    dt = datetime.fromtimestamp(ts, timezone.utc)
+    try:
+        dt = datetime.fromtimestamp(ts, timezone.utc)
+    except (OSError, OverflowError, ValueError):
+        dt = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=ts)
     return dt.strftime("%Y-%m-%d %H:%M" if tf != "1D" else "%Y-%m-%d")
 
 

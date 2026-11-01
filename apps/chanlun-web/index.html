@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>缠论多级别联动 · BTC/USD · 1D/4H/1H · 全周期买卖点</title>
-  <link rel="stylesheet" href="css/main.css?v=20261030pick2">
+  <link rel="stylesheet" href="css/main.css?v=20261101manual">
 </head>
 <body>
 <div id="app">
@@ -68,8 +68,8 @@
       <div class="seg" id="overlayToggle">
         <button data-ov="chan" class="active" title="缠论结构图层总开关(分型/笔/中枢/买卖点…)">缠论</button>
         <button data-ov="ma" class="active" title="均线 MA(周期可在右侧改)">MA</button>
-        <button data-ov="macd" class="active" title="MACD 副图">MACD</button>
-        <button data-ov="vol" class="active" title="成交量副图">量</button>
+        <button data-ov="macd" class="active" aria-pressed="true" title="MACD 副图">MACD</button>
+        <button data-ov="vol" class="active" aria-pressed="true" title="成交量副图">量</button>
       </div>
       <span class="controls-label">指标</span>
       <div class="seg" id="indicatorToggle">
@@ -80,7 +80,8 @@
       <button class="btn" id="maSlopeBtn" title="均线斜率高亮：拖动滑块，斜率落在区间内的均线段加粗">📐 斜率</button>
       <button class="btn" id="maTrendBtn" title="日线 MA 突破 × 斜率：标记持仓区间、买卖点，统计覆盖了多少段牛市">📈 趋势</button>
       <button class="btn" id="maDualBtn" title="MA20/60 双均线：金叉买/死叉卖，信号 K 线闪烁，统计胜率与盈亏比">📊 双均线</button>
-      <button class="btn" id="annBtn" title="标注模式：把实验信号逐个过一遍，判断这单你会不会做">🏷 标注</button>
+      <button class="btn" id="manualAddToolbar" title="在任意K线上标记你会买的位置，按当根收盘价记录">＋ 我的买点</button>
+      <button class="btn" id="annBtn" title="查看我的买点，或切换到已有算法复核">🏷 标注</button>
       <div class="controls" id="chanDetails" style="display:none; align-items:center; gap:8px;">
       <span class="controls-label">中枢</span>
       <div class="seg" id="pivotToggle">
@@ -167,7 +168,9 @@
     <section class="chart-pane">
       <div class="chart-box">
         <div id="chart" title="按住 Shift 单击锚定起点后松开, 移动鼠标实时测量两点波动距离(Δ价格/波幅%/K线数/时间跨度); 再按 Shift+单击固定终点; 单击或 Esc 清除"></div>
+        <div class="pane-resizer" data-pane="volume" role="separator" tabindex="0" aria-label="调整成交量副图高度" aria-orientation="horizontal" aria-controls="volume" title="上下拖动调整成交量高度；双击恢复默认高度；方向键微调"><span>成交量 · 拖动调节高度</span></div>
         <div id="volume"></div>
+        <div class="pane-resizer" data-pane="macd" role="separator" tabindex="0" aria-label="调整 MACD 副图高度" aria-orientation="horizontal" aria-controls="macd" title="上下拖动调整 MACD 高度；双击恢复默认高度；方向键微调"><span>MACD · 拖动调节高度</span></div>
         <div id="macd"></div>
         <div class="dist-tag" id="distTag"></div>
         <button id="sideShowBtn" title="展开右侧面板（复盘交易）">« 复盘交易</button>
@@ -379,11 +382,12 @@
 <script src="js/00-app-core.js"></script>
 <script src="js/01-config.js"></script>
 <script src="js/02-data.js"></script>
-<script src="js/03-charts.js?v=20261030c"></script>
+<script src="js/03-charts.js?v=20261101panes"></script>
+<script src="js/03-pane-layout.js?v=20261101panes"></script>
 <script src="js/04-panels.js?v=20261030c"></script>
 <script src="js/05-journal.js"></script>
 <script src="js/06-trainer.js"></script>
-<script src="js/07-main.js"></script>
+<script src="js/07-main.js?v=20261101panes"></script>
 <script src="js/08-draw.js"></script>
 <script src="js/09-lab-engine.js"></script>
 <script src="js/09-params-lab.js"></script>
@@ -393,7 +397,9 @@
 <script src="js/13-cover67.js?v=20261030simple2"></script>
 <script src="js/13-annotation-signals.js?v=20261030a"></script>
 <script src="js/13-annotation-form.js?v=20261030pick2"></script>
-<script src="js/13-annotate.js?v=20261030pick2"></script>
+<script src="js/13-manual-evidence.js?v=20261101manual"></script>
+<script src="js/13-manual.js?v=20261101manual"></script>
+<script src="js/13-annotate.js?v=20261101manual"></script>
 <script src="js/14-cover67-indicator.js?v=20261030pick2"></script>
 </body>
 </html>
