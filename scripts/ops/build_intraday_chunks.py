@@ -5,9 +5,9 @@
 本脚本不做任何缠论计算, 只做 数据搬运+切片:
   - 月度归档: https://data.binance.vision/data/spot/monthly/klines/...
   - 当月/归档滞后期: /api/v3/klines 分页补齐, 过滤未收盘K线
-  - 输出: fenxing/intraday/<SYM>/<interval>/<YYYY-MM>.bin
+  - 输出: apps/chanlun-web/intraday/<SYM>/<interval>/<YYYY-MM>.bin
           (6×Float64 小端: time,open,high,low,close,volume; n=字节数/48)
-          fenxing/intraday/<SYM>/<interval>/manifest.json
+          apps/chanlun-web/intraday/<SYM>/<interval>/manifest.json
           {"symbol","interval","sec","total","chunks":[{file,t0,t1,n}]}
   - 可选主档(--parquet): data/crypto/<SYM>USDT_<interval>.parquet 标准六列
 
@@ -24,7 +24,6 @@ import csv
 import io
 import json
 import struct
-import sys
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,7 +31,7 @@ from pathlib import Path
 import httpx
 
 REPO = Path(__file__).resolve().parents[2]
-OUT_ROOT = REPO / "fenxing" / "intraday"
+OUT_ROOT = REPO / "apps" / "chanlun-web" / "intraday"
 PARQUET_DIR = REPO / "data" / "crypto"
 
 ARCHIVE_TPL = ("https://data.binance.vision/data/spot/monthly/klines/"

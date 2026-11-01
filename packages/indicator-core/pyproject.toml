@@ -1,0 +1,13 @@
+[project]
+name = "market-replay-indicator-core"
+version = "0.1.0"
+description = "统一指标层：Event / Series / Outcome 契约与缠论、MA、MACD 适配器"
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["indicator_core", "indicator_core.adapters"]

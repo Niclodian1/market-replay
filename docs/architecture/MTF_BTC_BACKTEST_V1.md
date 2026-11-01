@@ -21,9 +21,9 @@
 
 | 文件 | 职责 |
 |---|---|
-| `backend/app/core/mtf_historical_backtest.py` | 计算主体纯函数：CSV 解析、4H 校验、UTC 聚合、A/B 门控、事件回放、结果计算、Wilson、清单校验、merge/确定性 gzip/closed_state helper；附只读 HTTP helper（CLI 复用、仅 GET 官方 zip）；无 DB / 时钟写 / 发送 |
-| `backend/app/tasks/mtf_backtest_cli.py` | CLI：`fetch`（URL 生成→下载→校验→写 gzip+清单）、`verify`（重算哈希/聚合）、`run`（verify 通过后只读 raw_4h 跑固定回测，写五份产物） |
-| `backend/tests/test_mtf_historical_backtest.py` | 127 项测试（2083 行）守护全部契约 |
+| `apps/platform-api/app/core/mtf_historical_backtest.py` | 计算主体纯函数：CSV 解析、4H 校验、UTC 聚合、A/B 门控、事件回放、结果计算、Wilson、清单校验、merge/确定性 gzip/closed_state helper；附只读 HTTP helper（CLI 复用、仅 GET 官方 zip）；无 DB / 时钟写 / 发送 |
+| `apps/platform-api/app/tasks/mtf_backtest_cli.py` | CLI：`fetch`（URL 生成→下载→校验→写 gzip+清单）、`verify`（重算哈希/聚合）、`run`（verify 通过后只读 raw_4h 跑固定回测，写五份产物） |
+| `apps/platform-api/tests/test_mtf_historical_backtest.py` | 127 项测试（2083 行）守护全部契约 |
 | `reports/mtf-btc-backtest-v1/{data,results}` | 产物：data 下三份 gzip + source_manifest.json + MANIFEST.sha256（+fetch_metadata.json）；results 下 events/decisions/summary + run_manifest.json + RUN_MANIFEST.sha256；`REPORT.md` 为结果唯一入口 |
 
 ## 3. fetch 契约
@@ -131,7 +131,7 @@
 ## 11. CLI 与产物
 
 ```bash
-cd backend
+cd apps/platform-api
 python3 -m app.tasks.mtf_backtest_cli fetch  --output-dir ../reports/mtf-btc-backtest-v1/data
 python3 -m app.tasks.mtf_backtest_cli verify --output-dir ../reports/mtf-btc-backtest-v1/data
 python3 -m app.tasks.mtf_backtest_cli run --data-dir ../reports/mtf-btc-backtest-v1/data \

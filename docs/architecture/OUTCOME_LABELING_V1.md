@@ -2,8 +2,8 @@
 
 > 状态：**M3A 已落地（2026-08-13），第一轮/第二轮整改完成，第三轮收口
 > （最终候选审查）完成（2026-08-13）**。核心引擎
-> `backend/app/core/outcome_labeling.py` + 数据契约
-> `backend/app/schemas/outcome_labeling.py` + 100 项测试已交付；
+> `apps/platform-api/app/core/outcome_labeling.py` + 数据契约
+> `apps/platform-api/app/schemas/outcome_labeling.py` + 100 项测试已交付；
 > 纯计算离线标注，不接生产影子流（M3B 需独立评审 DB/运行风险后另行实施）。
 > 关联文档：`MULTI_TIMEFRAME_V1.md`（M2 决策）、`MARKET_STATE_V1.md`（M1 状态）、
 > `ALERT_V2_ROADMAP.md`（路线图）。
@@ -300,7 +300,7 @@ end_vol_phase = …  # 路径末步 phase
 
 ## 8. 验证（任务 3）
 
-- `backend/tests/test_outcome_labeling.py`：**100 项**，覆盖数值手算、镜像、
+- `apps/platform-api/tests/test_outcome_labeling.py`：**100 项**，覆盖数值手算、镜像、
   事件 bar 极值不计（evaluate 前构造）、0 下限、四窗口、删失三原因、缺口/
   重复/乱序、cutoff 缺 OHLC、同 bar 双触、gap 跨阈值、ATR/hash/伪造/拒绝态、
   未来追加、终点后数据、状态路径、深不可变、严格 schema、批量重复、golden

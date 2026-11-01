@@ -28,14 +28,14 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(ROOT, "backend"))
+sys.path.insert(0, os.path.join(ROOT, "apps", "platform-api"))
 
 from app.providers.binance import BinanceProvider  # noqa: E402
 
 # ------------------------------ 配置 ------------------------------
 
 OUT_DIR = os.path.join(ROOT, "reports", "w_macd")
-CACHE_DIR = os.path.join(ROOT, "backend", "data", "w_macd_cache")
+CACHE_DIR = os.path.join(ROOT, "apps", "platform-api", "data", "w_macd_cache")
 SYMBOL = "BTC-USD"
 TIMEFRAMES = ["1day", "4h", "1h"]
 COST = 0.0015  # 0.1% 手续费 + 0.05% 滑点

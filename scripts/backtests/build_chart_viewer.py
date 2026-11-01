@@ -10,12 +10,12 @@ import sys
 from pathlib import Path
 from collections import defaultdict
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "platform-api"))
 
 from app.providers.local_crypto import LocalCryptoProvider
 from app.providers.yahoo_finance import YahooFinanceProvider
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "platform-api"))
 from app.core.signal_detectors import triangle_line_info, trendline_line_info
 
 OUTPUT_DIR = Path(__file__).resolve().parents[2] / "reports" / "charts"

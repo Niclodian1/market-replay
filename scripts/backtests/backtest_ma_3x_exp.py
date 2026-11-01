@@ -38,7 +38,7 @@ from backtest_ma_strategies_3x import (  # noqa: E402
 )
 
 
-CACHE_DIR = _REPO / "backend" / "data" / "ma_strategies_3x"
+CACHE_DIR = _REPO / "apps" / "platform-api" / "data" / "ma_strategies_3x"
 OUT_DIR   = _REPO / "data" / "experiments"
 MA_EXIT_PCT = 0.03
 

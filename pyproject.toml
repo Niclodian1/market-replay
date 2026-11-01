@@ -10,8 +10,9 @@ target-version = "py311"
 exclude = [
     ".venv",
     "__pycache__",
-    "fenxing",
-    "backend/tmp_parquet",
+    "apps/chanlun-web",
+    "packages/chanlun-core",
+    "apps/platform-api/tmp_parquet",
     "data",
     "reports",
 ]
@@ -25,10 +26,10 @@ ignore = [
     "B008",  # FastAPI 的 db=Depends(get_db) 是惯用法
 ]
 # __init__ 再导出与测试/脚本中的"未用导入"、sys.path 注入式导入属有意行为
-per-file-ignores = { "**/app/models/__init__.py" = ["F401"], "**/tests/**" = ["F401", "B008", "E402"], "**/scripts/**" = ["E402"], "**/experiments/**" = ["E402"], "**/app/core/chanlun_service.py" = ["E402"] }
+per-file-ignores = { "**/app/models/__init__.py" = ["F401"], "**/indicator_core/__init__.py" = ["F401"], "**/tests/**" = ["F401", "B008", "E402"], "**/scripts/**" = ["E402"], "**/experiments/**" = ["E402"], "**/app/core/chanlun_service.py" = ["E402"] }
 
 [tool.pytest.ini_options]
-testpaths = ["backend/tests"]
+testpaths = ["apps/platform-api/tests"]
 addopts = "-ra"
 filterwarnings = [
     "ignore::DeprecationWarning:akshare.*",

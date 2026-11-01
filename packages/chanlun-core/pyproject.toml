@@ -1,0 +1,13 @@
+[project]
+name = "market-replay-chanlun-core"
+version = "0.1.0"
+description = "缠论引擎：分型 / 笔 / 线段 / 中枢 / 背驰 / 买卖点 / 多级别联动"
+requires-python = ">=3.11"
+dependencies = ["pandas>=2.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["chanlun_core"]

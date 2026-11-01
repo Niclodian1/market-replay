@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 from datetime import datetime, timezone
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "platform-api"))
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots

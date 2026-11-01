@@ -30,7 +30,7 @@ from openpyxl.utils import get_column_letter
 
 # ── 让脚本能 import backend app（参考 backtest_w_macd.py） ──────────────────────
 ROOT = Path(__file__).resolve().parents[2]  # repo root
-sys.path.insert(0, str(ROOT / "backend"))
+sys.path.insert(0, str(ROOT / "apps" / "platform-api"))
 _SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_SCRIPT_DIR))
 
@@ -62,7 +62,7 @@ VARIANTS = [2, 3, 4]            # C-x2 / C-x3 / C-x4
 MA_EXIT_PCT = 0.03
 END_DATE = datetime.date.today().isoformat()
 
-JSON_DIR = ROOT / "backend" / "data" / "ma_strategies_c"
+JSON_DIR = ROOT / "apps" / "platform-api" / "data" / "ma_strategies_c"
 XLSX_PATH = _SCRIPT_DIR / "data" / "ma_strategies_c_backtest.xlsx"
 
 
@@ -566,7 +566,7 @@ def main(only_symbol=None, only_tf=None, skip_excel=False, leverage=None):
     symbols = [only_symbol] if only_symbol else list(SYMBOLS.keys())
     tfs = [only_tf] if only_tf else TIMEFRAMES
 
-    json_dir = JSON_DIR if leverage is None else ROOT / "backend" / "data" / f"ma_strategies_c_{leverage}x"
+    json_dir = JSON_DIR if leverage is None else ROOT / "apps" / "platform-api" / "data" / f"ma_strategies_c_{leverage}x"
     os.makedirs(json_dir, exist_ok=True)
     all_results = {}
 

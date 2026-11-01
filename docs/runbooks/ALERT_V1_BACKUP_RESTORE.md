@@ -18,7 +18,7 @@
 
 | 文件 | 内容 |
 |---|---|
-| `source.tgz` | backend/app、backend/tests、frontend/{app,components,lib,types}、backend/Dockerfile、frontend/Dockerfile、backend/requirements{,-dev}.txt、frontend/package{,-lock}.json、docker-compose.yml、.env.example；不含 .env/行情数据/缓存 |
+| `source.tgz` | backend/app、apps/platform-api/tests、apps/platform-web/{app,components,lib,types}、apps/platform-api/Dockerfile、apps/platform-web/Dockerfile、apps/platform-api/requirements{,-dev}.txt、apps/platform-web/package{,-lock}.json、docker-compose.yml、.env.example；不含 .env/行情数据/缓存 |
 | `alerts.pgdump` | users、watchlists、alerts、notification_channels、monitor_plans、alert_events 六表（PostgreSQL custom format） |
 | `row_counts.tsv` | 六表行数（快照时刻） |
 | `metadata.json` | backup_id、HEAD、git 摘要、工具版本、表行数 |
@@ -87,9 +87,9 @@ scripts/ops/alert_restore.sh restore reports/alert-backups/20260812T141847Z
 3. **先自动生成 rescue backup**（`reports/alert-backups/rescue-<UTC时间>/`，
    保存当前现场，回滚失败可再回滚）；
 4. **源码同步恢复**：解压 `source.tgz` 并按白名单路径同步（rsync --delete）：
-   - 目录级同步（删除快照后新增的源文件）: backend/app、backend/tests、
-     frontend/{app,components,lib,types}
-   - 文件级覆盖: backend/Dockerfile、frontend/Dockerfile、requirements/package/lock、
+   - 目录级同步（删除快照后新增的源文件）: backend/app、apps/platform-api/tests、
+     apps/platform-web/{app,components,lib,types}
+   - 文件级覆盖: apps/platform-api/Dockerfile、apps/platform-web/Dockerfile、requirements/package/lock、
      docker-compose.yml、.env.example
 5. **数据恢复（原子事务，兼容真实 schema）**：`_restore_db` 把「摘除备份外
    引用六表的外键 → pg_restore 导入六表 → 重建外键」放入**单个 SQL 事务**：

@@ -293,7 +293,7 @@ def run_leveraged_pullback(closes, lows, opens, dates, n, trend_sma, rsi_vals, l
 
 def _load_crypto_candles(ticker, timeframe):
     root = Path(__file__).resolve().parents[2]
-    sys.path.insert(0, str(root / "backend"))
+    sys.path.insert(0, str(root / "apps" / "platform-api"))
     from app.providers.local_crypto import LocalCryptoProvider
 
     candles = asyncio.run(LocalCryptoProvider().get_full_history(ticker, timeframe))
@@ -681,7 +681,7 @@ def main(only_symbol=None, only_leverage=None, skip_excel=False, timeframe="1day
     from backtest_json_export_3x import export_json_3x, write_manifest_3x
     for lev in (LEVERAGE_LEVELS if not only_leverage else [only_leverage]):
         dir_name = f"ma_strategies_{lev}x" if timeframe == "1day" else f"ma_strategies_{lev}x_{timeframe}"
-        json_dir = str(_REPO.parent.parent / "backend" / "data" / dir_name)
+        json_dir = str(_REPO.parent.parent / "apps" / "platform-api" / "data" / dir_name)
         os.makedirs(json_dir, exist_ok=True)
         print(f"\n导出 {lev}x JSON → {json_dir}")
         for sym, data in all_results.items():

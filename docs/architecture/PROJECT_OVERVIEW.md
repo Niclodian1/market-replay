@@ -48,6 +48,17 @@ Market Replay 是一款面向个人交易者的全栈行情复盘、量化回测
 （`idx + pivot <= t`）；信号只记在确认 bar，禁止回写历史。
 由 `tests/test_asof_causality.py`、逐前缀一致性测试与 golden digest 保护。
 
+缠论引擎按两条链组织，口径不同、不可混用（`scripts/audit_chanlun_causality.py` 实测）：
+
+| 链 | 产物 | 读不读端点之后的 K 线 | 时间戳 |
+|---|---|---|---|
+| 信号链 `_collect_causal_points` | 买卖点/背驰/盘整背驰 | 不读：逐根前缀生成 | `confirmedT`（消费端按它过滤） |
+| 结构链 合并K→分型→笔→线段→中枢 | 画图用结构 | 读：确认需要后续 K 线（缠论定义本身） | 只有端点 `t`，不带 `confirmedT` |
+
+实测延迟：笔级买卖点 2–11 根、线段级 20–729 根、盘整背驰 2–8 根；
+「弱速率背驰」0 根（当根收盘入场，`alertT == confirmedT`）。前缀重算 vs 全量过滤
+1day/4h/1h 共 18 个切点 → 0 泄漏 / 0 漏报。
+
 ## 后端核心模块（app/core/）
 
 | 模块 | 职责 |
@@ -57,7 +68,7 @@ Market Replay 是一款面向个人交易者的全栈行情复盘、量化回测
 | `monitor_engine.py` + `signals/monitor_signals.py` | 生产 V1 告警（ma/macd/structure），只消费最新已完成 bar |
 | `m3_shadow_runtime.py` | V2 影子事件：decision → label → 完成态状态机（DB CHECK 强约束） |
 | `outcome_labeling.py` / `mtf_historical_backtest.py` | 影子结果三重标注、多周期历史回测研究 |
-| `chanlun_service.py` / `triangle.py` / `divergence_detectors.py` | 缠论信号（依赖仓库根 `fenxing/` 管线）、三角收敛、背驰检测 |
+| `chanlun_service.py` / `triangle.py` / `divergence_detectors.py` | 缠论信号（依赖仓库根 `apps/chanlun-web/` 管线）、三角收敛、背驰检测 |
 | `daily_report_{analysis,sources,service,delivery}.py` | 每日多市场日报（生成→渲染→邮件/飞书投递），运维手册 docs/runbooks/DAILY_EMAIL_REPORT.md |
 | `strategy_backtest_engine.py` / `backtest_engine.py` | 策略回测（快慢双路径等价）与通用回测 |
 | `signal_detectors.py` / `signals/strategy_detectors.py` | 信号检测原语与策略探测器 |
@@ -75,7 +86,7 @@ dukascopy/local_crypto），行情源路由规则见 `tests/test_market_source_r
 - `/macro`：宏观日历
 
 前端算法库 `lib/chanlunStats.ts`、`lib/chanlunStrategy.ts` 与后端/fenxing 口径
-保持一致，由 `frontend/tests/`（node:test）守护。
+保持一致，由 `apps/platform-web/tests/`（node:test）守护。
 
 ## 数据模型（13 表）
 
@@ -120,5 +131,5 @@ compose 中以 command 覆盖保留开发热重载。
   （M3C 对照报告与人工切换待做）
 - `app/core/` 存在 8 个 800+ 行模块（最大 m3_shadow_runtime 1522 行），
   拆分需配合 golden 测试单独排期
-- `fenxing/` 为缠论运行时依赖（已入库），长期应重构为正式 Python 包
+- `apps/chanlun-web/` 为缠论运行时依赖（已入库），长期应重构为正式 Python 包
 - scripts/backtests 下六个同族 MA 回测脚本待参数化合并

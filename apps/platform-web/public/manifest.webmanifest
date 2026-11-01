@@ -1,0 +1,23 @@
+{
+  "name": "Market Replay · 行情复盘助手",
+  "short_name": "Market Replay",
+  "description": "缠论练习、指标盯盘、实验回测一体化（支持离线练习）",
+  "start_url": "/practice",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "练习", "url": "/practice" },
+    { "name": "盯盘", "url": "/watch" },
+    { "name": "指标库", "url": "/library" }
+  ]
+}

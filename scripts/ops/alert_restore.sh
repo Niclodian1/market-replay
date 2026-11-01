@@ -32,8 +32,8 @@ ALERT_TABLES="users watchlists alerts notification_channels monitor_plans alert_
 # 六表 regclass 列表（SQL 注入面为脚本内常量，安全）
 ALERT_TABLES_SQL="'users'::regclass,'watchlists'::regclass,'alerts'::regclass,'notification_channels'::regclass,'monitor_plans'::regclass,'alert_events'::regclass"
 # 快照 source.tgz 的白名单路径（目录 = 同步删除语义；文件 = 覆盖语义）
-SOURCE_DIRS="backend/app backend/tests frontend/app frontend/components frontend/lib frontend/types"
-SOURCE_FILES="backend/Dockerfile frontend/Dockerfile backend/requirements.txt backend/requirements-dev.txt frontend/package.json frontend/package-lock.json docker-compose.yml .env.example"
+SOURCE_DIRS="apps/platform-api/app apps/platform-api/tests apps/platform-web/app apps/platform-web/components apps/platform-web/lib apps/platform-web/types"
+SOURCE_FILES="apps/platform-api/Dockerfile apps/platform-web/Dockerfile apps/platform-api/requirements.txt apps/platform-api/requirements-dev.txt apps/platform-web/package.json apps/platform-web/package-lock.json docker-compose.yml .env.example"
 
 log() { printf '[alert-restore] %s\n' "$*"; }
 die() { printf '[alert-restore] 错误: %s\n' "$*" >&2; exit 1; }
@@ -180,7 +180,7 @@ cmd_drill() {
   # 1) 源码解压到 mktemp（不触碰工作区）
   log "解压 source.tgz 到临时目录 ..."
   tar -xzf "$backup_dir/source.tgz" -C "$tmpdir"
-  [ -d "$tmpdir/backend/app" ] || die "source.tgz 解压后缺少 backend/app"
+  [ -d "$tmpdir/apps/platform-api/app" ] || die "source.tgz 解压后缺少 backend/app"
 
   # 2) 六表恢复到唯一命名临时数据库
   log "创建临时数据库 $dbname ..."

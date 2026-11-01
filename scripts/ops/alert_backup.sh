@@ -48,11 +48,12 @@ EOF
 # ── 源码打包列表（只打包白名单，绝不包含 .env / 行情数据 / 缓存）──────────────
 _source_paths() {
   printf '%s\n' \
-    backend/app backend/tests \
-    frontend/app frontend/components frontend/lib frontend/types \
-    backend/Dockerfile frontend/Dockerfile \
-    backend/requirements.txt backend/requirements-dev.txt \
-    frontend/package.json frontend/package-lock.json \
+    apps/platform-api/app apps/platform-api/tests \
+    apps/chanlun-web \
+    apps/platform-web/app apps/platform-web/components apps/platform-web/lib apps/platform-web/types \
+    apps/platform-api/Dockerfile apps/platform-web/Dockerfile \
+    apps/platform-api/requirements.txt apps/platform-api/requirements-dev.txt \
+    apps/platform-web/package.json apps/platform-web/package-lock.json \
     docker-compose.yml .env.example
 }
 

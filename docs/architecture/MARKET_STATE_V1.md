@@ -2,8 +2,8 @@
 
 > 状态：M1 已落地（核心引擎 + 三个旧入口适配 + golden 零差异）。本文档描述
 > 字段、公式、默认阈值、warmup、降级、适配关系与 as-of 契约。
-> 关联：`backend/app/core/market_state.py`（引擎）、
-> `backend/app/core/market_state_adapters.py`（兼容适配）、
+> 关联：`apps/platform-api/app/core/market_state.py`（引擎）、
+> `apps/platform-api/app/core/market_state_adapters.py`（兼容适配）、
 > `docs/architecture/ALERT_V2_ROADMAP.md`（M1—M3 路线）。
 
 ## 1. 定位
@@ -135,4 +135,4 @@ strength/vol/candle），适配器只做兼容映射，不把冲突藏进核心�
 - `test_market_state_adapters.py`（13）：六态坐标/alignment/五态/日报 stage 边界。
 - `test_market_state_legacy_parity.py`（6）：四组冻结序列，旧入口与回测 golden
   逐字段一致；fast/slow 等价。红→绿证据：临时把 ADX_STRONG 35→36 使 parity
-  4 组 + adapters 1 个全红，还原后全绿（输出见 PROGRESS.md）。
+  4 组 + adapters 1 个全红，还原后全绿（输出见 `docs/archive/PROGRESS_2026H1.md`）。

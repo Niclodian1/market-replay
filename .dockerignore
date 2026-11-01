@@ -1,0 +1,16 @@
+# 构建上下文是仓库根（需要 packages/），这里排除大目录与产物
+.git
+.env
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/*.pyc
+data
+apps/platform-web/public/data
+reports
+experiments
+apps/chanlun-web
+docs
+*.parquet

@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from datetime import datetime, timezone
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "platform-api"))
 
 from app.providers.local_crypto import LocalCryptoProvider
 from app.providers.yahoo_finance import YahooFinanceProvider

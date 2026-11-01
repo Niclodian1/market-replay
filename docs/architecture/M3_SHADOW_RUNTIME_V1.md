@@ -4,7 +4,7 @@
 > ≥100 唯一 eligible 事件）**未完成**——本轮只证明「运行时上线并开始计时」，
 > 不伪造门槛达成。M3C（对照报告与校准）未开始。
 > 关联：`docs/architecture/ALERT_V2_ROADMAP.md`（3.2/3.4）、
-> `docs/architecture/OUTCOME_LABELING_V1.md`（M3A）、`PROGRESS.md`（执行记录）。
+> `docs/architecture/OUTCOME_LABELING_V1.md`（M3A）、`docs/archive/PROGRESS_2026H1.md`（执行记录）。
 
 ## 0. 定位与红线
 

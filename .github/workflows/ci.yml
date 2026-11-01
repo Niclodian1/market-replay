@@ -21,12 +21,70 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install dependencies
-        run: pip install -r backend/requirements-dev.txt
+        run: pip install -r apps/platform-api/requirements-dev.txt
       - name: Ruff
-        run: ruff check backend scripts experiments
+        run: ruff check apps packages scripts experiments labs
+      - name: Causality audit (fast sample)
+        run: python scripts/audit_causality.py --symbol BTC-USD --tf 1day --samples 3
+      - name: Golden fixtures are up to date
+        run: |
+          python scripts/export_chanlun_golden.py --bars 400
+          python scripts/export_indicator_golden.py --bars 600
+          git diff --exit-code apps/platform-web/tests/fixtures/chanlun_golden.json
+          git diff --exit-code apps/platform-api/tests/fixtures/indicator_events_golden.json
       - name: Pytest
-        working-directory: backend
+        working-directory: apps/platform-api
         run: pytest -q
+
+  chanlun-web:
+    name: Chanlun web (JS syntax + engine shim)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install engine deps
+        run: pip install "pandas>=2.0" pytest
+      - name: JS syntax
+        run: |
+          find apps/chanlun-web/js apps/chanlun-web/mobile/js -name '*.js' -print0 2>/dev/null             | xargs -0 -r -n1 node --check
+      - name: Engine tests
+        run: python -m pytest packages/chanlun-core/tests -q
+      - name: Param lab engine tests (JS)
+        run: node --test apps/chanlun-web/tests/*.test.mjs
+      - name: Engine shim imports
+        run: |
+          python -c "import sys; sys.path.insert(0, 'apps/chanlun-web'); import chanlun, fractals; assert hasattr(chanlun, 'analyze') and hasattr(fractals, 'find_fractals')"
+
+  repo-hygiene:
+    name: Repo hygiene (no generated data in git)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generated data must not be tracked
+        run: |
+          fail=0
+          if git ls-files --error-unmatch apps/platform-web/public/data 2>/dev/null | grep -q .; then
+            echo "apps/platform-web/public/data 是构建产物，不应入库" >&2
+            fail=1
+          fi
+          if git ls-files | grep -E '(^|/)data-view/.*\.js$|(^|/)intraday/.*\.bin$' | grep -q .; then
+            echo "data-view/*.js 与 intraday/*.bin 是构建产物，不应入库" >&2
+            fail=1
+          fi
+          if git ls-files | grep -E '(^|/)(\.pytest_cache|\.ruff_cache|\.DS_Store|tmp_parquet)/?' | grep -q .; then
+            echo "缓存/临时目录不应入库" >&2
+            fail=1
+          fi
+          [ "$fail" = "0" ] && echo "ok"
+          exit $fail
 
   frontend:
     name: Frontend (tsc + eslint + test)
@@ -38,16 +96,19 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: apps/platform-web/package-lock.json
       - name: Install dependencies
-        working-directory: frontend
+        working-directory: apps/platform-web
         run: npm ci
       - name: Type check
-        working-directory: frontend
+        working-directory: apps/platform-web
         run: npx tsc --noEmit
       - name: Lint
-        working-directory: frontend
+        working-directory: apps/platform-web
         run: npm run lint
       - name: Unit tests
-        working-directory: frontend
+        working-directory: apps/platform-web
         run: npm test
+      - name: Production build
+        working-directory: apps/platform-web
+        run: npm run build

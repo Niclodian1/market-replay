@@ -1,0 +1,418 @@
+'use client'
+
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { getCandles, getQuote, addWatchlist, getWatchlist, normalizeMarketDataSource, analyzeChanlun, computeSeries } from '@/lib/api'
+import { calculateIndicators, elderImpulse } from '@/lib/indicators'
+import { CandlestickChart } from '@/components/chart/CandlestickChart'
+import { mergeStructure, seriesToIndicators, tailCandles, useBarCloseRefresh } from '@/lib/chart-kit'
+import { useAppStore } from '@/store/useAppStore'
+import type { Timeframe, Candle, Indicators, WatchlistItem, ImpulseColor, ChanlunLevel } from '@/types'
+import { useHyperliquidStream } from '@/hooks/useHyperliquidStream'
+
+const TIMEFRAMES: { label: string; value: Timeframe }[] = [
+  { label: '15m', value: '15min' },
+  { label: '1H',  value: '1h'   },
+  { label: '4H',  value: '4h'   },
+  { label: '1D',  value: '1day' },
+  { label: '1W',  value: '1week'},
+]
+
+// 继论分析后端仅支持 1day/4h/1h（apps/chanlun-web 多级别联动映射）
+const CHANLUN_TIMEFRAMES: Timeframe[] = ['1day', '4h', '1h']
+
+const EMPTY_IND: Indicators = { ma_lines: [], rsi: [], macd: [] }
+
+function fmtPrice(v: number): string {
+  if (v >= 10000) return v.toLocaleString(undefined, { maximumFractionDigits: 0 })
+  if (v >= 100) return v.toFixed(2)
+  if (v >= 1) return v.toFixed(4)
+  return v.toFixed(6)
+}
+
+function fmtCompact(v: number): string {
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(1)}K`
+  return `$${v.toFixed(0)}`
+}
+
+export default function ChartPage({ params }: { params: { symbol: string } }) {
+  const symbol = decodeURIComponent(params.symbol)
+  const searchParams = useSearchParams()
+  const source = normalizeMarketDataSource(searchParams.get('source'))
+  const sourceQuery = source === 'auto' ? '' : `?source=${source}`
+
+  const [timeframe, setTimeframe]         = useState<Timeframe>('1day')
+  const [logScale, setLogScale]           = useState(false)
+  const [allCandles, setAllCandles]       = useState<Candle[]>([])
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [hasMore, setHasMore]             = useState(true)
+  const [addedMsg, setAddedMsg]           = useState('')
+  const [isFullscreen, setIsFullscreen]   = useState(false)
+  // 继论：图表内任一图层首次开启时置 true，触发按需分析
+  const [chanlunOn, setChanlunOn] = useState(false)
+  // 收盘增量刷新：只重算最近 600 根，再合并进已有图层
+  const [refreshTick, setRefreshTick] = useState(0)
+  const structureRef = useRef<ChanlunLevel | null>(null)
+
+  const loadingMoreRef = useRef(false)
+  const queryClient = useQueryClient()
+
+  const setCurrentSymbol = useAppStore(s => s.setCurrentSymbol)
+  const maPeriods    = useAppStore(s => s.maPeriods)
+  const setMaPeriods = useAppStore(s => s.setMaPeriods)
+  const impulseEnabled  = useAppStore(s => s.elderImpulse)
+  const setImpulseEnabled = useAppStore(s => s.setElderImpulse)
+
+  useEffect(() => {
+    setCurrentSymbol(symbol)
+    return () => setCurrentSymbol(null)
+  }, [symbol, setCurrentSymbol])
+
+  useEffect(() => {
+    setAllCandles([])
+    setHasMore(true)
+    loadingMoreRef.current = false
+  }, [symbol, timeframe, source])
+
+  const { data: initialData, isLoading: candlesLoading, isError: candlesError, error: candlesErr } = useQuery({
+    queryKey: ['candles', symbol, timeframe, source],
+    queryFn: () => getCandles(symbol, timeframe, 1000, undefined, source),
+    staleTime: 60_000,
+    retry: 0,
+  })
+
+  useEffect(() => {
+    if (initialData?.candles?.length) {
+      setAllCandles(initialData.candles)
+      setHasMore(initialData.candles.length >= 990)
+    }
+  }, [initialData])
+
+  const { data: quote } = useQuery({
+    queryKey: ['quote', symbol, source],
+    queryFn: () => getQuote(symbol, source),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    retry: 0,
+  })
+  useHyperliquidStream([
+    quote?.provider_symbol || (symbol.toUpperCase().startsWith('HL:') ? symbol : ''),
+  ])
+
+  const { data: watchlistData } = useQuery<{ items: WatchlistItem[] }>({
+    queryKey: ['watchlist'],
+    queryFn: () => getWatchlist(),
+    staleTime: 60_000,
+  })
+  const isInWatchlist = watchlistData?.items.some(w => w.symbol === symbol) ?? false
+
+  const addMutation = useMutation({
+    mutationFn: () => addWatchlist({
+      symbol,
+      name: quote?.name || symbol,
+      asset_type: quote?.source === 'hyperliquid' || quote?.source === 'binance_futures' ? 'perpetual' : 'stock',
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+      setAddedMsg('已加入自选')
+      setTimeout(() => setAddedMsg(''), 2000)
+    },
+    onError: () => {
+      setAddedMsg('操作失败')
+      setTimeout(() => setAddedMsg(''), 2000)
+    },
+  })
+
+  // 统一出口：POST /api/series 取 MA/MACD/RSI；旧的前端计算仅作兜底（保证可回滚）
+  const { data: seriesRows } = useQuery({
+    queryKey: ['chart-series', symbol, timeframe, maPeriods.join(','), allCandles.length],
+    queryFn: async () => {
+      try {
+        const unified = await computeSeries({
+          symbol,
+          timeframe,
+          candles: allCandles,
+          series: [
+            { id: 'ma', params: { periods: maPeriods } },
+            { id: 'macd' },
+            { id: 'rsi' },
+          ],
+        })
+        return unified?.series ?? null
+      } catch {
+        return null
+      }
+    },
+    enabled: allCandles.length > 0,
+    staleTime: 60_000,
+    retry: 0,
+  })
+
+  const indicators: Indicators = useMemo(() => {
+    if (seriesRows?.length) {
+      const mapped = seriesToIndicators(seriesRows, allCandles, { periods: maPeriods })
+      if (mapped.ma_lines.length) return mapped
+    }
+    return allCandles.length ? calculateIndicators(allCandles, maPeriods) : EMPTY_IND
+  }, [seriesRows, allCandles, maPeriods])
+
+  const impulseColors: ImpulseColor[] | undefined = useMemo(
+    () => (impulseEnabled && allCandles.length ? elderImpulse(allCandles) : undefined),
+    [allCandles, impulseEnabled]
+  )
+
+  // 继论分析（按需）：数据范围变化（翻到更早历史）时自动重算
+  const chanlunDataRange = allCandles.length
+    ? `${allCandles[0]?.time}-${allCandles[allCandles.length - 1]?.time}-${allCandles.length}`
+    : ''
+  const { data: chanlun, isFetching: chanlunLoading } = useQuery({
+    queryKey: ['chanlun', symbol, timeframe, chanlunDataRange, refreshTick],
+    // 统一出口：POST /api/series（structure=true）。旧端点仅作兜底，保证可回滚。
+    queryFn: async () => {
+      // 收盘增量：只把最近 600 根丢给后端重算，再把结果合并进已有图层
+      const incremental = refreshTick > 0
+      const sourceCandles = incremental ? tailCandles(allCandles, 600) : allCandles
+      let fresh: ChanlunLevel | null = null
+      try {
+        const unified = await computeSeries({
+          symbol,
+          timeframe,
+          candles: sourceCandles,
+          series: [],
+          structure: true,
+        })
+        if (unified?.structure) fresh = unified.structure as unknown as ChanlunLevel
+      } catch {
+        // 统一出口不可用时退回旧端点（带 Deprecation 头）
+      }
+      if (!fresh) fresh = (await analyzeChanlun(symbol, timeframe, sourceCandles)) as unknown as ChanlunLevel
+      const merged = incremental ? mergeStructure(structureRef.current, fresh) : fresh
+      structureRef.current = merged
+      return merged
+    },
+    enabled: chanlunOn && allCandles.length >= 20 && CHANLUN_TIMEFRAMES.includes(timeframe),
+    staleTime: 60_000,
+    retry: 0,
+  })
+
+  // K 线收盘后自动刷新：拉最新 candles（结构按最近 600 根增量重算）
+  useBarCloseRefresh(timeframe, () => {
+    setRefreshTick(tick => tick + 1)
+    queryClient.invalidateQueries({ queryKey: ['candles', symbol, timeframe, source] })
+  })
+
+  const loadMoreCandles = useCallback(async () => {
+    if (loadingMoreRef.current || !hasMore || !allCandles.length) return
+    loadingMoreRef.current = true
+    setIsLoadingMore(true)
+    const before = allCandles[0].time
+    try {
+      const data = await getCandles(symbol, timeframe, 1000, before, source)
+      const newCandles: Candle[] = data?.candles ?? []
+      if (!newCandles.length) { setHasMore(false); return }
+      setAllCandles(prev => {
+        const oldestExisting = prev[0]?.time ?? Infinity
+        const fresh = newCandles.filter(c => c.time < oldestExisting)
+        if (!fresh.length) { setHasMore(false); return prev }
+        return [...fresh, ...prev]
+      })
+      if (newCandles.length < 990) setHasMore(false)
+    } catch (e) {
+      console.error('loadMore failed', e)
+    } finally {
+      loadingMoreRef.current = false
+      setIsLoadingMore(false)
+    }
+  }, [allCandles, hasMore, symbol, timeframe, source])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) setIsFullscreen(false)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [isFullscreen])
+
+  const errMsg = candlesError
+    ? ((candlesErr as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? '数据加载失败')
+    : null
+
+  const last = allCandles[allCandles.length - 1]
+  const prev = allCandles[allCandles.length - 2]
+  const up = (quote?.change_percent ?? 0) >= 0
+
+  const pageContent = (
+    <div className="page" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
+      <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid var(--line-1)', background: 'var(--bg-1)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+              <span className="mono" style={{ fontSize: 22, fontWeight: 700, color: 'var(--fg-0)', letterSpacing: '-0.01em' }}>{quote?.display_symbol || symbol}</span>
+              {quote?.name && <span style={{ color: 'var(--fg-2)', fontSize: 12 }}>{quote.name}</span>}
+              {quote?.source_label && <span className="chip" style={{ fontSize: 9 }} title="数据来源">{quote.source_label}</span>}
+            </div>
+            {quote && (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
+                <span className="mono" style={{ fontSize: 26, fontWeight: 600, color: 'var(--fg-0)', letterSpacing: '-0.02em' }}>
+                  {fmtPrice(quote.price)}
+                </span>
+                <span className={`mono ${up ? 'up' : 'down'}`} style={{ fontSize: 13, fontWeight: 600 }}>
+                  {up ? '▲' : '▼'} {up ? '+' : ''}{quote.change.toFixed(2)}
+                </span>
+                <span className={`chip ${up ? 'up' : 'down'}`}>
+                  {up ? '+' : ''}{quote.change_percent.toFixed(2)}%
+                </span>
+              </div>
+            )}
+          </div>
+
+          {last && prev && (
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              {[
+                { l: '开盘', v: last.open.toFixed(2) },
+                { l: '最高', v: last.high.toFixed(2) },
+                { l: '最低', v: last.low.toFixed(2) },
+                { l: '前收', v: prev.close.toFixed(2) },
+                { l: '成交量', v: last.volume >= 1e6 ? (last.volume / 1e6).toFixed(2) + 'M' : (last.volume / 1e3).toFixed(0) + 'K' },
+              ].map((x, i) => (
+                <div key={i} className="stat">
+                  <div className="stat-label">{x.l}</div>
+                  <div className="mono" style={{ fontSize: 13, color: 'var(--fg-0)' }}>{x.v}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {quote?.source === 'hyperliquid' && (
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              {[
+                { l: '资金费率', v: quote.funding_rate == null ? '—' : `${(quote.funding_rate * 100).toFixed(4)}%` },
+                { l: '持仓价值', v: quote.open_interest_value == null ? '—' : fmtCompact(quote.open_interest_value) },
+                { l: '24H成交额', v: quote.day_notional_volume == null ? '—' : fmtCompact(quote.day_notional_volume) },
+                { l: '最高杠杆', v: quote.max_leverage ? `${quote.max_leverage}x` : '—' },
+              ].map(item => (
+                <div key={item.l} className="stat">
+                  <div className="stat-label">{item.l}</div>
+                  <div className="mono" style={{ fontSize: 13, color: 'var(--fg-0)' }}>{item.v}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ flex: 1 }} />
+
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              className="btn"
+              onClick={() => addMutation.mutate()}
+              disabled={isInWatchlist || addMutation.isPending}
+              style={{ opacity: isInWatchlist ? 0.6 : 1 }}
+            >
+              <svg className="ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l2.6 5.6 6 .8-4.4 4.3 1 6L12 16.9 6.8 19.7l1-6L3.4 9.4l6-.8L12 3z" />
+              </svg>
+              {addedMsg || (isInWatchlist ? '已自选' : '加入自选')}
+            </button>
+            <Link href={`/replay/${encodeURIComponent(symbol)}${sourceQuery}`} className="btn primary">
+              <svg className="ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" /><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none" />
+              </svg>
+              进入复盘
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--line-1)', background: 'var(--bg-1)', flexShrink: 0 }}>
+        <div className="tweak-segment">
+          {TIMEFRAMES.map(tf => (
+            <button key={tf.value} className={timeframe === tf.value ? 'on' : ''} onClick={() => setTimeframe(tf.value)}
+              style={{ minWidth: 44, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.04em' }}>
+              {tf.label}
+            </button>
+          ))}
+        </div>
+        <div className="mr-topbar-divider" />
+        <button className={`btn small${logScale ? '' : ' ghost'}`} onClick={() => setLogScale(v => !v)}>
+          对数刻度
+        </button>
+        <button className={`btn small${impulseEnabled ? '' : ' ghost'}`} onClick={() => setImpulseEnabled(!impulseEnabled)}>
+          <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: impulseEnabled ? '#22c55e' : 'var(--fg-3)' }} />
+            Impulse
+          </span>
+        </button>
+        <button className="btn small ghost" onClick={() => setIsFullscreen(v => !v)} title={isFullscreen ? '退出全屏 (Esc)' : '全屏'}>
+          {isFullscreen ? (
+            <svg style={{ width: 13, height: 13 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" />
+            </svg>
+          ) : (
+            <svg style={{ width: 13, height: 13 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
+            </svg>
+          )}
+        </button>
+        <div style={{ flex: 1 }} />
+        {isLoadingMore && (
+          <span className="mono" style={{ fontSize: 10.5, color: 'var(--fg-2)' }}>加载历史…</span>
+        )}
+        <span className="mono" style={{ fontSize: 10.5, color: 'var(--fg-2)' }}>
+          {allCandles.length} 根K线
+        </span>
+      </div>
+
+      {/* Chart */}
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        {candlesLoading && (
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--fg-2)' }}>
+            <div style={{ width: 28, height: 28, border: '2.5px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+            <span className="mono" style={{ fontSize: 11.5 }}>加载 {symbol} · {timeframe}…</span>
+          </div>
+        )}
+        {errMsg && (
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--down)' }}>
+            <span style={{ fontSize: 13 }}>{errMsg}</span>
+          </div>
+        )}
+        {!candlesLoading && !errMsg && allCandles.length === 0 && (
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg-3)', fontSize: 13 }}>
+            暂无数据
+          </div>
+        )}
+        {allCandles.length > 0 && (
+          <CandlestickChart
+            candles={allCandles}
+            indicators={indicators}
+            logScale={logScale}
+            maPeriods={maPeriods}
+            onMaPeriodsChange={setMaPeriods}
+            isLoadingMore={isLoadingMore}
+            onScrollToLeft={loadMoreCandles}
+            impulseColors={impulseColors}
+            chanlun={chanlun}
+            chanlunLoading={chanlunOn && chanlunLoading}
+            onChanlunRequest={
+              CHANLUN_TIMEFRAMES.includes(timeframe)
+                ? () => setChanlunOn(true)
+                : undefined
+            }
+          />
+        )}
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
+
+  return isFullscreen ? (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'var(--bg-0)', display: 'flex', flexDirection: 'column' }}>
+      {pageContent}
+    </div>
+  ) : pageContent
+}

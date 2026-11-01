@@ -3,7 +3,7 @@
 > 状态：M0（备份与因果性）已交付，本文冻结 M1—M3 路线。本文档为架构实施文档，
 > 不包含实现；任何里程碑的实现都不得超出各自边界（见「延后事项」与「红线」）。
 > 关联文档：`docs/runbooks/ALERT_V1_BACKUP_RESTORE.md`（V1 快照与恢复）、
-> `PROGRESS.md`（M0 执行记录）。
+> `docs/archive/PROGRESS_2026H1.md`（M0 执行记录）。
 
 ## 0. 背景与原则
 

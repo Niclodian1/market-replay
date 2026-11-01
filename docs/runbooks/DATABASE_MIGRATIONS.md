@@ -21,14 +21,14 @@
 生产库已有全部表，**不要**执行 upgrade，只需打标记：
 
 ```bash
-cd backend
+cd apps/platform-api
 alembic stamp head          # 写入 alembic_version=0001_baseline
 ```
 
 ## 新环境部署
 
 ```bash
-cd backend
+cd apps/platform-api
 export DB_AUTO_DDL=false
 alembic upgrade head        # 空库建出 13 张表
 ```
@@ -39,7 +39,7 @@ alembic upgrade head        # 空库建出 13 张表
 2. 自动生成迁移并人工审查：
 
 ```bash
-cd backend
+cd apps/platform-api
 alembic revision --autogenerate -m "add xxx"
 # 审查 versions/ 下新文件——autogenerate 不识别 CHECK 约束变化与部分默认值
 alembic upgrade head

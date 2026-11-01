@@ -277,7 +277,7 @@ def summarize(n, realized, trade_rets, trade_log, curve, dates, closes):
 
 def _load_crypto_candles(ticker, timeframe):
     root = Path(__file__).resolve().parents[2]
-    sys.path.insert(0, str(root / "backend"))
+    sys.path.insert(0, str(root / "apps" / "platform-api"))
     from app.providers.local_crypto import LocalCryptoProvider
 
     candles = asyncio.run(LocalCryptoProvider().get_full_history(ticker, timeframe))
@@ -310,7 +310,7 @@ def _load_yfinance_daily(ticker):
 def _completed_daily_source(ticker, source):
     """Normalise timestamps and remove a still-forming final daily candle."""
     root = Path(__file__).resolve().parents[2]
-    sys.path.insert(0, str(root / "backend"))
+    sys.path.insert(0, str(root / "apps" / "platform-api"))
     from app.core.ma_opportunities import completed_daily_candles
 
     def timestamp(value):
@@ -342,7 +342,7 @@ def backtest_symbol(ticker, timeframe="1day"):
     print(f"  下载数据: {ticker} {timeframe} ...", end=" ", flush=True)
     if ticker == "XAUUSD" and timeframe == "1day":
         root = Path(__file__).resolve().parents[2]
-        sys.path.insert(0, str(root / "backend"))
+        sys.path.insert(0, str(root / "apps" / "platform-api"))
         from app.providers.dukascopy import get_xau_provider
         candles = asyncio.run(get_xau_provider().get_full_history(ticker, timeframe))
         ohlc_src = {
@@ -704,7 +704,7 @@ def main(only_symbol=None, skip_excel=False, skip_html=False, timeframe="1day"):
 
     # ── 导出 JSON 供前端 /ma-strategies 页面读取 ──
     from backtest_json_export import export_json, write_manifest
-    json_dir = str(Path(__file__).resolve().parents[2] / "backend" / "data" / ("ma_strategies" if timeframe == "1day" else f"ma_strategies_{timeframe}"))
+    json_dir = str(Path(__file__).resolve().parents[2] / "apps" / "platform-api" / "data" / ("ma_strategies" if timeframe == "1day" else f"ma_strategies_{timeframe}"))
     os.makedirs(json_dir, exist_ok=True)
     print(f"\n导出 JSON → {json_dir}")
     for sym, data in all_results.items():

@@ -1,0 +1,17 @@
+{
+  "schema_version": "exp1",
+  "name": "ma20 breakout 2R（由 strategy_c_ma_pool_compare.py 迁移）",
+  "universe": { "symbols": ["BTC-USD"], "timeframes": ["1day"] },
+  "period": { "from": "2018-01-01T00:00:00Z" },
+  "entry": { "all": [{ "indicator": "ma.breakout", "params": { "periods": [20] } }] },
+  "exit": {
+    "any": [
+      { "type": "stop", "atr": 2.0 },
+      { "type": "target", "r": 2.0 },
+      { "type": "time", "bars": 60 }
+    ]
+  },
+  "sizing": { "mode": "fixed_risk", "risk_pct": 1.0 },
+  "costs": { "fee_bps": 10, "slippage_bps": 5 },
+  "validation": { "split": "holdout", "dev_share": 0.7, "min_trades": 5 }
+}

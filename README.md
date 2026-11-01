@@ -2,6 +2,12 @@
 
 A full-stack web application for replaying and analyzing historical market data, built with Next.js 14, FastAPI, and PostgreSQL.
 
+> **本仓包含两个产品 + 两个共享包**（详见 [STATUS.md](STATUS.md) 与 [docs/README.md](docs/README.md)）：
+> - `apps/platform-api` + `apps/platform-web`：盯盘 / 统计 / 实验台 / 告警（主产品）
+> - `apps/chanlun-web`：缠论练习与教学静态站
+> - `packages/indicator-core`：统一指标层（Series / Event / Outcome 契约）
+> - `packages/chanlun-core`：缠论引擎（`apps/chanlun-web/chanlun.py` 为兼容 shim）
+
 ## Features
 
 - **Multi-asset search** — stocks, ETFs, indices, crypto spot, crypto perpetuals, and equity perpetuals
@@ -52,32 +58,26 @@ docker compose down
 
 ```
 market-replay/
-├── backend/
-│   ├── app/
-│   │   ├── api/              # FastAPI routers
-│   │   │   ├── health.py
-│   │   │   ├── market.py
-│   │   │   ├── watchlist_api.py
-│   │   │   └── replay_notes_api.py
-│   │   ├── core/             # Config, indicator calculations
-│   │   ├── db/               # SQLAlchemy engine & session
-│   │   ├── models/           # ORM models (User, Watchlist, ReplayNote)
-│   │   ├── providers/        # Binance, Hyperliquid, local crypto parquet, Dukascopy, Yahoo Finance
-│   │   └── schemas/          # Pydantic request/response models
-│   └── requirements.txt
-└── frontend/
-    ├── app/
-    │   └── (main)/
-    │       ├── chart/[symbol]/   # Chart page with dynamic loading
-    │       ├── replay/[symbol]/  # Replay mode page
-    │       └── notes/            # Replay notes listing
-    ├── components/
-    │   ├── chart/CandlestickChart.tsx
-    │   ├── ReplayControls.tsx
-    │   └── ReplayNoteForm.tsx
-    ├── lib/
-    │   ├── api.ts            # Axios API client
-    │   └── indicators.ts     # Client-side MA/RSI/MACD calculations
+├── apps/
+│   ├── platform-api/          # FastAPI（原 backend/）
+│   │   ├── app/
+│   │   │   ├── api/           # REST routers（含 /api/series、/api/stats、/api/library、/api/experiments）
+│   │   │   ├── core/          # 指标层、事件入库、告警、行情读取
+│   │   │   ├── experiment_core/  # spec / runner / artifacts
+│   │   │   ├── library/       # 指标库与发布门禁
+│   │   │   └── models/        # SQLAlchemy ORM
+│   │   └── tests/
+│   ├── platform-web/          # Next.js（原 frontend/）
+│   │   ├── app/(main)/        # watch / practice / stats / lab / library / replay / chart
+│   │   ├── components/
+│   │   ├── lib/               # api.ts、practiceCore.ts、staticData.ts
+│   │   └── tests/             # node --test
+│   └── chanlun-web/           # 缠论练习/教学静态站（原 fenxing/）
+├── packages/indicator-core/   # 统一指标层（可独立安装）
+├── packages/chanlun-core/     # 缠论引擎（分型/笔/线段/中枢/买卖点）
+├── scripts/                   # 数据构建、因果审计、回填、告警 CLI
+├── docs/refactor/             # 架构设计与实施记录
+└── data/                      # 行情源与实验产物（产物 gitignore）
     └── store/useAppStore.ts
 ```
 
@@ -104,7 +104,7 @@ market-replay/
 
 ## Data Sources
 
-Market data is routed per symbol/timeframe by `backend/app/providers/` and `core/candle_store.py`:
+Market data is routed per symbol/timeframe by `apps/platform-api/app/providers/` and `core/candle_store.py`:
 
 | Symbol / timeframe | Source | Notes |
 |--------------------|--------|-------|
@@ -164,4 +164,4 @@ Hyperliquid perpetual.
 - Single-user application. All data is stored under a default user (no authentication required).
 - Market data is fetched live from Yahoo Finance. Rate limits may apply for rapid sequential requests.
 - Tables are auto-created on first startup — no migration tool needed for development.
-- Daily-report rules, SMTP configuration, formulas, data fallbacks, and maintenance steps are documented in [`email_alter.md`](email_alter.md).
+- Daily-report rules, SMTP configuration, formulas, data fallbacks, and maintenance steps are documented in [`docs/runbooks/DAILY_EMAIL_REPORT.md`](docs/runbooks/DAILY_EMAIL_REPORT.md).

@@ -23,12 +23,12 @@ HTML邮件使用系统无衬线中文字体栈（优先苹方、微软雅黑）�
 
 主要实现：
 
-- `backend/app/core/daily_report_analysis.py`：公式、热度聚合、机会过滤和渲染。
-- `backend/app/core/daily_report_sources.py`：行情榜单、热榜、官方事件和缓存适配。
-- `backend/app/core/daily_report_service.py`：市场编排、数据库、幂等和重试。
-- `backend/app/core/daily_report_delivery.py`：SMTP 与 Discord 投递。
-- `backend/app/tasks/alert_scheduler.py`：08:00 调度。
-- `backend/app/tasks/daily_report_cli.py`：手动预览和发送。
+- `apps/platform-api/app/core/daily_report_analysis.py`：公式、热度聚合、机会过滤和渲染。
+- `apps/platform-api/app/core/daily_report_sources.py`：行情榜单、热榜、官方事件和缓存适配。
+- `apps/platform-api/app/core/daily_report_service.py`：市场编排、数据库、幂等和重试。
+- `apps/platform-api/app/core/daily_report_delivery.py`：SMTP 与 Discord 投递。
+- `apps/platform-api/app/tasks/alert_scheduler.py`：08:00 调度。
+- `apps/platform-api/app/tasks/daily_report_cli.py`：手动预览和发送。
 
 ## 2. 报告结构
 
@@ -271,7 +271,7 @@ python -m app.tasks.daily_report_cli --send
 运行：
 
 ```bash
-cd backend
+cd apps/platform-api
 pytest -q
 ```
 

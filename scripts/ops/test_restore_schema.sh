@@ -132,16 +132,16 @@ pass "失败后现场自动复原（users=2 / replay_notes=2 / FK 存在且生�
 
 # ── 4. 源码同步恢复：删除快照外新增文件 ───────────────────────────────────────
 echo "== 源码同步沙箱测试 =="
-mkdir -p "$SANDBOX/backend/app" "$SANDBOX/backend/tests"
-printf 'stale\n' > "$SANDBOX/backend/app/added_after_snapshot.py"
-printf 'stale\n' > "$SANDBOX/backend/tests/test_added_after_snapshot.py"
+mkdir -p "$SANDBOX/apps/platform-api/app" "$SANDBOX/apps/platform-api/tests"
+printf 'stale\n' > "$SANDBOX/apps/platform-api/app/added_after_snapshot.py"
+printf 'stale\n' > "$SANDBOX/apps/platform-api/tests/test_added_after_snapshot.py"
 _sync_source "$BACKUP_DIR" "$SANDBOX"
-[ -d "$SANDBOX/backend/app" ] || fail "backend/app 未恢复"
-[ -f "$SANDBOX/backend/app/core/trend_classifier.py" ] || fail "backend/app 内容未恢复"
+[ -d "$SANDBOX/apps/platform-api/app" ] || fail "apps/platform-api/app 未恢复"
+[ -f "$SANDBOX/backend/app/core/trend_classifier.py" ] || fail "apps/platform-api/app 内容未恢复"
 [ -f "$SANDBOX/.env.example" ] || fail ".env.example 未恢复"
 [ -f "$SANDBOX/docker-compose.yml" ] || fail "docker-compose.yml 未恢复"
-[ ! -e "$SANDBOX/backend/app/added_after_snapshot.py" ] || fail "快照外新增文件未被删除"
-[ ! -e "$SANDBOX/backend/tests/test_added_after_snapshot.py" ] || fail "快照外新增测试文件未被删除"
+[ ! -e "$SANDBOX/apps/platform-api/app/added_after_snapshot.py" ] || fail "快照外新增文件未被删除"
+[ ! -e "$SANDBOX/apps/platform-api/tests/test_added_after_snapshot.py" ] || fail "快照外新增测试文件未被删除"
 pass "源码同步：覆盖白名单路径并删除快照外新增文件"
 
 echo ""

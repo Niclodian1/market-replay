@@ -1,0 +1,58 @@
+# 实验登记表（唯一事实源）——字段说明见 labs/README.md
+# status: active（在做）| promoted（已进产品）| archived（已冻结，结论写在这里）
+experiments:
+  - id: ma-a-atr-entry
+    title: MA A 策略实体过滤对比（固定 3% vs ATR14）
+    hypothesis: 用 ATR14 实体过滤替代固定 3% 阈值，能提高多品种面板的期望与稳健性
+    status: active
+    data: [US equity, HK equity, CN equity, gold, crypto]
+    command: python3 experiments/ma_a_atr_entry/run_experiment.py
+    artifacts: experiments/ma_a_atr_entry/results
+    conclusion_date: null
+
+  - id: strategy-c-ma-pool
+    title: 策略 C 均线池比较（MA 参数池 + 稳健性网格）
+    hypothesis: 均线池中固定偏好参数在多品种上优于单参数
+    status: active
+    data: [US equity, HK equity, CN equity, crypto]
+    command: python3 experiments/strategy_c_ma_pool_experiment.py
+    artifacts: experiments/strategy_c_ma_pool_compare.xlsx
+    conclusion_date: null
+
+  - id: strategy-c-robustness-sweep
+    title: 策略 C 参数稳健性扫描
+    hypothesis: 参数邻域内表现平滑的参数组合才可上线
+    status: active
+    data: [crypto, US equity]
+    command: python3 experiments/strategy_c_robustness_sweep.py
+    artifacts: experiments/strategy_c_robustness_grids.xlsx
+    conclusion_date: null
+
+  - id: segmented-add
+    title: 分段加仓实验
+    hypothesis: 按结构分段加仓优于一次性满仓
+    status: active
+    data: [crypto]
+    command: python3 experiments/segmented_add_experiment.py
+    artifacts: null
+    conclusion_date: null
+
+  - id: spec-ma-breakout-2r
+    title: MA20 突破 2R（spec 化样例，由 strategy-c-ma-pool 迁移）
+    hypothesis: 声明式 spec 能复现旧脚本的「突破 + ATR 止损 + 2R 止盈」口径
+    status: promoted
+    data: [crypto]
+    command: python3 scripts/run_experiment_spec.py experiments/specs/ma_breakout_2r.spec.json
+    artifacts: null
+    conclusion_date: 2026-10-22
+    conclusion: BTC-USD 1day 上 75 笔交易（stop 54 / target 15 / time 6），expectancy -0.32R，未达发布门槛
+
+  - id: ma-backtests-family
+    title: MA 同族历史回测脚本（base/3x/c）
+    hypothesis: 历史 MA 变体的对比结论（已固化为 /api/ma-strategies-unified 的数据产物）
+    status: archived
+    data: [crypto, US equity]
+    command: python3 labs/backtests/ma.py --variant base
+    artifacts: apps/platform-web/public/data/ma_strategies
+    conclusion_date: 2026-10-22
+    conclusion: 结果读取已收敛到 /api/ma-strategies-unified，旧 3 个 router 标 deprecated；脚本保留可回滚

@@ -4,7 +4,7 @@
 > 不接生产 monitor，不改变 V1 任何行为。本文为 M2 架构与可回放契约。
 > 关联：`docs/architecture/ALERT_V2_ROADMAP.md`（M2 路线定义）、
 > `docs/architecture/MARKET_STATE_V1.md`（M1 单周期 MarketState）、
-> `PROGRESS.md`（M2 执行记录，含复验整改）。
+> `docs/archive/PROGRESS_2026H1.md`（M2 执行记录，含复验整改）。
 
 ## 1. 目标与边界
 
@@ -21,9 +21,9 @@
 - 股票时区、1H 周期、Pinbar 不进入首版（见 §8 延后项）。
 
 代码边界（白名单，其余只读）：
-- 新增 `backend/app/core/multi_timeframe.py`（纯计算，无网络/库/时钟读取）；
-- 新增 `backend/app/schemas/market_fusion.py`（Pydantic 数据契约，非 DB/API schema）；
-- 新增 `backend/tests/test_multi_timeframe_fusion.py`（57 项：24 原项 + 11 首轮反例 + 15 第二轮反例/整改 + 7 第三轮反例）；
+- 新增 `apps/platform-api/app/core/multi_timeframe.py`（纯计算，无网络/库/时钟读取）；
+- 新增 `apps/platform-api/app/schemas/market_fusion.py`（Pydantic 数据契约，非 DB/API schema）；
+- 新增 `apps/platform-api/tests/test_multi_timeframe_fusion.py`（57 项：24 原项 + 11 首轮反例 + 15 第二轮反例/整改 + 7 第三轮反例）；
 - 未改 V1 文案 / dedupe / payload / 渠道；未接 Pinbar / 1H / 股票；
   未提交 commit；未动 monitor / API / models / DB migration / providers /
   现有测试 / golden / 前端 / 依赖。
