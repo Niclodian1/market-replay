@@ -8,7 +8,8 @@ const functions=source.slice(source.indexOf('function annImportData('),source.in
 const time=Date.UTC(2025,0,31)/1000;
 function session(){
   const tips=[];
-  const context={ANN:{decisions:{}},currentSym:'BTC',activeTF:'1D',ANN_SOURCES:{manual_buy_v1:{name:'我的买点'}},
+  const context={ANN:{decisions:{}},currentSym:'BTC',activeTF:'1D',MANUAL_SOURCE:'manual_buy_v1',
+    ANN_SOURCES:{manual_buy_v1:{name:'我的买点'}},
     candlesFor:()=>[{time,open:100,high:110,low:90,close:105}],fmtTime:t=>String(t),annDate:t=>new Date(t*1000).toISOString().slice(0,10),
     annTip:t=>tips.push(t),annSave:()=>true,annBuildSigs(){},annRender(){},annSumRender(){},
     annFeatures(){throw new Error('手选样本不能退回含未来收益的旧特征计算');}};

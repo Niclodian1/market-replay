@@ -116,12 +116,18 @@ chart.subscribeCrosshairMove(param => {
       const pp = last.close ? dp / last.close * 100 : 0;
       const nb = i == null ? 0 : cs.length - 1 - i;
       const col = dp >= 0 ? 'var(--up)' : 'var(--down)';
-      // 先展示光标当前价格(轴标签会被本浮标遮挡), 再展示距最新的距离
-      dist.innerHTML = `<b style="color:var(--ink)">${fmt(px)}</b> · 距最新 <span style="color:${col}">${dp >= 0 ? '+' : ''}${fmt(dp)} (${pp >= 0 ? '+' : ''}${pp.toFixed(2)}%)</span>${nb > 0 ? ` · ${nb}根` : ''}`;
+      // 严格收在右侧价格栏宽度内(不遮挡K线), 紧贴十字光标价格标下方(底部空间不足时自动翻到上方)
+      const rw = Math.max(54, (chart && chart.priceScale('right').width()) || 68);
+      dist.style.width = (rw - 2) + 'px';
+      dist.innerHTML = `<div style="color:${col};font-weight:700">${pp >= 0 ? '+' : ''}${pp.toFixed(2)}%</div><div style="color:${col}">${dp >= 0 ? '+' : ''}${fmt(dp)}</div>${nb > 0 ? `<div style="color:var(--muted)">${nb}根</div>` : ''}`;
       dist.style.color = '';
       const boxRect = document.querySelector('.chart-box').getBoundingClientRect();
       const chRect = document.getElementById('chart').getBoundingClientRect();
-      const top = Math.min(chRect.height - 12, Math.max(12, (chRect.top - boxRect.top) + param.point.y));
+      const rawY = (chRect.top - boxRect.top) + param.point.y;
+      const tagH = nb > 0 ? 44 : 32;
+      const top = (param.point.y > chRect.height - tagH - 18)
+        ? Math.max(4, rawY - tagH - 13)
+        : (rawY + 13);
       dist.style.top = Math.round(top) + 'px';
       dist.style.display = 'block';
     }
@@ -527,7 +533,12 @@ setView(QP.get('view') === 'merged' ? 'merged' : 'raw');
 if (QP.get('pivot') === 'stroke') setPivotMode('stroke');
 if (QP.get('std') === 'old') setStd('old');
 if (QP.get('tf') && DATA.meta.timeframes.includes(QP.get('tf'))) setTF(QP.get('tf'));
-if (QP.get('sym')) switchSymbol(QP.get('sym').toUpperCase(), true);
+const __initSym = QP.get('sym') || QP.get('symbol');
+if (__initSym) {
+  const __runInitSym = () => switchSymbol(typeof normalizeSymKey === 'function' ? normalizeSymKey(__initSym) : __initSym.toUpperCase(), true);
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', __runInitSym, { once: true });
+  else setTimeout(__runInitSym, 0);
+}
 // 全局错误捕获: 保留最近 5 条完整堆栈, 点快照按钮可查看(避免静默失败且信息丢失)
 globalThis.__ERRS = [];
 const __pushErr = msg => {

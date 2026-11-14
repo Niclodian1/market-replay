@@ -313,9 +313,15 @@ def update_cn_index(panel_id: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     old = pd.read_parquet(path) if path.exists() else None
     start='0' if old is None else (pd.to_datetime(int(old.time.max()),unit='s',utc=True)-pd.Timedelta(days=7)).strftime('%Y%m%d')
-    frame = _drop_incomplete_candle(_fetch_eastmoney_index(secid,start))
-    if frame.empty:
-        raise RuntimeError(f"{symbol} 东方财富日线为空")
+    try:
+        frame = _drop_incomplete_candle(_fetch_eastmoney_index(secid, start))
+        if frame.empty:
+            raise RuntimeError(f"{symbol} 东方财富日线为空")
+    except Exception as exc:
+        print(f"[index]  {symbol:<10} 东方财富不可用({type(exc).__name__})，改用腾讯行情", flush=True)
+        frame = _drop_incomplete_candle(_fetch_tencent_index(secid, start))
+        if frame.empty:
+            raise RuntimeError(f"{symbol} 腾讯日线为空")
     if old is not None:
         frame=pd.concat([old,frame],ignore_index=True).drop_duplicates('time',keep='last').sort_values('time').reset_index(drop=True)
     temporary=path.with_suffix('.parquet.tmp')
@@ -324,6 +330,39 @@ def update_cn_index(panel_id: str) -> None:
     added = len(frame) - (0 if old is None else len(old))
     last = pd.to_datetime(int(frame["time"].iloc[-1]), unit="s", utc=True).date()
     print(f"[index]  {symbol:<10} {len(frame):>6} 根 {added:+d} → 截止 {last}")
+
+
+def _fetch_tencent_index(secid: str, start: str = '0') -> pd.DataFrame:
+    """东方财富不可达时的备用源：腾讯行情日K(同口径 UTC 零点对齐, 成交量单位一致)。
+
+    东方财富 push2his 从境外网络经常直接断连, 这里用腾讯同一指数兜底。
+    注意腾讯返回列序是 [date, open, close, high, low, volume]。
+    """
+    import requests
+
+    code = ("sh" if secid.startswith("1.") else "sz") + secid.split(".")[-1]
+    response = requests.get(
+        "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",
+        params={"param": f"{code},day,,,1000,"},
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    block = (response.json().get("data") or {}).get(code) or {}
+    rows = block.get("day") or block.get("qfqday") or []
+    if not rows:
+        raise RuntimeError(f"腾讯 {code} 日线为空")
+    records = []
+    for row in rows:
+        date = str(row[0])
+        if start != '0' and date.replace('-', '') < start:
+            continue
+        records.append((
+            int(pd.Timestamp(date, tz='UTC').timestamp()),
+            float(row[1]), float(row[3]), float(row[4]), float(row[2]), float(row[5]),
+        ))
+    return (pd.DataFrame(records, columns=["time", "open", "high", "low", "close", "volume"])
+            .sort_values("time").reset_index(drop=True))
 
 
 def update_metal(panel_id: str) -> None:

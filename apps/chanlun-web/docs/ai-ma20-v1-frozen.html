@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI-MA20交易算法 (AI-MA20-v1.0-FROZEN) · 冻结存档说明书</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --tx:#c9d1d9; --tx2:#8b949e; --up:#10b981; --ac:#38bdf8; --dn:#f87171; }
+  body { margin:0; background:var(--bg); color:var(--tx); font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding:28px 24px 60px; }
+  .wrap { max-width:1360px; margin:0 auto; }
+  h1 { margin:0 0 6px; font-size:24px; }
+  h2 { margin:28px 0 12px; font-size:17px; border-bottom:1px solid var(--line); padding-bottom:6px; color:#f0f6fc; }
+  .sub { color:var(--tx2); font-size:13px; margin-bottom:20px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px 18px; margin-bottom:18px; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; font-variant-numeric:tabular-nums; }
+  th, td { padding:7px 9px; border-bottom:1px solid #21262d; text-align:right; white-space:nowrap; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2), th:nth-child(4), td:nth-child(4), th:last-child, td:last-child { text-align:left; }
+  th { color:var(--tx2); font-weight:600; background:#0d111788; }
+  code { background:#ffffff12; padding:2px 5px; border-radius:4px; font-size:12px; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; background:#10b98122; color:#10b981; border:1px solid #10b98155; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AI-MA20交易算法 <span class="badge">AI-MA20-v1.0-FROZEN</span></h1>
+  <div class="sub">
+    基准标的：BTC/USD 1D（2017-08-17 → 2026-11-02，3366 根K线） · 冻结日期：2026-11-04 ·
+    数据指纹：<code>24d24110585b2e72</code>
+  </div>
+
+  <h2>一、 不同置信度档位的历史止损率与订单期望总表</h2>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>置信度分档与仓位</th>
+          <th>概率区间</th>
+          <th>订单笔数</th>
+          <th>平均P</th>
+          <th>平均1R宽</th>
+          <th>≤5根快损率</th>
+          <th>≤10根止损率</th>
+          <th>≤20根止损率</th>
+          <th>120根总止损率</th>
+          <th>未触止损率</th>
+          <th>MA20离场止损率</th>
+          <th>≥1R达成率</th>
+          <th>≥3R大波段率</th>
+          <th>策略A均R (合计R)</th>
+          <th>MA20离场均R</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr style="background:#10b98114">
+          <td><b>★ 高置信度买点 (2.0x 重仓)</b></td>
+          <td><code>P ≥ 58%</code></td>
+          <td><b>39 笔</b></td>
+          <td>63.1%</td>
+          <td>3.02%</td>
+          <td style="color:#f87171">30.8%</td>
+          <td style="color:#f87171">33.3%</td>
+          <td style="color:#f87171">51.3%</td>
+          <td style="color:#f87171;font-weight:600">66.7%</td>
+          <td style="color:#10b981;font-weight:600">33.3%</td>
+          <td>51.3%</td>
+          <td>69.2%</td>
+          <td style="color:#10b981;font-weight:600">59.0%</td>
+          <td style="color:#10b981;font-weight:700">+12.64R (+493.1R)</td>
+          <td>+4.61R</td>
+        </tr>
+        
+        <tr style="background:#38bdf812">
+          <td><b>● 中置信度买点 (1.0x 标准仓)</b></td>
+          <td><code>45% ≤ P < 58%</code></td>
+          <td><b>52 笔</b></td>
+          <td>50.5%</td>
+          <td>3.92%</td>
+          <td style="color:#f87171">46.2%</td>
+          <td style="color:#f87171">55.8%</td>
+          <td style="color:#f87171">63.5%</td>
+          <td style="color:#f87171;font-weight:600">82.7%</td>
+          <td style="color:#10b981;font-weight:600">17.3%</td>
+          <td>69.2%</td>
+          <td>50.0%</td>
+          <td style="color:#10b981;font-weight:600">32.7%</td>
+          <td style="color:#10b981;font-weight:700">+2.30R (+119.8R)</td>
+          <td>+0.82R</td>
+        </tr>
+        
+        <tr style="border-top:2px solid #30363d">
+          <td><b>✓ 全部买入买点 (1.0x + 2.0x)</b></td>
+          <td><code>P ≥ 45%</code></td>
+          <td><b>91 笔</b></td>
+          <td>56.0%</td>
+          <td>3.53%</td>
+          <td style="color:#f87171">39.6%</td>
+          <td style="color:#f87171">46.2%</td>
+          <td style="color:#f87171">58.2%</td>
+          <td style="color:#f87171;font-weight:600">75.8%</td>
+          <td style="color:#10b981;font-weight:600">24.2%</td>
+          <td>61.5%</td>
+          <td>58.2%</td>
+          <td style="color:#10b981;font-weight:600">44.0%</td>
+          <td style="color:#10b981;font-weight:700">+6.74R (+613.0R)</td>
+          <td>+2.45R</td>
+        </tr>
+        
+        <tr style="opacity:0.75">
+          <td><b>× 低置信度过滤点 (0x 放弃)</b></td>
+          <td><code>P < 45%</code></td>
+          <td><b>61 笔</b></td>
+          <td>35.3%</td>
+          <td>6.27%</td>
+          <td style="color:#f87171">41.0%</td>
+          <td style="color:#f87171">62.3%</td>
+          <td style="color:#f87171">78.7%</td>
+          <td style="color:#f87171;font-weight:600">93.4%</td>
+          <td style="color:#10b981;font-weight:600">6.6%</td>
+          <td>80.3%</td>
+          <td>41.0%</td>
+          <td style="color:#10b981;font-weight:600">9.8%</td>
+          <td style="color:#10b981;font-weight:700">+0.21R (+13.0R)</td>
+          <td>-0.01R</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>二、 冻结算法三层架构参数</h2>
+  <div class="panel" style="font-size:13px">
+    <ol style="margin:0;padding-left:20px">
+      <li><b>第一层（MA20 突破与 7 因子结构打分）</b>：最近 3 根内上穿 MA20 + 当根阳线 + 距 MA20 ≤ 10%；盘整≥5根(+20)、破下跌趋势线(+20)、实体≥2%(+15)、量比≥1.0(+15)、MACD柱3根走强(+10)、收盘>MA60(+10)、距MA20 1%~3%(+10)，总分 ≥ 30 分入选。当根收盘价买入，当根最低价设为刚性 1R 止损。</li>
+      <li><b>第二层（8 根状态机同波段冷却去重）</b>：同次上穿只取首根 + 8 根冷却期压制震荡重穿；具备「首次站上 MA60 双均线升级」与「前单跌破最低价止损重置」双豁免机制（242 笔候选精简为 152 笔独立波段）。</li>
+      <li><b>第三层（AI Meta-Labeling 置信度分级分仓）</b>：基于 8 个纯因果切片特征（<code>risk_pct, pos90, slope20, tr10_60, vol_ratio, atr_pct, ret20, d20</code>），由冻结版 <code>RobustScaler + L2 LR (65%) + GBDT (35%)</code> 输出达到 ≥3R 的置信度概率 P：
+        <b>P ≥ 0.58</b> 为高置信度（<code>2.0x 重仓买入</code>），<b>0.45 ≤ P &lt; 0.58</b> 为中置信度（<code>1.0x 标准买入</code>），<b>P &lt; 0.45</b> 为低置信度（<code>0x 过滤放弃</code>）。</li>
+    </ol>
+  </div>
+
+  <h2>三、 历史买入订单完整台账（共 91 笔买入信号，P ≥ 0.45）</h2>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>订单编号</th>
+          <th>日期</th>
+          <th>置信度档位</th>
+          <th>AI概率 P</th>
+          <th>规则评级</th>
+          <th>买入价</th>
+          <th>止损价</th>
+          <th>1R止损宽</th>
+          <th>止损结局(120根内)</th>
+          <th>60根最大浮盈</th>
+          <th>策略A净R</th>
+          <th>MA20离场净R</th>
+          <th>AI 白盒特征归因 (Top 3)</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td>1</td>
+          <td><code>AIMA20-20180607</code></td>
+          <td><b>2018-06-07</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>50.7%</b></td>
+          <td>B (50分)</td>
+          <td>7,691.1</td>
+          <td>7,620.0</td>
+          <td>0.92%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(0.92%) +8.5% · MA20斜率(-0.45%) -8.4% · 90日分位(35.1%) +1.7%</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><code>AIMA20-20180716</code></td>
+          <td><b>2018-07-16</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>59.4%</b></td>
+          <td>B (40分)</td>
+          <td>6,723.4</td>
+          <td>6,330.4</td>
+          <td>5.85%</td>
+          <td>第 23 根止损</td>
+          <td>+4.5R (26.3%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+2.04R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(+0.18%) +3.8% · 初始止损宽(5.84%) -3.5% · 90日分位(22.8%) +3.1%</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><code>AIMA20-20180921</code></td>
+          <td><b>2018-09-21</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>46.4%</b></td>
+          <td>A (80分)</td>
+          <td>6,759.0</td>
+          <td>6,491.0</td>
+          <td>3.96%</td>
+          <td>第 4 根止损</td>
+          <td>+0.3R (1.2%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(-0.46%) -9.8% · 振幅压缩比(0.70×) +3.2% · 信号日量比(1.39×) +2.3%</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><code>AIMA20-20181015</code></td>
+          <td><b>2018-10-15</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>67.0%</b></td>
+          <td>A (70分)</td>
+          <td>6,752.5</td>
+          <td>6,300.0</td>
+          <td>6.70%</td>
+          <td>第 16 根止损</td>
+          <td>+0.3R (2.2%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.49R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(3.50×) +15.9% · 初始止损宽(6.70%) -4.5% · 振幅压缩比(0.64×) +4.2%</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><code>AIMA20-20181106</code></td>
+          <td><b>2018-11-06</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>63.9%</b></td>
+          <td>B (40分)</td>
+          <td>6,519.1</td>
+          <td>6,445.2</td>
+          <td>1.13%</td>
+          <td>第 3 根止损</td>
+          <td>+1.3R (1.5%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.53R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.13%) +7.2% · 振幅压缩比(0.60×) +2.7% · 90日分位(35.5%) +1.6%</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><code>AIMA20-20181113</code></td>
+          <td><b>2018-11-13</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>66.7%</b></td>
+          <td>B (55分)</td>
+          <td>6,457.7</td>
+          <td>6,391.1</td>
+          <td>1.03%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.03%) +7.1% · 90日分位(22.1%) +3.1% · 振幅压缩比(0.61×) +2.8%</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><code>AIMA20-20190106</code></td>
+          <td><b>2019-01-06</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>60.4%</b></td>
+          <td>B (45分)</td>
+          <td>3,987.6</td>
+          <td>3,740.0</td>
+          <td>6.21%</td>
+          <td>第 4 根止损</td>
+          <td>+0.3R (2.1%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(+0.73%) +8.8% · 初始止损宽(6.21%) -4.2% · 90日分位(18.4%) +3.5%</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td><code>AIMA20-20190208</code></td>
+          <td><b>2019-02-08</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>58.0%</b></td>
+          <td>A (90分)</td>
+          <td>3,659.0</td>
+          <td>3,373.1</td>
+          <td>7.81%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+5.8R (148.0%)</td>
+          <td style="color:#10b981;font-weight:600">+14.81R</td>
+          <td style="color:#10b981">+0.20R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(7.81%) -7.6% · 振幅压缩比(0.46×) +6.7% · 信号日量比(1.94×) +6.4%</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td><code>AIMA20-20190305</code></td>
+          <td><b>2019-03-05</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>51.0%</b></td>
+          <td>A (70分)</td>
+          <td>3,857.7</td>
+          <td>3,703.6</td>
+          <td>4.00%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+13.2R (262.1%)</td>
+          <td style="color:#10b981;font-weight:600">+52.42R</td>
+          <td style="color:#10b981">+0.51R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(+0.21%) +4.2% · 振幅压缩比(1.17×) -3.2% · 90日分位(67.3%) -2.3%</td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td><code>AIMA20-20190327</code></td>
+          <td><b>2019-03-27</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>62.6%</b></td>
+          <td>B (50分)</td>
+          <td>4,038.1</td>
+          <td>3,936.2</td>
+          <td>2.52%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+46.1R (246.0%)</td>
+          <td style="color:#10b981;font-weight:600">+57.33R</td>
+          <td style="color:#10b981">+40.02R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.52%) +5.0% · MA20斜率(+0.21%) +4.0% · 90日分位(81.1%) -3.8%</td>
+        </tr>
+        <tr>
+          <td>11</td>
+          <td><code>AIMA20-20190613</code></td>
+          <td><b>2019-06-13</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>51.2%</b></td>
+          <td>B (40分)</td>
+          <td>8,218.5</td>
+          <td>8,010.0</td>
+          <td>2.54%</td>
+          <td>第 103 根止损</td>
+          <td>+27.6R (70.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+14.98R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.54%) +6.3% · 90日分位(83.6%) -5.1% · MA20斜率(+0.07%) +2.8%</td>
+        </tr>
+        <tr>
+          <td>12</td>
+          <td><code>AIMA20-20190712</code></td>
+          <td><b>2019-07-12</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>51.4%</b></td>
+          <td>B (55分)</td>
+          <td>11,757.2</td>
+          <td>11,073.0</td>
+          <td>5.82%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(+1.02%) +11.3% · 初始止损宽(5.82%) -3.6% · 90日分位(75.5%) -3.1%</td>
+        </tr>
+        <tr>
+          <td>13</td>
+          <td><code>AIMA20-20190903</code></td>
+          <td><b>2019-09-03</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>45.3%</b></td>
+          <td>A (70分)</td>
+          <td>10,615.3</td>
+          <td>10,272.0</td>
+          <td>3.23%</td>
+          <td>第 3 根止损</td>
+          <td>+0.8R (2.7%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(-0.51%) -10.2% · 振幅压缩比(0.73×) +2.7% · 信号日量比(1.40×) +2.3%</td>
+        </tr>
+        <tr>
+          <td>14</td>
+          <td><code>AIMA20-20190912</code></td>
+          <td><b>2019-09-12</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>54.7%</b></td>
+          <td>B (50分)</td>
+          <td>10,415.0</td>
+          <td>10,040.0</td>
+          <td>3.60%</td>
+          <td>第 7 根止损</td>
+          <td>+0.1R (0.2%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.61R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(3.60%) +1.9% · 90日分位(39.0%) +1.4% · 振幅压缩比(0.80×) +1.3%</td>
+        </tr>
+        <tr>
+          <td>15</td>
+          <td><code>AIMA20-20191014</code></td>
+          <td><b>2019-10-14</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>45.4%</b></td>
+          <td>B (40分)</td>
+          <td>8,348.2</td>
+          <td>8,203.0</td>
+          <td>1.74%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(-0.77%) -11.8% · 初始止损宽(1.74%) +6.8% · 90日分位(13.8%) +4.0%</td>
+        </tr>
+        <tr>
+          <td>16</td>
+          <td><code>AIMA20-20191020</code></td>
+          <td><b>2019-10-20</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>57.1%</b></td>
+          <td>C (35分)</td>
+          <td>8,223.4</td>
+          <td>7,870.0</td>
+          <td>4.30%</td>
+          <td>第 3 根止损</td>
+          <td>+0.3R (1.3%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.58R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(11.1%) +4.2% · 振幅压缩比(0.76×) +2.2% · MA20斜率(-0.07%) +1.1%</td>
+        </tr>
+        <tr>
+          <td>17</td>
+          <td><code>AIMA20-20191110</code></td>
+          <td><b>2019-11-10</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>63.4%</b></td>
+          <td>B (55分)</td>
+          <td>9,039.5</td>
+          <td>8,750.0</td>
+          <td>3.20%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(+0.55%) +6.9% · 信号日量比(0.61×) -2.7% · 振幅压缩比(0.71×) +2.4%</td>
+        </tr>
+        <tr>
+          <td>18</td>
+          <td><code>AIMA20-20191222</code></td>
+          <td><b>2019-12-22</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>48.7%</b></td>
+          <td>A (65分)</td>
+          <td>7,501.4</td>
+          <td>7,122.5</td>
+          <td>5.05%</td>
+          <td>第 5 根止损</td>
+          <td>+0.5R (2.6%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.78R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(27.1%) +2.6% · 初始止损宽(5.05%) -1.9% · 信号日量比(0.89×) -1.3%</td>
+        </tr>
+        <tr>
+          <td>19</td>
+          <td><code>AIMA20-20200103</code></td>
+          <td><b>2020-01-03</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>61.3%</b></td>
+          <td>B (40分)</td>
+          <td>7,345.0</td>
+          <td>6,871.0</td>
+          <td>6.45%</td>
+          <td>第 69 根止损</td>
+          <td>+6.7R (43.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+2.10R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(1.78×) +5.3% · 初始止损宽(6.45%) -4.7% · 振幅压缩比(0.64×) +4.2%</td>
+        </tr>
+        <tr>
+          <td>20</td>
+          <td><code>AIMA20-20200126</code></td>
+          <td><b>2020-01-26</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>57.4%</b></td>
+          <td>C (35分)</td>
+          <td>8,615.0</td>
+          <td>8,293.7</td>
+          <td>3.73%</td>
+          <td>第 42 根止损</td>
+          <td>+5.9R (21.9%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+3.40R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(+0.70%) +8.5% · 信号日量比(0.52×) -3.5% · 初始止损宽(3.73%) +1.6%</td>
+        </tr>
+        <tr>
+          <td>21</td>
+          <td><code>AIMA20-20200416</code></td>
+          <td><b>2020-04-16</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>53.6%</b></td>
+          <td>C (30分)</td>
+          <td>7,101.9</td>
+          <td>6,468.3</td>
+          <td>8.92%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+5.2R (70.7%)</td>
+          <td style="color:#10b981;font-weight:600">+7.35R</td>
+          <td style="color:#f87171">-0.43R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(8.92%) -10.3% · 振幅压缩比(0.59×) +4.8% · MA20斜率(+0.20%) +3.9%</td>
+        </tr>
+        <tr>
+          <td>22</td>
+          <td><code>AIMA20-20200423</code></td>
+          <td><b>2020-04-23</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>57.8%</b></td>
+          <td>A (70分)</td>
+          <td>7,482.4</td>
+          <td>7,020.0</td>
+          <td>6.18%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+6.3R (66.6%)</td>
+          <td style="color:#10b981;font-weight:600">+8.76R</td>
+          <td style="color:#10b981">+3.43R</td>
+          <td style="color:#8b949e;font-size:12px">振幅压缩比(0.55×) +5.4% · MA20斜率(+0.35%) +5.1% · 初始止损宽(6.18%) -4.3%</td>
+        </tr>
+        <tr>
+          <td>23</td>
+          <td><code>AIMA20-20200622</code></td>
+          <td><b>2020-06-22</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>45.0%</b></td>
+          <td>A (100分)</td>
+          <td>9,685.7</td>
+          <td>9,277.1</td>
+          <td>4.22%</td>
+          <td>第 2 根止损</td>
+          <td>+0.1R (0.3%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(84.6%) -8.7% · 振幅压缩比(0.55×) +4.9% · 信号日量比(1.15×) +0.4%</td>
+        </tr>
+        <tr>
+          <td>24</td>
+          <td><code>AIMA20-20200706</code></td>
+          <td><b>2020-07-06</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>56.7%</b></td>
+          <td>A (80分)</td>
+          <td>9,344.2</td>
+          <td>9,055.9</td>
+          <td>3.08%</td>
+          <td>第 10 根止损</td>
+          <td>+0.4R (1.4%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.39R</td>
+          <td style="color:#8b949e;font-size:12px">振幅压缩比(0.55×) +4.3% · 90日分位(73.5%) -3.2% · 信号日量比(1.32×) +2.3%</td>
+        </tr>
+        <tr>
+          <td>25</td>
+          <td><code>AIMA20-20200708</code></td>
+          <td><b>2020-07-08</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>61.6%</b></td>
+          <td>A (65分)</td>
+          <td>9,436.1</td>
+          <td>9,231.0</td>
+          <td>2.17%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.17%) +5.0% · 振幅压缩比(0.54×) +3.9% · 90日分位(75.9%) -3.3%</td>
+        </tr>
+        <tr>
+          <td>26</td>
+          <td><code>AIMA20-20200710</code></td>
+          <td><b>2020-07-10</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>58.1%</b></td>
+          <td>C (30分)</td>
+          <td>9,288.3</td>
+          <td>9,125.0</td>
+          <td>1.76%</td>
+          <td>第 4 根止损</td>
+          <td>+0.3R (0.6%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.33R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.76%) +5.7% · 振幅压缩比(0.58×) +3.1% · 90日分位(72.1%) -3.0%</td>
+        </tr>
+        <tr>
+          <td>27</td>
+          <td><code>AIMA20-20200721</code></td>
+          <td><b>2020-07-21</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>67.1%</b></td>
+          <td>A (60分)</td>
+          <td>9,390.0</td>
+          <td>9,152.8</td>
+          <td>2.53%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+13.0R (96.8%)</td>
+          <td style="color:#10b981;font-weight:600">+35.35R</td>
+          <td style="color:#10b981">+9.03R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.53%) +4.8% · 振幅压缩比(0.46×) +4.6% · 信号日量比(1.63×) +4.1%</td>
+        </tr>
+        <tr>
+          <td>28</td>
+          <td><code>AIMA20-20200830</code></td>
+          <td><b>2020-08-30</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>51.2%</b></td>
+          <td>B (55分)</td>
+          <td>11,711.2</td>
+          <td>11,458.0</td>
+          <td>2.16%</td>
+          <td>第 3 根止损</td>
+          <td>+1.3R (2.9%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.24R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.16%) +6.0% · 90日分位(79.2%) -3.9% · 信号日量比(0.72×) -2.4%</td>
+        </tr>
+        <tr>
+          <td>29</td>
+          <td><code>AIMA20-20200915</code></td>
+          <td><b>2020-09-15</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>45.7%</b></td>
+          <td>C (30分)</td>
+          <td>10,785.3</td>
+          <td>10,606.5</td>
+          <td>1.66%</td>
+          <td>第 6 根止损</td>
+          <td>+2.2R (3.7%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(-0.47%) -8.7% · 初始止损宽(1.66%) +7.3% · 振幅压缩比(1.01×) -1.4%</td>
+        </tr>
+        <tr>
+          <td>30</td>
+          <td><code>AIMA20-20200924</code></td>
+          <td><b>2020-09-24</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>47.3%</b></td>
+          <td>B (40分)</td>
+          <td>10,736.3</td>
+          <td>10,190.9</td>
+          <td>5.08%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+15.1R (290.7%)</td>
+          <td style="color:#10b981;font-weight:600">+40.72R</td>
+          <td style="color:#f87171">-0.21R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(5.08%) -1.9% · 振幅压缩比(0.81×) +1.2% · MA20斜率(-0.25%) -1.1%</td>
+        </tr>
+        <tr>
+          <td>31</td>
+          <td><code>AIMA20-20201005</code></td>
+          <td><b>2020-10-05</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>62.0%</b></td>
+          <td>C (30分)</td>
+          <td>10,792.2</td>
+          <td>10,615.6</td>
+          <td>1.64%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.64%) +6.2% · 振幅压缩比(0.61×) +2.7% · MA20斜率(+0.05%) +2.6%</td>
+        </tr>
+        <tr>
+          <td>32</td>
+          <td><code>AIMA20-20201008</code></td>
+          <td><b>2020-10-08</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>59.6%</b></td>
+          <td>A (70分)</td>
+          <td>10,925.6</td>
+          <td>10,530.4</td>
+          <td>3.62%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+22.7R (284.0%)</td>
+          <td style="color:#10b981;font-weight:600">+69.25R</td>
+          <td style="color:#10b981">+18.72R</td>
+          <td style="color:#8b949e;font-size:12px">振幅压缩比(0.63×) +3.7% · 信号日量比(1.21×) +1.6% · 初始止损宽(3.62%) +1.4%</td>
+        </tr>
+        <tr>
+          <td>33</td>
+          <td><code>AIMA20-20201009</code></td>
+          <td><b>2020-10-09</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>61.2%</b></td>
+          <td>B (55分)</td>
+          <td>11,050.6</td>
+          <td>10,829.0</td>
+          <td>2.01%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+39.9R (279.6%)</td>
+          <td style="color:#10b981;font-weight:600">+126.95R</td>
+          <td style="color:#10b981">+32.82R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.01%) +5.5% · 振幅压缩比(0.64×) +3.1% · MA20斜率(-0.06%) +1.2%</td>
+        </tr>
+        <tr>
+          <td>34</td>
+          <td><code>AIMA20-20210303</code></td>
+          <td><b>2021-03-03</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>48.3%</b></td>
+          <td>B (55分)</td>
+          <td>50,349.4</td>
+          <td>48,100.7</td>
+          <td>4.47%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(+0.31%) +4.8% · 90日分位(80.4%) -3.7% · 振幅压缩比(1.06×) -2.0%</td>
+        </tr>
+        <tr>
+          <td>35</td>
+          <td><code>AIMA20-20210307</code></td>
+          <td><b>2021-03-07</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>50.1%</b></td>
+          <td>A (65分)</td>
+          <td>50,971.8</td>
+          <td>48,882.2</td>
+          <td>4.10%</td>
+          <td>第 47 根止损</td>
+          <td>+6.6R (27.2%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+1.49R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(81.9%) -4.1% · MA20斜率(+0.17%) +3.7% · 信号日量比(0.65×) -2.8%</td>
+        </tr>
+        <tr>
+          <td>36</td>
+          <td><code>AIMA20-20210629</code></td>
+          <td><b>2021-06-29</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>49.4%</b></td>
+          <td>A (65分)</td>
+          <td>35,911.7</td>
+          <td>34,225.4</td>
+          <td>4.70%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(19.7%) +3.4% · 信号日量比(0.87×) -1.4% · 初始止损宽(4.70%) -1.1%</td>
+        </tr>
+        <tr>
+          <td>37</td>
+          <td><code>AIMA20-20210711</code></td>
+          <td><b>2021-07-11</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>61.1%</b></td>
+          <td>B (55分)</td>
+          <td>34,259.0</td>
+          <td>33,306.5</td>
+          <td>2.78%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(0.37×) -4.3% · 90日分位(15.1%) +4.1% · 初始止损宽(2.78%) +4.0%</td>
+        </tr>
+        <tr>
+          <td>38</td>
+          <td><code>AIMA20-20210723</code></td>
+          <td><b>2021-07-23</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>53.2%</b></td>
+          <td>A (90分)</td>
+          <td>33,634.1</td>
+          <td>31,924.3</td>
+          <td>5.08%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+11.3R (105.2%)</td>
+          <td style="color:#10b981;font-weight:600">+15.25R</td>
+          <td style="color:#10b981">+7.81R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(15.7%) +4.1% · 振幅压缩比(0.69×) +3.8% · MA20斜率(-0.42%) -2.8%</td>
+        </tr>
+        <tr>
+          <td>39</td>
+          <td><code>AIMA20-20210725</code></td>
+          <td><b>2021-07-25</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>53.1%</b></td>
+          <td>B (55分)</td>
+          <td>35,381.0</td>
+          <td>33,851.1</td>
+          <td>4.32%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+11.5R (95.0%)</td>
+          <td style="color:#10b981;font-weight:600">+13.64R</td>
+          <td style="color:#10b981">+7.58R</td>
+          <td style="color:#8b949e;font-size:12px">振幅压缩比(0.71×) +4.0% · 90日分位(21.4%) +3.5% · 距MA20偏离(7.86%) -3.4%</td>
+        </tr>
+        <tr>
+          <td>40</td>
+          <td><code>AIMA20-20211028</code></td>
+          <td><b>2021-10-28</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>58.2%</b></td>
+          <td>B (40分)</td>
+          <td>60,575.9</td>
+          <td>57,820.0</td>
+          <td>4.55%</td>
+          <td>第 21 根止损</td>
+          <td>+3.1R (13.9%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+0.12R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(+0.68%) +8.3% · 90日分位(78.3%) -3.3% · 信号日量比(1.19×) +1.5%</td>
+        </tr>
+        <tr>
+          <td>41</td>
+          <td><code>AIMA20-20220316</code></td>
+          <td><b>2022-03-16</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>57.7%</b></td>
+          <td>A (100分)</td>
+          <td>41,114.0</td>
+          <td>38,828.5</td>
+          <td>5.56%</td>
+          <td>第 33 根止损</td>
+          <td>+3.1R (17.2%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+0.90R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(1.61×) +4.2% · MA20斜率(+0.19%) +3.9% · 初始止损宽(5.56%) -2.9%</td>
+        </tr>
+        <tr>
+          <td>42</td>
+          <td><code>AIMA20-20220504</code></td>
+          <td><b>2022-05-04</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>50.3%</b></td>
+          <td>A (80分)</td>
+          <td>39,690.0</td>
+          <td>37,670.0</td>
+          <td>5.09%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(1.49×) +3.5% · 初始止损宽(5.09%) -2.0% · 90日分位(38.7%) +1.4%</td>
+        </tr>
+        <tr>
+          <td>43</td>
+          <td><code>AIMA20-20220606</code></td>
+          <td><b>2022-06-06</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>54.2%</b></td>
+          <td>C (30分)</td>
+          <td>31,373.1</td>
+          <td>29,890.2</td>
+          <td>4.73%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(21.7%) +3.2% · 距MA20偏离(5.06%) -2.9% · MA20斜率(+0.01%) +2.2%</td>
+        </tr>
+        <tr>
+          <td>44</td>
+          <td><code>AIMA20-20220715</code></td>
+          <td><b>2022-07-15</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>64.3%</b></td>
+          <td>C (35分)</td>
+          <td>20,830.0</td>
+          <td>20,382.3</td>
+          <td>2.15%</td>
+          <td>第 42 根止损</td>
+          <td>+9.8R (21.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+1.07R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.15%) +6.5% · 90日分位(12.7%) +4.0% · 信号日量比(1.20×) +1.5%</td>
+        </tr>
+        <tr>
+          <td>45</td>
+          <td><code>AIMA20-20220727</code></td>
+          <td><b>2022-07-27</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>47.6%</b></td>
+          <td>C (30分)</td>
+          <td>22,952.5</td>
+          <td>21,042.5</td>
+          <td>8.32%</td>
+          <td>第 23 根止损</td>
+          <td>+1.2R (9.8%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.17R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(8.32%) -9.0% · MA20斜率(+0.41%) +5.6% · 距MA20偏离(6.16%) -3.1%</td>
+        </tr>
+        <tr>
+          <td>46</td>
+          <td><code>AIMA20-20220728</code></td>
+          <td><b>2022-07-28</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>53.7%</b></td>
+          <td>B (50分)</td>
+          <td>23,842.9</td>
+          <td>22,582.1</td>
+          <td>5.29%</td>
+          <td>第 7 根止损</td>
+          <td>+0.7R (3.5%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(+0.36%) +5.3% · 距MA20偏离(9.70%) -4.8% · 90日分位(27.8%) +2.6%</td>
+        </tr>
+        <tr>
+          <td>47</td>
+          <td><code>AIMA20-20220805</code></td>
+          <td><b>2022-08-05</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>66.8%</b></td>
+          <td>B (50分)</td>
+          <td>23,312.4</td>
+          <td>22,587.0</td>
+          <td>3.11%</td>
+          <td>第 14 根止损</td>
+          <td>+2.6R (8.2%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+0.04R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(+0.58%) +6.9% · 初始止损宽(3.11%) +2.3% · 振幅压缩比(0.73×) +2.2%</td>
+        </tr>
+        <tr>
+          <td>48</td>
+          <td><code>AIMA20-20221017</code></td>
+          <td><b>2022-10-17</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>64.4%</b></td>
+          <td>C (30分)</td>
+          <td>19,549.9</td>
+          <td>19,152.0</td>
+          <td>2.04%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.03%) +5.2% · 90日分位(20.1%) +3.4% · MA20斜率(+0.06%) +2.5%</td>
+        </tr>
+        <tr>
+          <td>49</td>
+          <td><code>AIMA20-20221023</code></td>
+          <td><b>2022-10-23</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>63.0%</b></td>
+          <td>B (50分)</td>
+          <td>19,570.4</td>
+          <td>19,070.1</td>
+          <td>2.56%</td>
+          <td>第 16 根止损</td>
+          <td>+3.8R (9.8%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.48R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.56%) +5.2% · 90日分位(20.4%) +3.5% · 信号日量比(0.72×) -2.2%</td>
+        </tr>
+        <tr>
+          <td>50</td>
+          <td><code>AIMA20-20221025</code></td>
+          <td><b>2022-10-25</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>63.0%</b></td>
+          <td>A (70分)</td>
+          <td>20,080.1</td>
+          <td>19,237.0</td>
+          <td>4.20%</td>
+          <td>第 14 根止损</td>
+          <td>+1.7R (7.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">振幅压缩比(0.55×) +5.6% · 信号日量比(1.47×) +3.3% · 90日分位(27.6%) +2.8%</td>
+        </tr>
+        <tr>
+          <td>51</td>
+          <td><code>AIMA20-20230104</code></td>
+          <td><b>2023-01-04</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>70.7%</b></td>
+          <td>B (45分)</td>
+          <td>16,850.4</td>
+          <td>16,652.7</td>
+          <td>1.17%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+42.5R (84.0%)</td>
+          <td style="color:#10b981;font-weight:600">+60.64R</td>
+          <td style="color:#10b981">+29.90R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.17%) +6.6% · 振幅压缩比(0.40×) +4.8% · 90日分位(22.9%) +2.9%</td>
+        </tr>
+        <tr>
+          <td>52</td>
+          <td><code>AIMA20-20230106</code></td>
+          <td><b>2023-01-06</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>69.9%</b></td>
+          <td>A (65分)</td>
+          <td>16,950.7</td>
+          <td>16,679.0</td>
+          <td>1.60%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+30.6R (82.9%)</td>
+          <td style="color:#10b981;font-weight:600">+43.80R</td>
+          <td style="color:#10b981">+21.39R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.60%) +5.8% · 振幅压缩比(0.43×) +4.9% · 90日分位(24.6%) +2.8%</td>
+        </tr>
+        <tr>
+          <td>53</td>
+          <td><code>AIMA20-20230207</code></td>
+          <td><b>2023-02-07</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>49.5%</b></td>
+          <td>B (50分)</td>
+          <td>23,240.5</td>
+          <td>22,745.8</td>
+          <td>2.13%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(88.4%) -10.0% · MA20斜率(+0.48%) +5.7% · 初始止损宽(2.13%) +5.2%</td>
+        </tr>
+        <tr>
+          <td>54</td>
+          <td><code>AIMA20-20230427</code></td>
+          <td><b>2023-04-27</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>45.2%</b></td>
+          <td>A (80分)</td>
+          <td>29,472.8</td>
+          <td>28,378.9</td>
+          <td>3.71%</td>
+          <td>第 4 根止损</td>
+          <td>+0.5R (1.7%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(86.7%) -9.9% · 信号日量比(1.70×) +4.8% · 振幅压缩比(1.08×) -2.2%</td>
+        </tr>
+        <tr>
+          <td>55</td>
+          <td><code>AIMA20-20230606</code></td>
+          <td><b>2023-06-06</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>49.1%</b></td>
+          <td>C (30分)</td>
+          <td>27,230.1</td>
+          <td>25,351.0</td>
+          <td>6.90%</td>
+          <td>第 8 根止损</td>
+          <td>+0.1R (0.6%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.47R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(1.94×) +6.3% · 初始止损宽(6.90%) -6.0% · 90日分位(67.1%) -2.3%</td>
+        </tr>
+        <tr>
+          <td>56</td>
+          <td><code>AIMA20-20230619</code></td>
+          <td><b>2023-06-19</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>58.7%</b></td>
+          <td>A (60分)</td>
+          <td>26,844.3</td>
+          <td>26,256.6</td>
+          <td>2.19%</td>
+          <td>第 59 根止损</td>
+          <td>+8.4R (18.5%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+5.64R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.19%) +7.4% · 90日分位(33.0%) +2.0% · 信号日量比(0.89×) -1.2%</td>
+        </tr>
+        <tr>
+          <td>57</td>
+          <td><code>AIMA20-20230620</code></td>
+          <td><b>2023-06-20</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>45.5%</b></td>
+          <td>A (70分)</td>
+          <td>28,308.0</td>
+          <td>26,652.0</td>
+          <td>5.85%</td>
+          <td>第 58 根止损</td>
+          <td>+2.1R (12.3%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+1.12R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(1.73×) +4.6% · 距MA20偏离(6.98%) -3.7% · 初始止损宽(5.85%) -3.6%</td>
+        </tr>
+        <tr>
+          <td>58</td>
+          <td><code>AIMA20-20230713</code></td>
+          <td><b>2023-07-13</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>49.0%</b></td>
+          <td>B (50分)</td>
+          <td>31,454.2</td>
+          <td>30,251.0</td>
+          <td>3.82%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(95.0%) -10.7% · 信号日量比(1.81×) +5.5% · MA20斜率(+0.24%) +3.7%</td>
+        </tr>
+        <tr>
+          <td>59</td>
+          <td><code>AIMA20-20230808</code></td>
+          <td><b>2023-08-08</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>62.5%</b></td>
+          <td>A (65分)</td>
+          <td>29,770.4</td>
+          <td>29,146.5</td>
+          <td>2.10%</td>
+          <td>第 6 根止损</td>
+          <td>+0.6R (1.3%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.75R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(1.79×) +5.3% · 初始止损宽(2.10%) +4.8% · 90日分位(71.0%) -2.8%</td>
+        </tr>
+        <tr>
+          <td>60</td>
+          <td><code>AIMA20-20230907</code></td>
+          <td><b>2023-09-07</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>52.5%</b></td>
+          <td>C (30分)</td>
+          <td>26,255.0</td>
+          <td>25,615.4</td>
+          <td>2.44%</td>
+          <td>第 3 根止损</td>
+          <td>+0.3R (0.7%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.54R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.44%) +6.9% · 振幅压缩比(1.27×) -4.3% · 90日分位(20.8%) +3.3%</td>
+        </tr>
+        <tr>
+          <td>61</td>
+          <td><code>AIMA20-20230913</code></td>
+          <td><b>2023-09-13</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>60.4%</b></td>
+          <td>A (65分)</td>
+          <td>26,222.0</td>
+          <td>25,764.2</td>
+          <td>1.75%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+25.7R (86.8%)</td>
+          <td style="color:#10b981;font-weight:600">+43.94R</td>
+          <td style="color:#10b981">+0.06R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.75%) +7.3% · 90日分位(20.3%) +3.2% · 振幅压缩比(1.05×) -1.8%</td>
+        </tr>
+        <tr>
+          <td>62</td>
+          <td><code>AIMA20-20230928</code></td>
+          <td><b>2023-09-28</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>68.5%</b></td>
+          <td>B (50分)</td>
+          <td>27,021.4</td>
+          <td>26,342.4</td>
+          <td>2.51%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+16.8R (81.2%)</td>
+          <td style="color:#10b981;font-weight:600">+21.80R</td>
+          <td style="color:#f87171">-0.21R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.51%) +5.8% · 信号日量比(1.62×) +4.0% · MA20斜率(+0.10%) +2.8%</td>
+        </tr>
+        <tr>
+          <td>63</td>
+          <td><code>AIMA20-20231016</code></td>
+          <td><b>2023-10-16</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>67.8%</b></td>
+          <td>A (90分)</td>
+          <td>28,500.8</td>
+          <td>27,112.7</td>
+          <td>4.87%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+11.7R (76.7%)</td>
+          <td style="color:#10b981;font-weight:600">+15.27R</td>
+          <td style="color:#10b981">+5.22R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(2.87×) +12.0% · MA20斜率(+0.15%) +3.3% · 振幅压缩比(0.74×) +2.9%</td>
+        </tr>
+        <tr>
+          <td>64</td>
+          <td><code>AIMA20-20240129</code></td>
+          <td><b>2024-01-29</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>47.5%</b></td>
+          <td>A (85分)</td>
+          <td>43,302.7</td>
+          <td>41,804.9</td>
+          <td>3.46%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+20.4R (70.4%)</td>
+          <td style="color:#10b981;font-weight:600">+16.75R</td>
+          <td style="color:#10b981">+14.69R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(-0.37%) -2.2% · 初始止损宽(3.46%) +2.2% · 信号日量比(0.69×) -2.1%</td>
+        </tr>
+        <tr>
+          <td>65</td>
+          <td><code>AIMA20-20240513</code></td>
+          <td><b>2024-05-13</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>52.8%</b></td>
+          <td>A (60分)</td>
+          <td>62,940.1</td>
+          <td>60,749.2</td>
+          <td>3.48%</td>
+          <td>第 42 根止损</td>
+          <td>+4.1R (14.4%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.62R</td>
+          <td style="color:#8b949e;font-size:12px">振幅压缩比(0.75×) +1.9% · 初始止损宽(3.48%) +1.7% · MA20斜率(-0.28%) -1.4%</td>
+        </tr>
+        <tr>
+          <td>66</td>
+          <td><code>AIMA20-20240714</code></td>
+          <td><b>2024-07-14</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>47.3%</b></td>
+          <td>A (75分)</td>
+          <td>60,797.9</td>
+          <td>59,194.0</td>
+          <td>2.64%</td>
+          <td>第 21 根止损</td>
+          <td>+5.8R (15.3%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+2.39R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.64%) +6.2% · 振幅压缩比(1.42×) -5.9% · MA20斜率(-0.39%) -2.4%</td>
+        </tr>
+        <tr>
+          <td>67</td>
+          <td><code>AIMA20-20240716</code></td>
+          <td><b>2024-07-16</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>46.0%</b></td>
+          <td>B (55分)</td>
+          <td>65,044.0</td>
+          <td>62,373.2</td>
+          <td>4.11%</td>
+          <td>第 16 根止损</td>
+          <td>+1.9R (7.7%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.16R</td>
+          <td style="color:#8b949e;font-size:12px">振幅压缩比(1.33×) -4.9% · 距MA20偏离(8.73%) -4.4% · 信号日量比(1.48×) +3.0%</td>
+        </tr>
+        <tr>
+          <td>68</td>
+          <td><code>AIMA20-20241012</code></td>
+          <td><b>2024-10-12</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>52.7%</b></td>
+          <td>B (40分)</td>
+          <td>63,206.2</td>
+          <td>62,487.2</td>
+          <td>1.14%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.14%) +7.9% · 信号日量比(0.51×) -3.7% · 90日分位(67.4%) -2.6%</td>
+        </tr>
+        <tr>
+          <td>69</td>
+          <td><code>AIMA20-20241105</code></td>
+          <td><b>2024-11-05</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>60.6%</b></td>
+          <td>B (40分)</td>
+          <td>69,372.0</td>
+          <td>67,476.6</td>
+          <td>2.73%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+20.6R (58.0%)</td>
+          <td style="color:#10b981;font-weight:600">+11.20R</td>
+          <td style="color:#10b981">+14.36R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.73%) +5.8% · MA20斜率(+0.27%) +4.6% · 90日分位(79.8%) -3.7%</td>
+        </tr>
+        <tr>
+          <td>70</td>
+          <td><code>AIMA20-20250103</code></td>
+          <td><b>2025-01-03</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>48.7%</b></td>
+          <td>A (60分)</td>
+          <td>98,174.2</td>
+          <td>96,100.0</td>
+          <td>2.11%</td>
+          <td>第 5 根止损</td>
+          <td>+2.2R (4.6%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.11%) +5.7% · 90日分位(79.4%) -3.9% · 信号日量比(0.57×) -3.3%</td>
+        </tr>
+        <tr>
+          <td>71</td>
+          <td><code>AIMA20-20250114</code></td>
+          <td><b>2025-01-14</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>58.0%</b></td>
+          <td>A (60分)</td>
+          <td>96,560.9</td>
+          <td>94,346.2</td>
+          <td>2.29%</td>
+          <td>第 20 根止损</td>
+          <td>+5.9R (13.5%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+1.84R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.29%) +6.8% · 90日分位(72.6%) -3.1% · 信号日量比(1.35×) +2.6%</td>
+        </tr>
+        <tr>
+          <td>72</td>
+          <td><code>AIMA20-20250115</code></td>
+          <td><b>2025-01-15</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>47.4%</b></td>
+          <td>B (50分)</td>
+          <td>100,497.4</td>
+          <td>96,500.0</td>
+          <td>3.98%</td>
+          <td>第 18 根止损</td>
+          <td>+2.3R (9.1%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+0.03R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(81.8%) -4.2% · 信号日量比(1.44×) +2.8% · 距MA20偏离(4.78%) -2.3%</td>
+        </tr>
+        <tr>
+          <td>73</td>
+          <td><code>AIMA20-20250220</code></td>
+          <td><b>2025-02-20</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>56.9%</b></td>
+          <td>A (60分)</td>
+          <td>98,305.0</td>
+          <td>96,415.1</td>
+          <td>1.92%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.92%) +5.7% · 振幅压缩比(0.70×) +1.9% · 信号日量比(0.73×) -1.8%</td>
+        </tr>
+        <tr>
+          <td>74</td>
+          <td><code>AIMA20-20250401</code></td>
+          <td><b>2025-04-01</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>62.0%</b></td>
+          <td>C (30分)</td>
+          <td>85,158.3</td>
+          <td>82,432.7</td>
+          <td>3.20%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">振幅压缩比(0.67×) +3.2% · 90日分位(25.9%) +2.9% · MA20斜率(+0.06%) +2.6%</td>
+        </tr>
+        <tr>
+          <td>75</td>
+          <td><code>AIMA20-20250411</code></td>
+          <td><b>2025-04-11</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>46.7%</b></td>
+          <td>A (60分)</td>
+          <td>83,423.8</td>
+          <td>78,969.6</td>
+          <td>5.34%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+6.4R (47.7%)</td>
+          <td style="color:#10b981;font-weight:600">+7.42R</td>
+          <td style="color:#10b981">+4.98R</td>
+          <td style="color:#8b949e;font-size:12px">振幅压缩比(1.30×) -4.6% · 90日分位(25.4%) +2.7% · 初始止损宽(5.34%) -2.5%</td>
+        </tr>
+        <tr>
+          <td>76</td>
+          <td><code>AIMA20-20250623</code></td>
+          <td><b>2025-06-23</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>47.1%</b></td>
+          <td>A (70分)</td>
+          <td>105,333.9</td>
+          <td>99,613.3</td>
+          <td>5.43%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+3.4R (19.8%)</td>
+          <td style="color:#10b981;font-weight:600">+0.52R</td>
+          <td style="color:#10b981">+2.21R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(1.83×) +5.6% · 90日分位(82.3%) -3.9% · 初始止损宽(5.43%) -2.7%</td>
+        </tr>
+        <tr>
+          <td>77</td>
+          <td><code>AIMA20-20250807</code></td>
+          <td><b>2025-08-07</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>51.2%</b></td>
+          <td>B (55分)</td>
+          <td>117,472.0</td>
+          <td>114,259.0</td>
+          <td>2.73%</td>
+          <td>第 12 根止损</td>
+          <td>+2.2R (6.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.25R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.74%) +5.9% · 90日分位(77.0%) -3.6% · 信号日量比(0.90×) -1.2%</td>
+        </tr>
+        <tr>
+          <td>78</td>
+          <td><code>AIMA20-20250822</code></td>
+          <td><b>2025-08-22</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>50.0%</b></td>
+          <td>B (50分)</td>
+          <td>116,936.0</td>
+          <td>111,684.8</td>
+          <td>4.49%</td>
+          <td>第 2 根止损</td>
+          <td>+0.0R (0.1%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.29R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(1.65×) +4.5% · 90日分位(71.3%) -2.7% · 振幅压缩比(1.09×) -2.3%</td>
+        </tr>
+        <tr>
+          <td>79</td>
+          <td><code>AIMA20-20250908</code></td>
+          <td><b>2025-09-08</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>55.8%</b></td>
+          <td>B (50分)</td>
+          <td>112,065.2</td>
+          <td>110,621.8</td>
+          <td>1.29%</td>
+          <td>第 17 根止损</td>
+          <td>+4.0R (5.2%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+0.41R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.29%) +8.4% · 信号日量比(0.77×) -2.0% · MA20斜率(-0.23%) -0.9%</td>
+        </tr>
+        <tr>
+          <td>80</td>
+          <td><code>AIMA20-20250929</code></td>
+          <td><b>2025-09-29</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>63.8%</b></td>
+          <td>B (55分)</td>
+          <td>114,312.0</td>
+          <td>111,560.6</td>
+          <td>2.41%</td>
+          <td>第 11 根止损</td>
+          <td>+4.3R (10.4%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.10R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.41%) +6.3% · 信号日量比(1.29×) +2.1% · MA20斜率(-0.01%) +1.9%</td>
+        </tr>
+        <tr>
+          <td>81</td>
+          <td><code>AIMA20-20251230</code></td>
+          <td><b>2025-12-30</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>64.1%</b></td>
+          <td>B (50分)</td>
+          <td>88,485.5</td>
+          <td>86,845.7</td>
+          <td>1.85%</td>
+          <td>第 26 根止损</td>
+          <td>+5.8R (10.7%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.51R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.85%) +5.6% · 90日分位(17.3%) +3.7% · 振幅压缩比(0.55×) +3.5%</td>
+        </tr>
+        <tr>
+          <td>82</td>
+          <td><code>AIMA20-20260302</code></td>
+          <td><b>2026-03-02</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>51.8%</b></td>
+          <td>A (70分)</td>
+          <td>68,830.1</td>
+          <td>65,259.2</td>
+          <td>5.19%</td>
+          <td>第 27 根止损</td>
+          <td>+2.0R (10.4%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.44R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(1.52×) +3.7% · 90日分位(23.3%) +3.0% · 初始止损宽(5.19%) -2.2%</td>
+        </tr>
+        <tr>
+          <td>83</td>
+          <td><code>AIMA20-20260310</code></td>
+          <td><b>2026-03-10</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>62.8%</b></td>
+          <td>C (30分)</td>
+          <td>69,948.6</td>
+          <td>68,391.4</td>
+          <td>2.23%</td>
+          <td>第 12 根止损</td>
+          <td>+3.9R (8.7%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.01R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.23%) +7.2% · 振幅压缩比(1.17×) -3.0% · 信号日量比(1.39×) +2.7%</td>
+        </tr>
+        <tr>
+          <td>84</td>
+          <td><code>AIMA20-20260323</code></td>
+          <td><b>2026-03-23</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>59.5%</b></td>
+          <td>C (30分)</td>
+          <td>70,906.4</td>
+          <td>67,445.2</td>
+          <td>4.88%</td>
+          <td>第 4 根止损</td>
+          <td>+0.3R (1.6%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.60R</td>
+          <td style="color:#8b949e;font-size:12px">MA20斜率(+0.18%) +3.8% · 90日分位(28.8%) +2.4% · 振幅压缩比(0.75×) +2.2%</td>
+        </tr>
+        <tr>
+          <td>85</td>
+          <td><code>AIMA20-20260405</code></td>
+          <td><b>2026-04-05</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>53.5%</b></td>
+          <td>A (75分)</td>
+          <td>69,034.2</td>
+          <td>66,611.7</td>
+          <td>3.51%</td>
+          <td>第 59 根止损</td>
+          <td>+5.7R (20.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#10b981">+4.05R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(23.8%) +3.3% · 信号日量比(0.62×) -3.0% · 振幅压缩比(0.71×) +2.8%</td>
+        </tr>
+        <tr>
+          <td>86</td>
+          <td><code>AIMA20-20260513</code></td>
+          <td><b>2026-05-13</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>45.7%</b></td>
+          <td>C (35分)</td>
+          <td>81,292.0</td>
+          <td>78,760.1</td>
+          <td>3.12%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(92.4%) -10.2% · MA20斜率(+0.22%) +3.5% · 初始止损宽(3.11%) +2.2%</td>
+        </tr>
+        <tr>
+          <td>87</td>
+          <td><code>AIMA20-20260703</code></td>
+          <td><b>2026-07-03</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>54.5%</b></td>
+          <td>A (60分)</td>
+          <td>62,939.7</td>
+          <td>61,911.1</td>
+          <td>1.63%</td>
+          <td>第 2 根止损</td>
+          <td>+0.5R (0.8%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.63%) +7.6% · 信号日量比(0.52×) -3.6% · 90日分位(20.5%) +3.3%</td>
+        </tr>
+        <tr>
+          <td>88</td>
+          <td><code>AIMA20-20260708</code></td>
+          <td><b>2026-07-08</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>69.9%</b></td>
+          <td>B (45分)</td>
+          <td>62,863.2</td>
+          <td>61,690.4</td>
+          <td>1.87%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+16.6R (39.0%)</td>
+          <td style="color:#10b981;font-weight:600">+11.90R</td>
+          <td style="color:#10b981">+1.09R</td>
+          <td style="color:#8b949e;font-size:12px">信号日量比(2.56×) +9.4% · 初始止损宽(1.87%) +6.4% · 90日分位(20.2%) +2.8%</td>
+        </tr>
+        <tr>
+          <td>89</td>
+          <td><code>AIMA20-20260805</code></td>
+          <td><b>2026-08-05</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>63.8%</b></td>
+          <td>A (60分)</td>
+          <td>64,665.2</td>
+          <td>63,880.0</td>
+          <td>1.21%</td>
+          <td>第 5 根止损</td>
+          <td>+1.0R (1.2%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-0.44R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(1.21%) +7.8% · 90日分位(27.8%) +2.4% · MA20斜率(-0.04%) +1.4%</td>
+        </tr>
+        <tr>
+          <td>90</td>
+          <td><code>AIMA20-20260817</code></td>
+          <td><b>2026-08-17</b></td>
+          <td><span style="color:#10b981;font-weight:600">★ 高置信 2.0x</span></td>
+          <td><b>66.8%</b></td>
+          <td>A (80分)</td>
+          <td>64,532.1</td>
+          <td>62,751.1</td>
+          <td>2.76%</td>
+          <td><span style="color:#10b981;font-weight:600">未触发止损</span></td>
+          <td>+12.8R (35.4%)</td>
+          <td style="color:#10b981;font-weight:600">+6.90R</td>
+          <td style="color:#10b981">+7.73R</td>
+          <td style="color:#8b949e;font-size:12px">初始止损宽(2.76%) +4.6% · 振幅压缩比(0.59×) +3.2% · 90日分位(33.0%) +2.1%</td>
+        </tr>
+        <tr>
+          <td>91</td>
+          <td><code>AIMA20-20261021</code></td>
+          <td><b>2026-10-21</b></td>
+          <td><span style="color:#38bdf8;font-weight:600">● 中置信 1.0x</span></td>
+          <td><b>47.9%</b></td>
+          <td>A (85分)</td>
+          <td>84,093.4</td>
+          <td>82,635.3</td>
+          <td>1.73%</td>
+          <td>第 1 根止损</td>
+          <td>+0.0R (0.0%)</td>
+          <td style="color:#f87171;font-weight:600">-1.00R</td>
+          <td style="color:#f87171">-1.00R</td>
+          <td style="color:#8b949e;font-size:12px">90日分位(86.9%) -9.0% · 初始止损宽(1.73%) +6.9% · 信号日量比(1.17×) +0.6%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>

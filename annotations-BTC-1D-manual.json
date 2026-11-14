@@ -1,0 +1,3978 @@
+{
+ "schema": "chanlun.ann/2",
+ "symbol": "BTC",
+ "tf": "1D",
+ "source": "annotations-BTC-1D.json · source=manual_buy_v1",
+ "extractedAt": "2026-11-03T14:52:00+08:00",
+ "note": "手工买点全集：68 条已确认 + 4 条由草稿提升(2021-06-09/2022-05-30/2022-07-27/2024-01-29)。entry=当根收盘，stop=当根最低。status=promoted_from_draft 的条目理由可能为空，待补。",
+ "count": 72,
+ "counts": {
+  "confirmed": 68,
+  "promoted": 4,
+  "needsReason": 2
+ },
+ "items": [
+  {
+   "time": "2018-04-12",
+   "ts": 1523491200,
+   "barIndex": 238,
+   "entry": 7923.0,
+   "stop": 6743.2,
+   "riskPct": 0.14891,
+   "reason": "长期下跌走平后的突破下跌趋势线与MA20，认为会有反弹。\n长期下跌趋势线两个高点为：2017年12月17日，2018年3月5日。\n中期下跌趋势线的两个高点为：2018年3月5日，2018年3月21日。\n对于任何一个趋势线的下跌都是买入理由的，只是这个两个都满足，我把这个两个条件都列出来。",
+   "references": "MA20，下降趋势线",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 7923
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.13938,
+    "range": 0.18249,
+    "closePos": 0.9297,
+    "upWick": 0.01283,
+    "dnWick": 0.03028,
+    "volRatio20": 1.787,
+    "d20": 0.08825,
+    "d60": -0.10999,
+    "d120": -0.27096,
+    "s20": -1.1024,
+    "s120": -0.6385,
+    "atrPct": 0.06335
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1523491200,
+    "price": 7923.0
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "长期下跌走平后的突破下跌趋势线与MA20，认为会有反弹。\n长期下跌趋势线两个高点为：2017年12月17日，2018年3月5日。\n中期下跌趋势线的两个高点为：2018年3月5日，2018年3月21日。\n对于任何一个趋势线的下跌都是买入理由的，只是这个两个都满足，我把这个两个条件都列出来。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 7923.0
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2018-07-02",
+   "ts": 1530489600,
+   "barIndex": 319,
+   "entry": 6615.29,
+   "stop": 6271.62,
+   "riskPct": 0.05195,
+   "reason": "突破中期下降趋势线后，突破ma20.\n中期下降趋势线两个高点：2018年5月6日，2018年6月8日",
+   "references": "MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 6615.29
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04001,
+    "range": 0.06499,
+    "closePos": 0.8314,
+    "upWick": 0.01096,
+    "dnWick": 0.01402,
+    "volRatio20": 1.1297,
+    "d20": 0.03861,
+    "d60": -0.11623,
+    "d120": -0.16568,
+    "s20": -0.5864,
+    "s120": -0.4891,
+    "atrPct": 0.05086
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1530489600,
+    "price": 6615.29
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "突破中期下降趋势线后，突破ma20.\n中期下降趋势线两个高点：2018年5月6日，2018年6月8日",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 6615.29
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2018-07-16",
+   "ts": 1531699200,
+   "barIndex": 333,
+   "entry": 6723.35,
+   "stop": 6330.4,
+   "riskPct": 0.05845,
+   "reason": "突破MA20，中期下降趋势线已经突破。\n中期下降趋势线两个高点：2018年5月5日，2018年6月7日。",
+   "references": "ma20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 6723.35
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.0581,
+    "range": 0.06561,
+    "closePos": 0.9426,
+    "upWick": 0.00377,
+    "dnWick": 0.00374,
+    "volRatio20": 1.2647,
+    "d20": 0.04735,
+    "d60": -0.02751,
+    "d120": -0.11773,
+    "s20": 0.179,
+    "s120": -0.1926,
+    "atrPct": 0.03711
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1531699200,
+    "price": 6723.35
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "突破MA20，中期下降趋势线已经突破。\n中期下降趋势线两个高点：2018年5月5日，2018年6月7日。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 6723.35
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2018-09-21",
+   "ts": 1537488000,
+   "barIndex": 400,
+   "entry": 6759.02,
+   "stop": 6491.0,
+   "riskPct": 0.03965,
+   "reason": "突破MA20，前期有一段水平震荡。",
+   "references": "MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 6759.02
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04113,
+    "range": 0.04526,
+    "closePos": 0.9121,
+    "upWick": 0.00398,
+    "dnWick": 0.00015,
+    "volRatio20": 1.387,
+    "d20": 0.0309,
+    "d60": -0.0116,
+    "d120": -0.01171,
+    "s20": -0.4583,
+    "s120": -0.1867,
+    "atrPct": 0.0346
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1537488000,
+    "price": 6759.02
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "突破MA20，前期有一段水平震荡。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 6759.02
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2019-01-06",
+   "ts": 1546732800,
+   "barIndex": 507,
+   "entry": 3987.6,
+   "stop": 3740.0,
+   "riskPct": 0.06209,
+   "reason": "大幅下跌后，盘整之后突破MA20.\n下跌段：2018年11月14日-2018年12月15日\n2018年12月15日到买点认为都是震荡。",
+   "references": "MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 3987.6
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.0574,
+    "range": 0.07629,
+    "closePos": 0.8606,
+    "upWick": 0.01064,
+    "dnWick": 0.00825,
+    "volRatio20": 0.7314,
+    "d20": 0.0467,
+    "d60": -0.06302,
+    "d120": -0.25946,
+    "s20": 0.7348,
+    "s120": -0.4235,
+    "atrPct": 0.05429
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1546732800,
+    "price": 3987.6
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "大幅下跌后，盘整之后突破MA20.\n下跌段：2018年11月14日-2018年12月15日\n2018年12月15日到买点认为都是震荡。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 3987.6
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2019-02-08",
+   "ts": 1549584000,
+   "barIndex": 540,
+   "entry": 3659.04,
+   "stop": 3373.1,
+   "riskPct": 0.07815,
+   "reason": "突破MA20.前期经历过漫长下跌。震荡走的也够了。\n下跌段：2018年11月14日-2018年12月15日\n震荡段：2018年12月15日-2018年2月8日",
+   "references": "MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 3659.04
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.07669,
+    "range": 0.10607,
+    "closePos": 0.7932,
+    "upWick": 0.02193,
+    "dnWick": 0.00744,
+    "volRatio20": 1.9437,
+    "d20": 0.04543,
+    "d60": 0.01038,
+    "d120": -0.19989,
+    "s20": -0.1766,
+    "s120": -0.547,
+    "atrPct": 0.02895
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1549584000,
+    "price": 3659.04
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "突破MA20.前期经历过漫长下跌。震荡走的也够了。\n下跌段：2018年11月14日-2018年12月15日\n震荡段：2018年12月15日-2018年2月8日",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 3659.04
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2019-03-05",
+   "ts": 1551744000,
+   "barIndex": 565,
+   "entry": 3857.73,
+   "stop": 3703.55,
+   "riskPct": 0.03997,
+   "reason": "熊市筑底后的突破MA20，肯定要做。",
+   "references": "MA20 ",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 3857.73
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.03811,
+    "range": 0.0467,
+    "closePos": 0.8884,
+    "upWick": 0.00521,
+    "dnWick": 0.00338,
+    "volRatio20": 1.03,
+    "d20": 0.01109,
+    "d60": 0.05174,
+    "d120": -0.0371,
+    "s20": 0.2137,
+    "s120": -0.533,
+    "atrPct": 0.03684
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1551744000,
+    "price": 3857.73
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "熊市筑底后的突破MA20，肯定要做。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 3857.73
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2019-03-27",
+   "ts": 1553644800,
+   "barIndex": 587,
+   "entry": 4038.05,
+   "stop": 3936.15,
+   "riskPct": 0.02523,
+   "reason": "熊市筑底后的突破MA20",
+   "references": "MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 4038.05
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02261,
+    "range": 0.02833,
+    "closePos": 0.911,
+    "upWick": 0.00252,
+    "dnWick": 0.0032,
+    "volRatio20": 1.2453,
+    "d20": 0.02141,
+    "d60": 0.06997,
+    "d120": 0.08047,
+    "s20": 0.2056,
+    "s120": -0.0114,
+    "atrPct": 0.02125
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1553644800,
+    "price": 4038.05
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "熊市筑底后的突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 4038.05
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2019-12-18",
+   "ts": 1576627200,
+   "barIndex": 853,
+   "entry": 7277.83,
+   "stop": 6435.0,
+   "riskPct": 0.11581,
+   "reason": "两段下跌产生MACD背离，MACD的柱子第一次柱子没有下跌.\n第一段下跌：2019年10月27日-2019年11月25日。\n第二段下跌：2019年11月29日-2019年12月18日。",
+   "references": "",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 7277.83
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.09873,
+    "range": 0.15172,
+    "closePos": 0.8386,
+    "upWick": 0.02448,
+    "dnWick": 0.02851,
+    "volRatio20": 2.109,
+    "d20": -0.00012,
+    "d60": -0.09775,
+    "d120": -0.16261,
+    "s20": -0.1528,
+    "s120": -0.3311,
+    "atrPct": 0.04144
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1576627200,
+    "price": 7277.83
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "两段下跌产生MACD背离，MACD的柱子第一次柱子没有下跌.\n第一段下跌：2019年10月27日-2019年11月25日。\n第二段下跌：2019年11月29日-2019年12月18日。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 7277.83
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2019-12-22",
+   "ts": 1576972800,
+   "barIndex": 857,
+   "entry": 7501.44,
+   "stop": 7122.47,
+   "riskPct": 0.05052,
+   "reason": "两段下跌产生MACD背离后突破ma20.\n第一段下跌：2019年10月27日-2019年11月25日。\n第二段下跌：2019年11月29日-2019年12月18日。",
+   "references": "MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 7501.44
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.05186,
+    "range": 0.05554,
+    "closePos": 0.9568,
+    "upWick": 0.0024,
+    "dnWick": 0.00128,
+    "volRatio20": 0.8852,
+    "d20": 0.03769,
+    "d60": -0.06436,
+    "d120": -0.12701,
+    "s20": -0.1559,
+    "s120": -0.292,
+    "atrPct": 0.04025
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1576972800,
+    "price": 7501.44
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "两段下跌产生MACD背离后突破ma20.\n第一段下跌：2019年10月27日-2019年11月25日。\n第二段下跌：2019年11月29日-2019年12月18日。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 7501.44
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-01-03",
+   "ts": 1578009600,
+   "barIndex": 869,
+   "entry": 7344.96,
+   "stop": 6871.04,
+   "riskPct": 0.06452,
+   "reason": "两段下跌产生MACD背离，突破MA20.\n第一段下跌：2019年10月27日-2019年11月25日。\n第二段下跌：2019年11月29日-2019年12月18日。",
+   "references": "MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 7344.96
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.05448,
+    "range": 0.07666,
+    "closePos": 0.8876,
+    "upWick": 0.00862,
+    "dnWick": 0.01356,
+    "volRatio20": 1.7839,
+    "d20": 0.02173,
+    "d60": -0.04007,
+    "d120": -0.11606,
+    "s20": -0.0003,
+    "s120": -0.3131,
+    "atrPct": 0.03348
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1578009600,
+    "price": 7344.96
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "两段下跌产生MACD背离，突破MA20.\n第一段下跌：2019年10月27日-2019年11月25日。\n第二段下跌：2019年11月29日-2019年12月18日。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 7344.96
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-01-26",
+   "ts": 1579996800,
+   "barIndex": 892,
+   "entry": 8615.0,
+   "stop": 8293.66,
+   "riskPct": 0.0373,
+   "reason": "上涨趋势跌破后MA20后收回。",
+   "references": "上涨趋势回调。",
+   "pattern": "other",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 8615
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.03297,
+    "range": 0.03891,
+    "closePos": 0.9904,
+    "upWick": 0.00038,
+    "dnWick": 0.00556,
+    "volRatio20": 0.5249,
+    "d20": 0.01788,
+    "d60": 0.12223,
+    "d120": 0.07275,
+    "s20": 0.6969,
+    "s120": 0.0232,
+    "atrPct": 0.0396
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1579996800,
+    "price": 8615.0
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "上涨趋势跌破后MA20后收回。",
+    "pattern": "other",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 8615.0
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-04-16",
+   "ts": 1586995200,
+   "barIndex": 973,
+   "entry": 7101.94,
+   "stop": 6468.27,
+   "riskPct": 0.08922,
+   "reason": "下跌后的盘整，突破MA20.",
+   "references": "突破MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 7101.94
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.0726,
+    "range": 0.109,
+    "closePos": 0.878,
+    "upWick": 0.0133,
+    "dnWick": 0.0231,
+    "volRatio20": 1.4587,
+    "d20": 0.04467,
+    "d60": -0.0444,
+    "d120": -0.10968,
+    "s20": 0.2002,
+    "s120": -0.0134,
+    "atrPct": 0.05281
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1586995200,
+    "price": 7101.94
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "下跌后的盘整，突破MA20.",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 7101.94
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-04-22",
+   "ts": 1587513600,
+   "barIndex": 979,
+   "entry": 7125.14,
+   "stop": 6818.0,
+   "riskPct": 0.04311,
+   "reason": "下跌后盘整突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 7125.14
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04148,
+    "range": 0.04946,
+    "closePos": 0.9077,
+    "upWick": 0.00457,
+    "dnWick": 0.00341,
+    "volRatio20": 0.7636,
+    "d20": 0.01937,
+    "d60": -0.00514,
+    "d120": -0.10551,
+    "s20": 0.4445,
+    "s120": -0.0257,
+    "atrPct": 0.04664
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1587513600,
+    "price": 7125.14
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "下跌后盘整突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 7125.14
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-05-28",
+   "ts": 1590624000,
+   "barIndex": 1015,
+   "entry": 9575.89,
+   "stop": 9110.0,
+   "riskPct": 0.04865,
+   "reason": "震荡后突破MA20。但是有个风险是在高位。",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 9575.89
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.0404,
+    "range": 0.056,
+    "closePos": 0.9038,
+    "upWick": 0.00539,
+    "dnWick": 0.01022,
+    "volRatio20": 0.8256,
+    "d20": 0.03638,
+    "d60": 0.17862,
+    "d120": 0.16582,
+    "s20": -0.1697,
+    "s120": 0.0143,
+    "atrPct": 0.04904
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1590624000,
+    "price": 9575.89
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "震荡后突破MA20。但是有个风险是在高位。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 9575.89
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-06-22",
+   "ts": 1592784000,
+   "barIndex": 1040,
+   "entry": 9685.69,
+   "stop": 9277.09,
+   "riskPct": 0.04219,
+   "reason": "盘整后突破MA20",
+   "references": "突破ma20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 9685.69
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04207,
+    "range": 0.05411,
+    "closePos": 0.8125,
+    "upWick": 0.01015,
+    "dnWick": 0.00189,
+    "volRatio20": 1.1454,
+    "d20": 0.01451,
+    "d60": 0.05052,
+    "d120": 0.18545,
+    "s20": -0.1307,
+    "s120": -0.0289,
+    "atrPct": 0.03377
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1592784000,
+    "price": 9685.69
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 9685.69
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-07-06",
+   "ts": 1593993600,
+   "barIndex": 1054,
+   "entry": 9344.2,
+   "stop": 9055.92,
+   "riskPct": 0.03085,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 9344.2
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.0303,
+    "range": 0.03518,
+    "closePos": 0.9035,
+    "upWick": 0.0034,
+    "dnWick": 0.00149,
+    "volRatio20": 1.315,
+    "d20": 0.00899,
+    "d60": -0.00337,
+    "d120": 0.13802,
+    "s20": -0.1647,
+    "s120": 0.0373,
+    "atrPct": 0.02668
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1593993600,
+    "price": 9344.2
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 9344.2
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-07-21",
+   "ts": 1595289600,
+   "barIndex": 1069,
+   "entry": 9390.0,
+   "stop": 9152.8,
+   "riskPct": 0.02526,
+   "reason": "突破MA20+MA60，前期还是震荡后收敛，后期可能有大行情。",
+   "references": "突破MA20+MA60双均线",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 9390
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02502,
+    "range": 0.0311,
+    "closePos": 0.8325,
+    "upWick": 0.00521,
+    "dnWick": 0.00087,
+    "volRatio20": 1.6291,
+    "d20": 0.01866,
+    "d60": 0.00421,
+    "d120": 0.09108,
+    "s20": 0.0427,
+    "s120": 0.2996,
+    "atrPct": 0.0177
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1595289600,
+    "price": 9390.0
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "突破MA20+MA60，前期还是震荡后收敛，后期可能有大行情。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 9390.0
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-09-01",
+   "ts": 1598918400,
+   "barIndex": 1111,
+   "entry": 11921.97,
+   "stop": 11515.0,
+   "riskPct": 0.03414,
+   "reason": "上涨趋势盘整后突破MA20。",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 11921.97
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02339,
+    "range": 0.046,
+    "closePos": 0.7595,
+    "upWick": 0.01106,
+    "dnWick": 0.01155,
+    "volRatio20": 1.3835,
+    "d20": 0.01847,
+    "d60": 0.11287,
+    "d120": 0.18635,
+    "s20": -0.0015,
+    "s120": 0.2364,
+    "atrPct": 0.02812
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1598918400,
+    "price": 11921.97
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "上涨趋势盘整后突破MA20。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 11921.97
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-09-24",
+   "ts": 1600905600,
+   "barIndex": 1134,
+   "entry": 10736.32,
+   "stop": 10190.93,
+   "riskPct": 0.0508,
+   "reason": "下跌后盘整突破MA20。",
+   "references": "突破ma20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 10736.32
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04832,
+    "range": 0.05901,
+    "closePos": 0.9025,
+    "upWick": 0.00575,
+    "dnWick": 0.00493,
+    "volRatio20": 1.0059,
+    "d20": 0.01838,
+    "d60": -0.0401,
+    "d120": 0.04272,
+    "s20": -0.2531,
+    "s120": 0.1303,
+    "atrPct": 0.0344
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1600905600,
+    "price": 10736.32
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "下跌后盘整突破MA20。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 10736.32
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-10-05",
+   "ts": 1601856000,
+   "barIndex": 1145,
+   "entry": 10792.21,
+   "stop": 10615.64,
+   "riskPct": 0.01636,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 10792.21
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.01177,
+    "range": 0.0171,
+    "closePos": 0.9682,
+    "upWick": 0.00054,
+    "dnWick": 0.00478,
+    "volRatio20": 0.7344,
+    "d20": 0.00652,
+    "d60": -0.02556,
+    "d120": 0.03862,
+    "s20": 0.0535,
+    "s120": 0.0757,
+    "atrPct": 0.02509
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1601856000,
+    "price": 10792.21
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 10792.21
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-10-08",
+   "ts": 1602115200,
+   "barIndex": 1148,
+   "entry": 10925.57,
+   "stop": 10530.41,
+   "riskPct": 0.03617,
+   "reason": "盘整收敛后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 10925.57
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.0243,
+    "range": 0.03934,
+    "closePos": 0.9418,
+    "upWick": 0.00229,
+    "dnWick": 0.01275,
+    "volRatio20": 1.2087,
+    "d20": 0.02199,
+    "d60": -0.00928,
+    "d120": 0.04914,
+    "s20": -0.0591,
+    "s120": 0.0771,
+    "atrPct": 0.02221
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1602115200,
+    "price": 10925.57
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整收敛后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 10925.57
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2020-12-12",
+   "ts": 1607731200,
+   "barIndex": 1213,
+   "entry": 18808.69,
+   "stop": 18020.7,
+   "riskPct": 0.04189,
+   "reason": "上涨趋势，回踩后跌破后收回。",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 18808.69
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04281,
+    "range": 0.05145,
+    "closePos": 0.8492,
+    "upWick": 0.00776,
+    "dnWick": 0.00088,
+    "volRatio20": 0.6178,
+    "d20": 0.01172,
+    "d60": 0.1857,
+    "d120": 0.40039,
+    "s20": 0.033,
+    "s120": 0.4255,
+    "atrPct": 0.05032
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1607731200,
+    "price": 18808.69
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "上涨趋势，回踩后跌破后收回。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 18808.69
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2021-02-02",
+   "ts": 1612224000,
+   "barIndex": 1265,
+   "entry": 35466.24,
+   "stop": 33418.0,
+   "riskPct": 0.05775,
+   "reason": "上涨趋势，下跌盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 35466.24
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.05815,
+    "range": 0.07657,
+    "closePos": 0.7981,
+    "upWick": 0.01546,
+    "dnWick": 0.00296,
+    "volRatio20": 0.7887,
+    "d20": 0.03871,
+    "d60": 0.21567,
+    "d120": 0.61122,
+    "s20": -0.4148,
+    "s120": 0.9303,
+    "atrPct": 0.09254
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1612224000,
+    "price": 35466.24
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "上涨趋势，下跌盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 35466.24
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2021-03-29",
+   "ts": 1616976000,
+   "barIndex": 1320,
+   "entry": 57635.47,
+   "stop": 54800.01,
+   "riskPct": 0.0492,
+   "reason": "上涨趋势，跌破MA20后再次突破向上。\n已经在很高位，这边做单要小心。仓位不能大，及时止盈。",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 57635.47
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.03331,
+    "range": 0.06465,
+    "closePos": 0.7864,
+    "upWick": 0.01381,
+    "dnWick": 0.01753,
+    "volRatio20": 1.0001,
+    "d20": 0.02025,
+    "d60": 0.16061,
+    "d120": 0.48571,
+    "s20": 0.3546,
+    "s120": 0.8353,
+    "atrPct": 0.05958
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1616976000,
+    "price": 57635.47
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "上涨趋势，跌破MA20后再次突破向上。\n已经在很高位，这边做单要小心。仓位不能大，及时止盈。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 57635.47
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2021-04-08",
+   "ts": 1617840000,
+   "barIndex": 1330,
+   "entry": 58077.52,
+   "stop": 55700.0,
+   "riskPct": 0.04094,
+   "reason": "上涨趋势，盘整跌破MA20后收回。",
+   "references": "",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 58077.52
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.03796,
+    "range": 0.04385,
+    "closePos": 0.9691,
+    "upWick": 0.00135,
+    "dnWick": 0.00453,
+    "volRatio20": 0.7777,
+    "d20": 0.02493,
+    "d60": 0.08905,
+    "d120": 0.38102,
+    "s20": 0.0399,
+    "s120": 0.8031,
+    "atrPct": 0.04423
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1617840000,
+    "price": 58077.52
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "上涨趋势，盘整跌破MA20后收回。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 58077.52
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2021-06-09",
+   "ts": 1623196800,
+   "barIndex": 1392,
+   "entry": 37388.05,
+   "stop": 32396.82,
+   "riskPct": 0.1335,
+   "reason": "MACD背离",
+   "references": "MACD背离",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 37388.05
+   },
+   "status": "promoted_from_draft",
+   "feature": {
+    "body": 0.12005,
+    "range": 0.15392,
+    "closePos": 0.9714,
+    "upWick": 0.0044,
+    "dnWick": 0.02948,
+    "volRatio20": 1.2065,
+    "d20": 0.01961,
+    "d60": -0.22505,
+    "d120": -0.26685,
+    "s20": -0.8962,
+    "s120": -0.1087,
+    "atrPct": 0.08481
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1623196800,
+    "price": 37388.05
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "MACD背离",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 37388.05
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2021-06-13",
+   "ts": 1623542400,
+   "barIndex": 1396,
+   "entry": 39020.57,
+   "stop": 34757.0,
+   "riskPct": 0.10926,
+   "reason": "下跌后，盘整后突破MA20",
+   "references": "突破ma20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 39020.57
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.09774,
+    "range": 0.13006,
+    "closePos": 0.9223,
+    "upWick": 0.01011,
+    "dnWick": 0.0222,
+    "volRatio20": 0.9017,
+    "d20": 0.06352,
+    "d60": -0.16292,
+    "d120": -0.22998,
+    "s20": -0.0738,
+    "s120": -0.1556,
+    "atrPct": 0.07697
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1623542400,
+    "price": 39020.57
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "下跌后，盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 39020.57
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2021-07-23",
+   "ts": 1626998400,
+   "barIndex": 1436,
+   "entry": 33634.09,
+   "stop": 31924.32,
+   "riskPct": 0.05083,
+   "reason": "长期下跌，盘整后突破MA20。",
+   "references": "突破ma20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 33634.09
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.0417,
+    "range": 0.05345,
+    "closePos": 0.9908,
+    "upWick": 0.00049,
+    "dnWick": 0.01125,
+    "volRatio20": 1.0124,
+    "d20": 0.02636,
+    "d60": -0.03519,
+    "d120": -0.24203,
+    "s20": -0.4247,
+    "s120": -0.4072,
+    "atrPct": 0.04672
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1626998400,
+    "price": 33634.09
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "长期下跌，盘整后突破MA20。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 33634.09
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2021-09-15",
+   "ts": 1631664000,
+   "barIndex": 1490,
+   "entry": 48121.41,
+   "stop": 46682.32,
+   "riskPct": 0.02991,
+   "reason": "跌破MA20后收回",
+   "references": "跌破MA20后收回",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 48121.41
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02161,
+    "range": 0.03859,
+    "closePos": 0.7917,
+    "upWick": 0.00804,
+    "dnWick": 0.00894,
+    "volRatio20": 0.8745,
+    "d20": 0.00385,
+    "d60": 0.09605,
+    "d120": 0.21294,
+    "s20": -0.2237,
+    "s120": 0.0082,
+    "atrPct": 0.0575
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1631664000,
+    "price": 48121.41
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "跌破MA20后收回",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 48121.41
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2021-09-18",
+   "ts": 1631923200,
+   "barIndex": 1493,
+   "entry": 48292.74,
+   "stop": 47035.56,
+   "riskPct": 0.02603,
+   "reason": "跌破MA20后收回",
+   "references": "跌破MA20后收回",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 48292.74
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02099,
+    "range": 0.03822,
+    "closePos": 0.6955,
+    "upWick": 0.01164,
+    "dnWick": 0.00559,
+    "volRatio20": 0.6254,
+    "d20": 0.01101,
+    "d60": 0.07909,
+    "d120": 0.20992,
+    "s20": -0.0831,
+    "s120": 0.1587,
+    "atrPct": 0.05593
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1631923200,
+    "price": 48292.74
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "跌破MA20后收回",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 48292.74
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2021-10-01",
+   "ts": 1633046400,
+   "barIndex": 1506,
+   "entry": 48141.61,
+   "stop": 43283.03,
+   "riskPct": 0.10092,
+   "reason": "盘整后突破MA20、MA60双均线。",
+   "references": "突破ma20、ma60双均线",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 48141.61
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.09862,
+    "range": 0.11894,
+    "closePos": 0.9322,
+    "upWick": 0.00806,
+    "dnWick": 0.01225,
+    "volRatio20": 1.3914,
+    "d20": 0.07671,
+    "d60": 0.0455,
+    "d120": 0.18607,
+    "s20": -0.2794,
+    "s120": 0.125,
+    "atrPct": 0.06018
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1633046400,
+    "price": 48141.61
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20、MA60双均线。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 48141.61
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2022-02-04",
+   "ts": 1643932800,
+   "barIndex": 1632,
+   "entry": 41574.25,
+   "stop": 37026.73,
+   "riskPct": 0.10938,
+   "reason": "下跌趋势线突破MA20。\n下跌区间：2021年11月10日-2022年1月4日",
+   "references": "突破ma20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 41574.25
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.11423,
+    "range": 0.12719,
+    "closePos": 0.9583,
+    "upWick": 0.00531,
+    "dnWick": 0.00764,
+    "volRatio20": 1.4539,
+    "d20": 0.07702,
+    "d60": -0.05505,
+    "d120": -0.19752,
+    "s20": -0.5637,
+    "s120": -0.2071,
+    "atrPct": 0.05403
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1643932800,
+    "price": 41574.25
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "下跌趋势线突破MA20。\n下跌区间：2021年11月10日-2022年1月4日",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 41574.25
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2022-03-16",
+   "ts": 1647388800,
+   "barIndex": 1672,
+   "entry": 41114.0,
+   "stop": 38828.48,
+   "riskPct": 0.05559,
+   "reason": "盘整后突破双均线MA20、MA60。",
+   "references": "突破MA20、MA60",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 41114
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04668,
+    "range": 0.07356,
+    "closePos": 0.791,
+    "upWick": 0.01538,
+    "dnWick": 0.0115,
+    "volRatio20": 1.6069,
+    "d20": 0.02735,
+    "d60": 0.02815,
+    "d120": -0.08419,
+    "s20": 0.1879,
+    "s120": -0.4395,
+    "atrPct": 0.05563
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1647388800,
+    "price": 41114.0
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破双均线MA20、MA60。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 41114.0
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2022-05-30",
+   "ts": 1653868800,
+   "barIndex": 1747,
+   "entry": 31734.22,
+   "stop": 29299.62,
+   "riskPct": 0.07672,
+   "reason": "",
+   "references": "",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 31734.22
+   },
+   "status": "promoted_from_draft",
+   "feature": {
+    "body": 0.0769,
+    "range": 0.09917,
+    "closePos": 0.8331,
+    "upWick": 0.01655,
+    "dnWick": 0.00572,
+    "volRatio20": 1.2267,
+    "d20": 0.06939,
+    "d60": -0.13185,
+    "d120": -0.18502,
+    "s20": -0.6063,
+    "s120": -0.1684,
+    "atrPct": 0.0464
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1653868800,
+    "price": 31734.22
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 31734.22
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2022-06-06",
+   "ts": 1654473600,
+   "barIndex": 1754,
+   "entry": 31373.1,
+   "stop": 29890.23,
+   "riskPct": 0.04727,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 31373.1
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04859,
+    "range": 0.06268,
+    "closePos": 0.7907,
+    "upWick": 0.01312,
+    "dnWick": 0.00097,
+    "volRatio20": 1.1921,
+    "d20": 0.05057,
+    "d60": -0.09888,
+    "d120": -0.18314,
+    "s20": 0.0096,
+    "s120": -0.2072,
+    "atrPct": 0.04327
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1654473600,
+    "price": 31373.1
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 31373.1
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2022-07-27",
+   "ts": 1658880000,
+   "barIndex": 1805,
+   "entry": 22952.45,
+   "stop": 21042.53,
+   "riskPct": 0.08321,
+   "reason": "突破下跌趋势先后，盘整之后突破MA20。\n下跌区间：2022年3月29日至2022年7月18日",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 22952.45
+   },
+   "status": "promoted_from_draft",
+   "feature": {
+    "body": 0.07988,
+    "range": 0.0974,
+    "closePos": 0.9226,
+    "upWick": 0.00754,
+    "dnWick": 0.00998,
+    "volRatio20": 1.1731,
+    "d20": 0.06156,
+    "d60": -0.01449,
+    "d120": -0.23957,
+    "s20": 0.4073,
+    "s120": -0.6396,
+    "atrPct": 0.05621
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1658880000,
+    "price": 22952.45
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "突破下跌趋势先后，盘整之后突破MA20。\n下跌区间：2022年3月29日至2022年7月18日",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 22952.45
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2022-09-09",
+   "ts": 1662681600,
+   "barIndex": 1849,
+   "entry": 21360.11,
+   "stop": 19291.75,
+   "riskPct": 0.09683,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 21360.11
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.10556,
+    "range": 0.11933,
+    "closePos": 0.8972,
+    "upWick": 0.01227,
+    "dnWick": 0.00149,
+    "volRatio20": 1.9756,
+    "d20": 0.05267,
+    "d60": -0.02494,
+    "d120": -0.09668,
+    "s20": -0.6579,
+    "s120": -0.3783,
+    "atrPct": 0.03913
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1662681600,
+    "price": 21360.11
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 21360.11
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2022-10-03",
+   "ts": 1664755200,
+   "barIndex": 1873,
+   "entry": 19629.08,
+   "stop": 18959.68,
+   "riskPct": 0.0341,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 19629.08
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02998,
+    "range": 0.03985,
+    "closePos": 0.8815,
+    "upWick": 0.00472,
+    "dnWick": 0.00515,
+    "volRatio20": 0.8527,
+    "d20": 0.01368,
+    "d60": -0.0601,
+    "d120": -0.09193,
+    "s20": -0.5227,
+    "s120": -0.3985,
+    "atrPct": 0.04692
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1664755200,
+    "price": 19629.08
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 19629.08
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2022-10-23",
+   "ts": 1666483200,
+   "barIndex": 1893,
+   "entry": 19570.4,
+   "stop": 19070.11,
+   "riskPct": 0.02556,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 19570.4
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.01906,
+    "range": 0.03254,
+    "closePos": 0.8006,
+    "upWick": 0.00649,
+    "dnWick": 0.00699,
+    "volRatio20": 0.7217,
+    "d20": 0.00863,
+    "d60": -0.00608,
+    "d120": -0.06151,
+    "s20": -0.0466,
+    "s120": -0.0673,
+    "atrPct": 0.02649
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1666483200,
+    "price": 19570.4
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 19570.4
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2022-10-25",
+   "ts": 1666656000,
+   "barIndex": 1895,
+   "entry": 20080.07,
+   "stop": 19237.0,
+   "riskPct": 0.04199,
+   "reason": "突破双均线MA20、MA60",
+   "references": "突破双均线MA20、MA60",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 20080.07
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.03877,
+    "range": 0.06098,
+    "closePos": 0.7152,
+    "upWick": 0.01737,
+    "dnWick": 0.00484,
+    "volRatio20": 1.4727,
+    "d20": 0.03781,
+    "d60": 0.02187,
+    "d120": -0.03616,
+    "s20": -0.059,
+    "s120": -0.0659,
+    "atrPct": 0.02834
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1666656000,
+    "price": 20080.07
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "突破双均线MA20、MA60",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 20080.07
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2022-11-30",
+   "ts": 1669766400,
+   "barIndex": 1931,
+   "entry": 17163.64,
+   "stop": 16428.3,
+   "riskPct": 0.04284,
+   "reason": "下跌盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 17163.64
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04383,
+    "range": 0.04991,
+    "closePos": 0.896,
+    "upWick": 0.00519,
+    "dnWick": 0.00089,
+    "volRatio20": 1.2018,
+    "d20": 0.03643,
+    "d60": -0.07872,
+    "d120": -0.13374,
+    "s20": -0.635,
+    "s120": -0.2841,
+    "atrPct": 0.02784
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1669766400,
+    "price": 17163.64
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "下跌盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 17163.64
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-01-04",
+   "ts": 1672790400,
+   "barIndex": 1966,
+   "entry": 16850.36,
+   "stop": 16652.66,
+   "riskPct": 0.01173,
+   "reason": "盘整突破MA20",
+   "references": "突破ma20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 16850.36
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.01048,
+    "range": 0.02034,
+    "closePos": 0.5828,
+    "upWick": 0.00849,
+    "dnWick": 0.00138,
+    "volRatio20": 1.3804,
+    "d20": 0.00796,
+    "d60": -0.00567,
+    "d120": -0.08274,
+    "s20": -0.2289,
+    "s120": -0.1353,
+    "atrPct": 0.01358
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1672790400,
+    "price": 16850.36
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 16850.36
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-01-06",
+   "ts": 1672963200,
+   "barIndex": 1968,
+   "entry": 16950.65,
+   "stop": 16679.0,
+   "riskPct": 0.01603,
+   "reason": "盘整后突破双均线MA20、MA60",
+   "references": "突破双均线MA20、MA60",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 16950.65
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.00706,
+    "range": 0.02151,
+    "closePos": 0.7504,
+    "upWick": 0.00537,
+    "dnWick": 0.00908,
+    "volRatio20": 1.3383,
+    "d20": 0.01283,
+    "d60": 0.0079,
+    "d120": -0.07525,
+    "s20": -0.1401,
+    "s120": -0.1195,
+    "atrPct": 0.01331
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1672963200,
+    "price": 16950.65
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破双均线MA20、MA60",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 16950.65
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-02-26",
+   "ts": 1677369600,
+   "barIndex": 2019,
+   "entry": 23554.85,
+   "stop": 23059.18,
+   "riskPct": 0.02104,
+   "reason": "跌破收回MA20",
+   "references": "跌破收回MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 23554.85
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.01718,
+    "range": 0.02724,
+    "closePos": 0.7858,
+    "upWick": 0.00584,
+    "dnWick": 0.00423,
+    "volRatio20": 0.6216,
+    "d20": 0.01121,
+    "d60": 0.10172,
+    "d120": 0.21448,
+    "s20": 0.0895,
+    "s120": 0.1338,
+    "atrPct": 0.04618
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1677369600,
+    "price": 23554.85
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "跌破收回MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 23554.85
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-03-01",
+   "ts": 1677628800,
+   "barIndex": 2022,
+   "entry": 23628.97,
+   "stop": 23020.03,
+   "riskPct": 0.02577,
+   "reason": "跌破收回MA20",
+   "references": "跌破收回MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 23628.97
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02106,
+    "range": 0.04235,
+    "closePos": 0.6214,
+    "upWick": 0.01603,
+    "dnWick": 0.00525,
+    "volRatio20": 0.9843,
+    "d20": 0.00949,
+    "d60": 0.08782,
+    "d120": 0.21379,
+    "s20": 0.1411,
+    "s120": 0.1203,
+    "atrPct": 0.04207
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1677628800,
+    "price": 23628.97
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "跌破收回MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 23628.97
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-04-27",
+   "ts": 1682553600,
+   "barIndex": 2079,
+   "entry": 29472.77,
+   "stop": 28378.86,
+   "riskPct": 0.03712,
+   "reason": "跌破收回MA20",
+   "references": "跌破收回MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 29472.77
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.03722,
+    "range": 0.05318,
+    "closePos": 0.7239,
+    "upWick": 0.01468,
+    "dnWick": 0.00128,
+    "volRatio20": 1.705,
+    "d20": 0.01517,
+    "d60": 0.10432,
+    "d120": 0.22628,
+    "s20": 0.0419,
+    "s120": 0.4065,
+    "atrPct": 0.03967
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1682553600,
+    "price": 29472.77
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "跌破收回MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 29472.77
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-05-28",
+   "ts": 1685232000,
+   "barIndex": 2110,
+   "entry": 28065.0,
+   "stop": 26764.36,
+   "riskPct": 0.04634,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 28065
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04508,
+    "range": 0.05574,
+    "closePos": 0.8689,
+    "upWick": 0.00731,
+    "dnWick": 0.00335,
+    "volRatio20": 1.1314,
+    "d20": 0.0388,
+    "d60": -0.0042,
+    "d120": 0.0747,
+    "s20": -0.3228,
+    "s120": 0.1261,
+    "atrPct": 0.02687
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1685232000,
+    "price": 28065.0
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 28065.0
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-06-19",
+   "ts": 1687132800,
+   "barIndex": 2132,
+   "entry": 26844.35,
+   "stop": 26256.61,
+   "riskPct": 0.02189,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 26844.35
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.01915,
+    "range": 0.03081,
+    "closePos": 0.7243,
+    "upWick": 0.00849,
+    "dnWick": 0.00317,
+    "volRatio20": 0.8921,
+    "d20": 0.01662,
+    "d60": -0.01613,
+    "d120": 0.00374,
+    "s20": -0.2028,
+    "s120": 0.0646,
+    "atrPct": 0.03419
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1687132800,
+    "price": 26844.35
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 26844.35
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-08-08",
+   "ts": 1691452800,
+   "barIndex": 2182,
+   "entry": 29770.42,
+   "stop": 29146.45,
+   "riskPct": 0.02096,
+   "reason": "跌破收回MA20",
+   "references": "跌破收回MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 29770.42
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.01915,
+    "range": 0.03757,
+    "closePos": 0.5685,
+    "upWick": 0.01621,
+    "dnWick": 0.00221,
+    "volRatio20": 1.7939,
+    "d20": 0.01246,
+    "d60": 0.01594,
+    "d120": 0.04054,
+    "s20": -0.1409,
+    "s120": 0.0258,
+    "atrPct": 0.01875
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1691452800,
+    "price": 29770.42
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "跌破收回MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 29770.42
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-09-13",
+   "ts": 1694563200,
+   "barIndex": 2218,
+   "entry": 26222.0,
+   "stop": 25764.17,
+   "riskPct": 0.01746,
+   "reason": "下跌后MACD背离后，突破MA20\n背离的两段下跌：\n1.23年8月11日-23年8月17日\n2.23年8月29日至23年9月11日",
+   "references": "MACD背离后突破MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 26222
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.01478,
+    "range": 0.02481,
+    "closePos": 0.7142,
+    "upWick": 0.00709,
+    "dnWick": 0.00294,
+    "volRatio20": 1.0659,
+    "d20": 0.0058,
+    "d60": -0.06012,
+    "d120": -0.06643,
+    "s20": -0.0771,
+    "s120": -0.0339,
+    "atrPct": 0.02761
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1694563200,
+    "price": 26222.0
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "下跌后MACD背离后，突破MA20\n背离的两段下跌：\n1.23年8月11日-23年8月17日\n2.23年8月29日至23年9月11日",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 26222.0
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-09-28",
+   "ts": 1695859200,
+   "barIndex": 2233,
+   "entry": 27021.39,
+   "stop": 26342.4,
+   "riskPct": 0.02513,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 27021.39
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02459,
+    "range": 0.03663,
+    "closePos": 0.7028,
+    "upWick": 0.01089,
+    "dnWick": 0.00116,
+    "volRatio20": 1.6167,
+    "d20": 0.02321,
+    "d60": -0.00444,
+    "d120": -0.036,
+    "s20": 0.0999,
+    "s120": -0.032,
+    "atrPct": 0.02094
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1695859200,
+    "price": 27021.39
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 27021.39
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-10-16",
+   "ts": 1697414400,
+   "barIndex": 2251,
+   "entry": 28500.78,
+   "stop": 27112.66,
+   "riskPct": 0.0487,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 28500.78
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04959,
+    "range": 0.10633,
+    "closePos": 0.4808,
+    "upWick": 0.05521,
+    "dnWick": 0.00153,
+    "volRatio20": 2.8713,
+    "d20": 0.04178,
+    "d60": 0.07044,
+    "d120": 0.01085,
+    "s20": 0.1546,
+    "s120": 0.0367,
+    "atrPct": 0.02544
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1697414400,
+    "price": 28500.78
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 28500.78
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2023-11-22",
+   "ts": 1700611200,
+   "barIndex": 2288,
+   "entry": 37408.34,
+   "stop": 35632.01,
+   "riskPct": 0.04748,
+   "reason": "跌破MA20后收回。",
+   "references": "跌破MA20后收回",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 37408.34
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04663,
+    "range": 0.06237,
+    "closePos": 0.7969,
+    "upWick": 0.01267,
+    "dnWick": 0.00307,
+    "volRatio20": 1.2331,
+    "d20": 0.0302,
+    "d60": 0.17835,
+    "d120": 0.26535,
+    "s20": 0.2941,
+    "s120": 0.207,
+    "atrPct": 0.03989
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1700611200,
+    "price": 37408.34
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "跌破MA20后收回。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 37408.34
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2024-01-01",
+   "ts": 1704067200,
+   "barIndex": 2328,
+   "entry": 44179.55,
+   "stop": 42180.77,
+   "riskPct": 0.04524,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 44179.55
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04484,
+    "range": 0.04738,
+    "closePos": 0.9977,
+    "upWick": 0.00011,
+    "dnWick": 0.00243,
+    "volRatio20": 0.7878,
+    "d20": 0.0306,
+    "d60": 0.10907,
+    "d120": 0.2949,
+    "s20": -0.0276,
+    "s120": 0.4105,
+    "atrPct": 0.03209
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1704067200,
+    "price": 44179.55
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 44179.55
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2024-01-29",
+   "ts": 1706486400,
+   "barIndex": 2356,
+   "entry": 43302.7,
+   "stop": 41804.88,
+   "riskPct": 0.03459,
+   "reason": "",
+   "references": "突破双均线MA20、MA60，同时也是跌破MA20后收回。",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 43302.7
+   },
+   "status": "promoted_from_draft",
+   "feature": {
+    "body": 0.03026,
+    "range": 0.03636,
+    "closePos": 0.9802,
+    "upWick": 0.00072,
+    "dnWick": 0.00538,
+    "volRatio20": 0.6924,
+    "d20": 0.02633,
+    "d60": 0.01338,
+    "d120": 0.14067,
+    "s20": -0.3691,
+    "s120": 0.3302,
+    "atrPct": 0.03162
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1706486400,
+    "price": 43302.7
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 43302.7
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2024-04-04",
+   "ts": 1712188800,
+   "barIndex": 2422,
+   "entry": 68487.79,
+   "stop": 65064.52,
+   "riskPct": 0.04998,
+   "reason": "跌破MA20后收回",
+   "references": "跌破MA20后收回",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 68487.79
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.03827,
+    "range": 0.06436,
+    "closePos": 0.8063,
+    "upWick": 0.01246,
+    "dnWick": 0.01363,
+    "volRatio20": 0.8242,
+    "d20": 0.01315,
+    "d60": 0.12851,
+    "d120": 0.32244,
+    "s20": -0.2433,
+    "s120": 0.4327,
+    "atrPct": 0.04573
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1712188800,
+    "price": 68487.79
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "跌破MA20后收回",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 68487.79
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2024-05-13",
+   "ts": 1715558400,
+   "barIndex": 2461,
+   "entry": 62940.08,
+   "stop": 60749.21,
+   "riskPct": 0.03481,
+   "reason": "盘整后突破MA20",
+   "references": "突破ma20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 62940.08
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02368,
+    "range": 0.04393,
+    "closePos": 0.8112,
+    "upWick": 0.00829,
+    "dnWick": 0.01195,
+    "volRatio20": 1.0382,
+    "d20": 0.00891,
+    "d60": -0.03963,
+    "d120": 0.07392,
+    "s20": -0.2815,
+    "s120": 0.2557,
+    "atrPct": 0.04434
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1715558400,
+    "price": 62940.08
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 62940.08
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2024-07-14",
+   "ts": 1720915200,
+   "barIndex": 2523,
+   "entry": 60797.91,
+   "stop": 59194.01,
+   "riskPct": 0.02638,
+   "reason": "盘整后突破MA20。同样是突破下跌趋势。\n下跌趋势为：24年6月7日-24年7月14日",
+   "references": "突破ma20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 60797.91
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02692,
+    "range": 0.03761,
+    "closePos": 0.7203,
+    "upWick": 0.01052,
+    "dnWick": 0.00017,
+    "volRatio20": 0.7067,
+    "d20": 0.02242,
+    "d60": -0.06238,
+    "d120": -0.06654,
+    "s20": -0.3927,
+    "s120": -0.1467,
+    "atrPct": 0.04218
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1720915200,
+    "price": 60797.91
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20。同样是突破下跌趋势。\n下跌趋势为：24年6月7日-24年7月14日",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 60797.91
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2024-08-21",
+   "ts": 1724198400,
+   "barIndex": 2561,
+   "entry": 61156.03,
+   "stop": 58783.47,
+   "riskPct": 0.0388,
+   "reason": "盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 61156.03
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.0363,
+    "range": 0.05147,
+    "closePos": 0.7811,
+    "upWick": 0.01127,
+    "dnWick": 0.0039,
+    "volRatio20": 0.7574,
+    "d20": 0.03632,
+    "d60": -0.00411,
+    "d120": -0.03915,
+    "s20": -0.5548,
+    "s120": -0.0767,
+    "atrPct": 0.04864
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1724198400,
+    "price": 61156.03
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 61156.03
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2024-09-13",
+   "ts": 1726185600,
+   "barIndex": 2584,
+   "entry": 60498.0,
+   "stop": 57632.62,
+   "riskPct": 0.04736,
+   "reason": "盘整后突破ma20",
+   "references": "突破ma20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 60498
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.04069,
+    "range": 0.05148,
+    "closePos": 0.9576,
+    "upWick": 0.00218,
+    "dnWick": 0.0086,
+    "volRatio20": 1.1443,
+    "d20": 0.03888,
+    "d60": -0.00829,
+    "d120": -0.03848,
+    "s20": -0.306,
+    "s120": -0.0707,
+    "atrPct": 0.03776
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1726185600,
+    "price": 60498.0
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破ma20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 60498.0
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2024-10-12",
+   "ts": 1728691200,
+   "barIndex": 2613,
+   "entry": 63206.22,
+   "stop": 62487.23,
+   "riskPct": 0.01138,
+   "reason": "盘整后突破MA20，同样是跌破后收回MA20",
+   "references": "",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 63206.22
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.01065,
+    "range": 0.01587,
+    "closePos": 0.7242,
+    "upWick": 0.00438,
+    "dnWick": 0.00084,
+    "volRatio20": 0.5076,
+    "d20": 0.00587,
+    "d60": 0.04326,
+    "d120": 0.02916,
+    "s20": -0.0945,
+    "s120": -0.0786,
+    "atrPct": 0.03156
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1728691200,
+    "price": 63206.22
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20，同样是跌破后收回MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 63206.22
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2024-11-05",
+   "ts": 1730764800,
+   "barIndex": 2637,
+   "entry": 69372.01,
+   "stop": 67476.63,
+   "riskPct": 0.02732,
+   "reason": "跌破后收回MA20.",
+   "references": "跌破后收回MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 69372.01
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02243,
+    "range": 0.04571,
+    "closePos": 0.6112,
+    "upWick": 0.01777,
+    "dnWick": 0.0055,
+    "volRatio20": 1.327,
+    "d20": 0.00909,
+    "d60": 0.08182,
+    "d120": 0.10644,
+    "s20": 0.2655,
+    "s120": 0.1618,
+    "atrPct": 0.03358
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1730764800,
+    "price": 69372.01
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "跌破后收回MA20.",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 69372.01
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2025-02-20",
+   "ts": 1740009600,
+   "barIndex": 2744,
+   "entry": 98305.0,
+   "stop": 96415.09,
+   "riskPct": 0.01922,
+   "reason": "盘整后突破MA20",
+   "references": "突破ma20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 98305
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.01718,
+    "range": 0.02376,
+    "closePos": 0.823,
+    "upWick": 0.0042,
+    "dnWick": 0.00237,
+    "volRatio20": 0.7283,
+    "d20": 0.0107,
+    "d60": -0.00111,
+    "d120": 0.04918,
+    "s20": -0.3215,
+    "s120": 0.2588,
+    "atrPct": 0.02635
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1740009600,
+    "price": 98305.0
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 98305.0
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2025-04-09",
+   "ts": 1744156800,
+   "barIndex": 2792,
+   "entry": 82615.22,
+   "stop": 74620.0,
+   "riskPct": 0.09678,
+   "reason": "MACD背离，且macd柱子第一次不再下跌。",
+   "references": "MACD背离",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 82615.22
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.08245,
+    "range": 0.1175,
+    "closePos": 0.8915,
+    "upWick": 0.01275,
+    "dnWick": 0.02231,
+    "volRatio20": 3.1658,
+    "d20": -0.01054,
+    "d60": -0.05714,
+    "d120": -0.11555,
+    "s20": -0.2402,
+    "s120": -0.1672,
+    "atrPct": 0.04976
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1744156800,
+    "price": 82615.22
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "MACD背离，且macd柱子第一次不再下跌。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 82615.22
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2025-04-12",
+   "ts": 1744416000,
+   "barIndex": 2795,
+   "entry": 85276.9,
+   "stop": 82792.95,
+   "riskPct": 0.02913,
+   "reason": "突破下跌趋势线后，突破ma20\n下跌趋势：25年1月30日-25年4月8日",
+   "references": "突破MA20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 85276.9
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02221,
+    "range": 0.0373,
+    "closePos": 0.7982,
+    "upWick": 0.00753,
+    "dnWick": 0.00756,
+    "volRatio20": 0.6362,
+    "d20": 0.02484,
+    "d60": -0.01905,
+    "d120": -0.08262,
+    "s20": -0.2121,
+    "s120": -0.1586,
+    "atrPct": 0.05145
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1744416000,
+    "price": 85276.9
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "突破下跌趋势线后，突破ma20\n下跌趋势：25年1月30日-25年4月8日",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 85276.9
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2025-06-24",
+   "ts": 1750723200,
+   "barIndex": 2868,
+   "entry": 106083.0,
+   "stop": 104622.02,
+   "riskPct": 0.01377,
+   "reason": "上涨趋势，盘整后突破MA20",
+   "references": "突破MA20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 106083
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.00711,
+    "range": 0.01584,
+    "closePos": 0.8759,
+    "upWick": 0.00197,
+    "dnWick": 0.00676,
+    "volRatio20": 0.9241,
+    "d20": 0.00662,
+    "d60": 0.02434,
+    "d120": 0.12495,
+    "s20": -0.0791,
+    "s120": 0.0691,
+    "atrPct": 0.03026
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1750723200,
+    "price": 106083.0
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "上涨趋势，盘整后突破MA20",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 106083.0
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2025-09-08",
+   "ts": 1757289600,
+   "barIndex": 2944,
+   "entry": 112065.23,
+   "stop": 110621.78,
+   "riskPct": 0.01288,
+   "reason": "上涨趋势，盘整中跌破后突破ma20。\n同样是突破下跌趋势后的突破ma20.下跌段：25年8月14日-25年9月1日。",
+   "references": "突破ma20",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 112065.23
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.00835,
+    "range": 0.02072,
+    "closePos": 0.6269,
+    "upWick": 0.00773,
+    "dnWick": 0.00464,
+    "volRatio20": 0.7673,
+    "d20": 0.00473,
+    "d60": -0.02946,
+    "d120": 0.00954,
+    "s20": -0.2343,
+    "s120": 0.0642,
+    "atrPct": 0.0229
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1757289600,
+    "price": 112065.23
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "上涨趋势，盘整中跌破后突破ma20。\n同样是突破下跌趋势后的突破ma20.下跌段：25年8月14日-25年9月1日。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 112065.23
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2025-12-30",
+   "ts": 1767052800,
+   "barIndex": 3057,
+   "entry": 88485.49,
+   "stop": 86845.66,
+   "riskPct": 0.01853,
+   "reason": "突破下降趋势线后突破MA20.\n下跌段：25年10月7日-25年12月18日",
+   "references": "突破ma20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 88485.49
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.01431,
+    "range": 0.02928,
+    "closePos": 0.642,
+    "upWick": 0.01048,
+    "dnWick": 0.00449,
+    "volRatio20": 0.9364,
+    "d20": 0.00419,
+    "d60": -0.04486,
+    "d120": -0.14217,
+    "s20": -0.1804,
+    "s120": -0.1735,
+    "atrPct": 0.02857
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1767052800,
+    "price": 88485.49
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "突破下降趋势线后突破MA20.\n下跌段：25年10月7日-25年12月18日",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 88485.49
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2026-01-01",
+   "ts": 1767225600,
+   "barIndex": 3059,
+   "entry": 88839.04,
+   "stop": 87550.43,
+   "riskPct": 0.0145,
+   "reason": "突破下降趋势线后突破MA20.\n下跌段：25年10月7日-25年12月18日",
+   "references": "突破ma20",
+   "pattern": "free",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 88839.04
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.01359,
+    "range": 0.01562,
+    "closePos": 0.9413,
+    "upWick": 0.00092,
+    "dnWick": 0.00112,
+    "volRatio20": 0.4728,
+    "d20": 0.01181,
+    "d60": -0.03337,
+    "d120": -0.1355,
+    "s20": -0.2023,
+    "s120": -0.1754,
+    "atrPct": 0.02302
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1767225600,
+    "price": 88839.04
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "突破下降趋势线后突破MA20.\n下跌段：25年10月7日-25年12月18日",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 88839.04
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2026-04-07",
+   "ts": 1775520000,
+   "barIndex": 3155,
+   "entry": 71924.22,
+   "stop": 67732.01,
+   "riskPct": 0.05829,
+   "reason": "长期下跌后，突破ma20、MA60双均线\n下跌段：25年10月7日-26年2月6日",
+   "references": "突破ma20、MA60双均线",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 71924.22
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.0446,
+    "range": 0.07304,
+    "closePos": 0.8336,
+    "upWick": 0.01215,
+    "dnWick": 0.01629,
+    "volRatio20": 1.3183,
+    "d20": 0.04861,
+    "d60": 0.04648,
+    "d120": -0.08217,
+    "s20": -0.2873,
+    "s120": -0.2263,
+    "atrPct": 0.03291
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1775520000,
+    "price": 71924.22
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "长期下跌后，突破ma20、MA60双均线\n下跌段：25年10月7日-26年2月6日",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 71924.22
+    },
+    "archived": false
+   }
+  },
+  {
+   "time": "2026-08-17",
+   "ts": 1786924800,
+   "barIndex": 3288,
+   "entry": 64532.1,
+   "stop": 62751.1,
+   "riskPct": 0.0276,
+   "reason": "前期长期趋势下跌后，盘整后突破MA20、MA60双均线。",
+   "references": "突破MA20、MA60双均线",
+   "pattern": "range",
+   "execution": {
+    "basis": "selected_bar_close",
+    "price": 64532.1
+   },
+   "status": "confirmed",
+   "feature": {
+    "body": 0.02595,
+    "range": 0.02955,
+    "closePos": 0.9581,
+    "upWick": 0.00124,
+    "dnWick": 0.00237,
+    "volRatio20": 1.2179,
+    "d20": 0.01025,
+    "d60": 0.01747,
+    "d120": -0.0573,
+    "s20": -0.0707,
+    "s120": -0.1462,
+    "atrPct": 0.01629
+   },
+   "source": "manual_buy_v1",
+   "sourceName": "我的买点 · 不限指标",
+   "decision": "yes",
+   "tag": "我的买点",
+   "kind": "manual_buy",
+   "reasons": [],
+   "note": "",
+   "features": {
+    "time": 1786924800,
+    "price": 64532.1
+   },
+   "manual": {
+    "schema": "manual-buy/1",
+    "reason": "前期长期趋势下跌后，盘整后突破MA20、MA60双均线。",
+    "pattern": "free",
+    "rangeStart": "",
+    "rangeEnd": "",
+    "collectionMode": "historical_review",
+    "selectedAt": "2026-11-03T00:00:00.000Z",
+    "execution": {
+     "basis": "selected_bar_close",
+     "price": 64532.1
+    },
+    "archived": false
+   }
+  }
+ ],
+ "analysisSchema": "manual-buy/1",
+ "unmarkedPolicy": "unknown"
+}

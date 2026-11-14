@@ -56,7 +56,7 @@ def test_indicator_events_match_golden(golden: dict) -> None:
 def test_golden_covers_every_registered_indicator(golden: dict) -> None:
     assert golden["indicator_ids"] == sorted(get_registry().names)
     assert len(golden["indicator_ids"]) == 12
-    assert len(golden["events"]) == 112
+    assert len(golden["events"]) == 115
 
 
 @_requires_engine

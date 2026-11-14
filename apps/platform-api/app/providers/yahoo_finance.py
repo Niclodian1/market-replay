@@ -83,9 +83,96 @@ _TYPE_MAP: dict[str, str] = {
 }
 
 
+_SYMBOL_ALIASES: dict[str, str] = {
+    "NDX": "^NDX",
+    "^NDX": "^NDX",
+    "NAS100": "^NDX",
+    "NASDAQ100": "^NDX",
+    "纳指": "^NDX",
+    "纳指100": "^NDX",
+    "纳斯达克": "^NDX",
+    "纳斯达克100": "^NDX",
+    "IXIC": "^IXIC",
+    "^IXIC": "^IXIC",
+    "SPX": "^GSPC",
+    "^SPX": "^GSPC",
+    "GSPC": "^GSPC",
+    "^GSPC": "^GSPC",
+    "SP500": "^GSPC",
+    "标普": "^GSPC",
+    "标普500": "^GSPC",
+    "N225": "^N225",
+    "^N225": "^N225",
+    "日经": "^N225",
+    "日经225": "^N225",
+    "DJI": "^DJI",
+    "^DJI": "^DJI",
+    "VIX": "^VIX",
+    "^VIX": "^VIX",
+    "HSI": "^HSI",
+    "^HSI": "^HSI",
+    "XAUUSD": "GC=F",
+    "XAU-USD": "GC=F",
+    "XAU_USD": "GC=F",
+    "XAGUSD": "SI=F",
+    "XAG-USD": "SI=F",
+    "XAG_USD": "SI=F",
+    "BRK_B": "BRK-B",
+    "BRK.B": "BRK-B",
+}
+
+_DISPLAY_NAMES: dict[str, str] = {
+    "^NDX": "NASDAQ 100 (纳斯达克100)",
+    "NDX": "NASDAQ 100 (纳斯达克100)",
+    "^IXIC": "NASDAQ Composite (纳斯达克综合指数)",
+    "^GSPC": "S&P 500 (标普500)",
+    "SPX": "S&P 500 (标普500)",
+    "^N225": "Nikkei 225 (日经225)",
+    "N225": "Nikkei 225 (日经225)",
+    "^DJI": "Dow Jones Industrial Average (道琼斯)",
+    "^VIX": "CBOE Volatility Index (VIX)",
+    "399006.SZ": "创业板指",
+    "000688.SS": "科创50",
+}
+
+_BUILTIN_SEARCH_ITEMS: tuple[tuple[tuple[str, ...], dict[str, str]], ...] = (
+    (
+        ("ndx", "^ndx", "nasdaq", "nas100", "纳指", "纳斯达克", "纳斯达克100"),
+        {"symbol": "^NDX", "name": "NASDAQ 100 · 纳斯达克100指数", "type": "index", "exchange": "NASDAQ", "currency": "USD"},
+    ),
+    (
+        ("ixic", "^ixic", "nasdaq", "纳指", "纳斯达克"),
+        {"symbol": "^IXIC", "name": "NASDAQ Composite · 纳斯达克综合指数", "type": "index", "exchange": "NASDAQ", "currency": "USD"},
+    ),
+    (
+        ("spx", "^gspc", "gspc", "sp500", "s&p", "标普", "标普500"),
+        {"symbol": "^GSPC", "name": "S&P 500 · 标普500指数", "type": "index", "exchange": "SNP", "currency": "USD"},
+    ),
+    (
+        ("n225", "^n225", "nikkei", "日经", "日经225"),
+        {"symbol": "^N225", "name": "Nikkei 225 · 日经225指数", "type": "index", "exchange": "OSA", "currency": "JPY"},
+    ),
+)
+
+
 def _normalize(symbol: str) -> str:
-    """项目代码 → Yahoo 代码；A 股 6 位数字自动补交易所后缀。"""
-    sym = symbol.replace("/", "-")
+    """项目代码 → Yahoo 代码；支持指数别名、下划线后缀及 A 股 6 位数字自动补交易所后缀。"""
+    raw = symbol.strip()
+    upper = raw.upper()
+    if raw in _SYMBOL_ALIASES:
+        return _SYMBOL_ALIASES[raw]
+    if upper in _SYMBOL_ALIASES:
+        return _SYMBOL_ALIASES[upper]
+
+    sym = upper.replace("/", "-")
+    if sym in _SYMBOL_ALIASES:
+        return _SYMBOL_ALIASES[sym]
+
+    # 兼容 000688_SS / 399006_SZ / 0700_HK 等下划线格式
+    for sfx in ("_SS", "_SZ", "_BJ", "_HK"):
+        if sym.endswith(sfx):
+            return sym[: -len(sfx)] + "." + sfx[1:]
+
     # A 股：6 位纯数字，按首位判断交易所
     if sym.isdigit() and len(sym) == 6:
         if sym.startswith(("6",)):
@@ -95,6 +182,74 @@ def _normalize(symbol: str) -> str:
         elif sym.startswith(("4", "8")):
             return sym + ".BJ"   # 北交所
     return sym
+
+
+def _local_candles_fallback(
+    symbol: str,
+    interval: str,
+    outputsize: Optional[int] = None,
+    before: Optional[int] = None,
+) -> list[dict]:
+    """当 Yahoo Finance 不可用或标的代码未命中时，回退读取本地 Parquet 数据。"""
+    try:
+        from app.core.market_data import read_local_bars
+    except Exception:
+        return []
+
+    bars = list(read_local_bars(symbol, interval))
+    if not bars and interval == "4h":
+        bars_1h = list(read_local_bars(symbol, "1h"))
+        if bars_1h:
+            bars = _aggregate_to_4h(bars_1h)
+    if not bars and interval == "1week":
+        bars_1d = list(read_local_bars(symbol, "1day"))
+        if bars_1d:
+            window = 7 * 86400
+            groups: dict[int, list[dict]] = {}
+            for b in bars_1d:
+                k = (b["time"] // window) * window
+                groups.setdefault(k, []).append(b)
+            bars = [
+                {
+                    "time": g[0]["time"],
+                    "open": g[0]["open"],
+                    "high": max(x["high"] for x in g),
+                    "low": min(x["low"] for x in g),
+                    "close": g[-1]["close"],
+                    "volume": sum(x.get("volume", 0.0) for x in g),
+                }
+                for _, g in sorted(groups.items())
+            ]
+    if before is not None:
+        bars = [b for b in bars if b["time"] < before]
+    if outputsize is not None and outputsize > 0:
+        bars = bars[-outputsize:]
+    return bars
+
+
+def _local_quote_fallback(symbol: str, yf_sym: str) -> Optional[dict]:
+    """从本地日线 Parquet 构建最新报价回退。"""
+    bars = _local_candles_fallback(symbol, "1day", outputsize=5)
+    if not bars and yf_sym != symbol:
+        bars = _local_candles_fallback(yf_sym, "1day", outputsize=5)
+    if not bars:
+        return None
+    last = bars[-1]
+    prev = bars[-2] if len(bars) >= 2 else last
+    price = float(last["close"])
+    prev_close = float(prev["close"])
+    change = price - prev_close
+    chg_pct = (change / prev_close * 100) if prev_close else 0.0
+    name = _DISPLAY_NAMES.get(yf_sym) or _DISPLAY_NAMES.get(symbol.upper()) or yf_sym
+    return {
+        "symbol": symbol,
+        "name": name,
+        "price": round(price, 6),
+        "change": round(change, 6),
+        "change_percent": round(chg_pct, 4),
+        "volume": int(last.get("volume") or 0),
+        "timestamp": datetime.fromtimestamp(int(last["time"]), tz=timezone.utc).isoformat(),
+    }
 
 
 def _df_to_candles(df: pd.DataFrame) -> list[dict]:
@@ -164,17 +319,28 @@ class YahooFinanceProvider:
             return cached
 
         def _do() -> list[dict]:
+            q_lower = query.strip().lower()
+            results: list[dict] = []
+            seen_syms: set[str] = set()
+            for keywords, preset in _BUILTIN_SEARCH_ITEMS:
+                if any(q_lower in kw or kw in q_lower for kw in keywords):
+                    results.append(dict(preset))
+                    seen_syms.add(preset["symbol"])
+
             try:
                 res = yf.Search(query, max_results=15, news_count=0)
                 quotes = res.quotes or []
             except Exception:
                 quotes = []
 
-            results = []
             for item in quotes:
+                sym = item.get("symbol", "")
+                if not sym or sym in seen_syms:
+                    continue
+                seen_syms.add(sym)
                 qt = str(item.get("quoteType", "")).lower()
                 results.append({
-                    "symbol":   item.get("symbol", ""),
+                    "symbol":   sym,
                     "name":     item.get("longname") or item.get("shortname") or "",
                     "type":     _TYPE_MAP.get(qt, qt),
                     "exchange": item.get("exchange", ""),
@@ -220,16 +386,19 @@ class YahooFinanceProvider:
                     pass
 
             if price == 0:
+                local_quote = _local_quote_fallback(symbol, yf_sym)
+                if local_quote is not None:
+                    return local_quote
                 raise ValueError(f"无法获取 {symbol} 的报价数据，请确认 symbol 格式正确")
 
             change  = price - prev
             chg_pct = (change / prev * 100) if prev else 0.0
 
             # ── 尝试获取名称 ──────────────────────────────────────────────
-            name = yf_sym
+            name = _DISPLAY_NAMES.get(yf_sym) or _DISPLAY_NAMES.get(symbol.upper()) or yf_sym
             try:
                 info = ticker.info
-                name = info.get("longName") or info.get("shortName") or yf_sym
+                name = info.get("longName") or info.get("shortName") or name
             except Exception:
                 pass
 
@@ -281,11 +450,19 @@ class YahooFinanceProvider:
         except Exception:
             if stale is not None:
                 return self._mark_stale(stale[-outputsize:])
+            local_bars = _local_candles_fallback(symbol, interval, outputsize=outputsize, before=before)
+            if local_bars:
+                _cache.set(cache_key, local_bars)
+                return local_bars
             raise
 
         if df is None or df.empty:
             if stale is not None:
                 return self._mark_stale(stale[-outputsize:])
+            local_bars = _local_candles_fallback(symbol, interval, outputsize=outputsize, before=before)
+            if local_bars:
+                _cache.set(cache_key, local_bars)
+                return local_bars
             raise ValueError(f"未找到 {symbol} 的数据，请确认 symbol 格式正确（加密货币用 BTC-USD）")
 
         candles = _df_to_candles(df)
@@ -358,8 +535,15 @@ class YahooFinanceProvider:
                 prepost=False,
             )
 
-        df = await asyncio.to_thread(_do)
+        try:
+            df = await asyncio.to_thread(_do)
+        except Exception:
+            df = None
+
         if df is None or df.empty:
+            local_bars = _local_candles_fallback(symbol, interval)
+            if local_bars:
+                return local_bars
             raise ValueError(f"未找到 {symbol} 的数据，请确认 symbol 格式正确")
 
         candles = _df_to_candles(df)
@@ -416,12 +600,12 @@ class YahooFinanceProvider:
                         sub = None
 
                     if sub is None or sub.empty:
-                        results[orig_sym] = _cache.get_stale(f"yf:quote:{yf_sym}")
+                        results[orig_sym] = _cache.get_stale(f"yf:quote:{yf_sym}") or _local_quote_fallback(orig_sym, yf_sym)
                         continue
 
                     closes = sub["Close"].dropna()
                     if closes.empty:
-                        results[orig_sym] = _cache.get_stale(f"yf:quote:{yf_sym}")
+                        results[orig_sym] = _cache.get_stale(f"yf:quote:{yf_sym}") or _local_quote_fallback(orig_sym, yf_sym)
                         continue
 
                     price = float(closes.iloc[-1])
@@ -437,7 +621,7 @@ class YahooFinanceProvider:
                     chg_pct = (change / prev * 100) if prev else 0.0
 
                     name_key = f"yf:name:{yf_sym}"
-                    name = _cache.get(name_key, ttl=86400) or orig_sym
+                    name = _cache.get(name_key, ttl=86400) or _DISPLAY_NAMES.get(yf_sym) or _DISPLAY_NAMES.get(orig_sym.upper()) or orig_sym
 
                     quote = {
                         "symbol": orig_sym,
@@ -451,7 +635,7 @@ class YahooFinanceProvider:
                     _cache.set(f"yf:quote:{yf_sym}", quote)
                     results[orig_sym] = quote
                 except Exception:
-                    results[orig_sym] = _cache.get_stale(f"yf:quote:{yf_sym}")
+                    results[orig_sym] = _cache.get_stale(f"yf:quote:{yf_sym}") or _local_quote_fallback(orig_sym, yf_sym)
 
         return [results.get(s) for s in symbols]
 

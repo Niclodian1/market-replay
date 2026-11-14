@@ -1,0 +1,23 @@
+{
+  "study": "Elder toolbox causal BTC 1D translations, 2026-11-12",
+  "data": "data/crypto/BTCUSDT_1d.parquet",
+  "direction": "spot_long_only_no_leverage",
+  "fee_each_side": 0.0005,
+  "slippage_each_side": 0.0005,
+  "initial_equity": 100000,
+  "risk_per_trade": 0.01,
+  "book_risk_ceiling": 0.02,
+  "monthly_gross_losses_plus_new_risk_cap": 0.06,
+  "train": ["2018-03-05", "2022-12-31"],
+  "validation": ["2023-01-01", "2024-12-31"],
+  "test": ["2025-01-01", "2026-11-02"],
+  "selection_pool": "12 predeclared single-timeframe candidates; weekly reference and 15 ablations excluded from selection",
+  "eligibility": "train>=20 trades, validation>=8 trades, both profit factor>1 and Sharpe>0; train maxDD>=-35%, validation maxDD>=-25%; >=3 of annual 2019/2020/2021/2022 training folds positive",
+  "score": "min(train Sharpe, validation Sharpe) - 0.05 * optional entry conditions; tie fewer conditions then alphabetical",
+  "no_eligible": "deploy CASH; separately report research-only candidate with best score meeting sample count",
+  "test_policy": "freeze selection.json before evaluating 2025+; no changes selected from test outcomes; prior project research has seen these historical markets, so this is a within-study chronological holdout, not pristine unseen or live validation",
+  "uncertainty": "paired circular block bootstrap, block length 20 calendar days, 4000 replications, seed 20261112; Holm adjustment across all 28 configurations for mean-return tests and 16 predeclared rule contrasts",
+  "sensitivity": "selected research candidate only: slip 0/0.00025/0.0005/0.001/0.002, fees fixed 0.0005; adverse vs favorable daily ordering; fast/slow scale 0.8,1.2 and ATR trail 1.5,2.5; diagnostics cannot change selection",
+  "book_mapping": "EMA13/26, MACD12/26/9, ATR14, 100-bar 95% envelope, support20, structural stop low5-.1ATR, next-open or next-bar stop/touch entries; fixed translations, not unique original-book formulas",
+  "notes": "All positions liquidated with costs at predefined segment boundaries; prior data used only for indicator warmup, not carried positions. Annualization 365.25, cash risk-free rate zero, no lending/funding income, no leverage. Same-bar stop/target adverse ordering primary. Buy-stop/touch market order proxies are explicitly not exchange limit orders."
+}

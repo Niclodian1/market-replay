@@ -44,6 +44,7 @@ const until = async (expression, timeout = 30000) => {
 };
 const resetTrainer = () => ev(`(() => {
   positions.length = 0;
+  PracticeStore.active(null);
   TR.active = false; TR.revealed = false; TR.step = 0; TR.session = [];
   TR.curve = []; TR.addPnlRealized = 0; TR.hadAdds = false; TR.drill = '';
   applyBlind(false); trainerChartLock(false);
@@ -60,6 +61,7 @@ await call('Emulation.setDeviceMetricsOverride', { width: 1680, height: 1000, de
 await call('Page.navigate', { url: origin + '/index.html' });
 await until(`location.href.startsWith(${JSON.stringify(origin)}) && window.__INIT_OK === true`);
 await sleep(1000);
+await ev('PracticeStore.clear()');
 await ev(`(() => {
   localStorage.removeItem('chan_trainer_stats_v1');
   localStorage.removeItem('chan_trainer_sessions_v1');
@@ -70,6 +72,7 @@ await ev(`(() => {
   window.alert = m => { window.__alert = String(m); };
   window.__alert = null;
   window.confirm = () => true;
+  renderTrainerSessions();renderTrainerStats();
 })()`);
 
 // ---- 1) 配置项齐全 ----
@@ -333,7 +336,7 @@ assert.ok(res.histHtml.includes('R/最大'), '历史明细应含 R/最大 列');
 // ---- 5) 错题标记 / 只看错题 / 同区间重练 ----
 await ev(`document.getElementById('trainerEnd').click()`);   // 结束本局(保留存档)
 await sleep(200);
-assert.ok((await ev(`document.getElementById('practiceCount').textContent`)).includes('1'), '存档后已练局数应更新: ' + await ev(`document.getElementById('practiceCount').textContent`));
+assert.ok((await ev(`document.getElementById('practiceCount').textContent`)).includes('3'), '存档应同时保留完成局和前两次中断局: ' + await ev(`document.getElementById('practiceCount').textContent`));
 assert.ok((await ev(`document.getElementById('practiceCount').title`)).includes('完成 1'), 'tooltip 应含完成明细: ' + await ev(`document.getElementById('practiceCount').title`));
 await ev(`document.querySelector('#trHistory .ts-item [data-act="flag"]').click()`);
 assert.equal(await ev(`tsLoad()[0].flag`), true, '标记错题应持久化');
@@ -353,6 +356,7 @@ assert.equal(await ev(`document.getElementById('trOnlyFlagged').checked`), true,
 await resetTrainer();
 
 // 收尾: 清理测试数据
+await ev('PracticeStore.clear()');
 await ev(`(() => {
   localStorage.removeItem('chan_trainer_stats_v1');
   localStorage.removeItem('chan_trainer_sessions_v1');

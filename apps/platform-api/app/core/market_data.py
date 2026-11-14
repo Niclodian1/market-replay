@@ -32,15 +32,61 @@ _TF_SUFFIX = {
     "1week": ("1week", "1w"),
 }
 
+_LOCAL_STEM_ALIASES: dict[str, tuple[str, ...]] = {
+    "^NDX": ("NDX",),
+    "NDX": ("NDX",),
+    "^IXIC": ("NDX",),
+    "IXIC": ("NDX",),
+    "纳指": ("NDX",),
+    "纳斯达克": ("NDX",),
+    "纳斯达克100": ("NDX",),
+    "^GSPC": ("SPX",),
+    "SPX": ("SPX",),
+    "GSPC": ("SPX",),
+    "标普500": ("SPX",),
+    "^N225": ("N225",),
+    "N225": ("N225",),
+    "GC=F": ("XAUUSD",),
+    "XAUUSD": ("XAUUSD",),
+    "XAU_USD": ("XAUUSD",),
+    "SI=F": ("XAGUSD",),
+    "XAGUSD": ("XAGUSD",),
+    "XAG_USD": ("XAGUSD",),
+    "BRK-B": ("BRK_B",),
+    "BRK.B": ("BRK_B",),
+    "BRK_B": ("BRK_B",),
+    "BTC-USD": ("BTCUSDT", "BTC_USD", "BTC"),
+    "BTC_USD": ("BTCUSDT", "BTC_USD", "BTC"),
+    "BTC": ("BTCUSDT", "BTC_USD", "BTC"),
+    "ETH-USD": ("ETHUSDT", "ETH_USD", "ETH"),
+    "ETH_USD": ("ETHUSDT", "ETH_USD", "ETH"),
+    "ETH": ("ETHUSDT", "ETH_USD", "ETH"),
+    "SOL-USD": ("SOLUSDT", "SOL"),
+    "SOL": ("SOLUSDT", "SOL"),
+}
+
+
+def _candidate_stems(symbol: str) -> list[str]:
+    raw = symbol.strip().upper()
+    cleaned = raw.lstrip("^").replace("/", "_").replace("-", "_").replace(".", "_")
+    stems: list[str] = []
+    for alias in _LOCAL_STEM_ALIASES.get(raw, ()) + _LOCAL_STEM_ALIASES.get(cleaned, ()):
+        if alias not in stems:
+            stems.append(alias)
+    for s in (cleaned, raw.replace("-", "_").replace(".", "_")):
+        if s and s not in stems:
+            stems.append(s)
+    return stems
+
 
 def resolve_parquet(symbol: str, timeframe: str) -> Path | None:
-    stem = symbol.upper().replace("-", "_").replace(".", "_")
     suffixes = _TF_SUFFIX.get(timeframe, (timeframe,))
-    for directory in DATA_DIRS:
-        for suffix in suffixes:
-            candidate = REPO_ROOT / "data" / directory / f"{stem}_{suffix}.parquet"
-            if candidate.exists():
-                return candidate
+    for stem in _candidate_stems(symbol):
+        for directory in DATA_DIRS:
+            for suffix in suffixes:
+                candidate = REPO_ROOT / "data" / directory / f"{stem}_{suffix}.parquet"
+                if candidate.exists():
+                    return candidate
     return None
 
 

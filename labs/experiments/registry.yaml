@@ -56,3 +56,13 @@ experiments:
     artifacts: apps/platform-web/public/data/ma_strategies
     conclusion_date: 2026-10-22
     conclusion: 结果读取已收敛到 /api/ma-strategies-unified，旧 3 个 router 标 deprecated；脚本保留可回滚
+
+  - id: btc-ai-poc
+    title: BTC AI 交易模块 PoC（LightGBM + Triple-Barrier + Walk-Forward；纯 ML / Meta-Labeling / AI 风控层）
+    hypothesis: 基于 OHLCV 平稳化特征的 LightGBM 在扣除 0.20% 往返成本后能产生显著样本外 alpha
+    status: archived
+    data: [crypto]
+    command: python3 experiments/btc_ai_poc/run_experiment.py --suite
+    artifacts: experiments/btc_ai_poc/results
+    conclusion_date: 2026-11-04
+    conclusion: 否决。4h 主配置 OOS AUC 0.527、随机同池检验 p=0.67，纯 ML CAGR -22.9%，meta 过滤 -3.7%；仅 1h 排序优于随机（p=0.0006）但被成本吃掉（0.28R/笔）。AI 波动率预测 QLIKE 比 EWMA 好 7.6%，但策略层 Sharpe 差异不显著；有效改进来自规则（多周期过滤、波动率目标），见 experiments/btc_ai_poc/REPORT.md

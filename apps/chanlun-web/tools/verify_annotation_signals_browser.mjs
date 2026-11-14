@@ -16,21 +16,22 @@ try {
  await call('Page.navigate',{url:origin+'/index.html'});
  await until('window.__INIT_OK===true && typeof AnnotationSignals!=="undefined"');
  await ev('annSetOpen(true)');
- for(const src of ['k2060_v1','k20120_v1','k60120_v1','macd_low_dif_v1','macd_low_hist_v1']){
+ for(const src of ['k2060_v1','k20120_v1','k60120_v1','macd_peak_div','macd_low_div']){
   await ev(`ANN.source=${JSON.stringify(src)};annBuildSigs();annSourceMenuRender();annGo(0)`);
   assert.ok(await ev('ANN.sigs.length>0'),src+' has signals');
   assert.ok((await ev('document.getElementById("annBody").textContent')).includes('信号判定依据'));
-  assert.ok((await ev('document.getElementById("annSelLabel").textContent')).includes(src.startsWith('k')?'阳线同时突破':'底背离候选'));
+  assert.ok((await ev('document.getElementById("annSelLabel").textContent')).includes(src.startsWith('k')?'阳线同时突破':src==='macd_low_div'?'两低点比负柱':'柱极值底背离'));
   const backup=await ev('(()=>{const k=annKey(ANN.sigs[ANN.idx].i);return {key:k,old:ANN.decisions[k]||null}})()');
   await ev('annMark("yes")');
   const out=await ev('annExportData()');const row=out.items.find(x=>x.source===src&&x.decision==='yes');
-  assert.ok(row?.signalEvidence);assert.equal(row.signalEvidence.type,src.startsWith('k')?'ma_body_combo_v1':'macd_new_low_divergence_v1');
-  if(!src.startsWith('k'))assert.ok(row.signalEvidence.referenceTime<row.features.time);
+  assert.ok(row?.signalEvidence);assert.equal(row.signalEvidence.type,src.startsWith('k')?'ma_body_combo_v1':src==='macd_low_div'?'macd_low_divergence_v1':'macd_peak_divergence_v1');
+  if(!src.startsWith('k')){assert.ok(row.signalEvidence.referenceTime<row.features.time);assert.ok(row.signalEvidence.strength>0);if(src==='macd_low_div'){assert.ok(row.signalEvidence.lowPrice<row.signalEvidence.referenceLow);assert.ok(row.signalEvidence.confirmTime>row.signalEvidence.lowTime);}else{assert.ok(row.signalEvidence.peakIndex<row.signalEvidence.alertIndex);}}
   await ev(`(()=>{const b=${JSON.stringify(backup)};if(b.old)ANN.decisions[b.key]=b.old;else delete ANN.decisions[b.key];annSave()})()`);
   console.log(src,await ev('ANN.sigs.length'));
  }
  await ev('switchSymbol("ETH")');await until('currentSym==="ETH"');
  assert.ok(await ev('ANN.sigs.length>0'));
- assert.ok((await ev('document.getElementById("annBody").textContent')).includes('MACD柱'));
- assert.deepEqual(errors,[]);console.log('PASS: five sources, evidence cards, separate storage, evidence export and ETH switch');
+ assert.ok((await ev('document.getElementById("annBody").textContent')).includes('参照低点'),'evidence card survives symbol switch');
+ assert.ok((await ev('(()=>{const e=ANN.sigs[ANN.idx].evidence;return e.lowIndex===ANN.sigs[ANN.idx].i&&e.confirmIndex>e.lowIndex&&e.referenceEndTime<e.segmentStartTime})()')),'marker is the low bar, confirmation later, reference band earlier');
+ assert.deepEqual(errors,[]);console.log('PASS: four sources, evidence cards, separate storage, evidence export and ETH switch');
 } finally {ws.close();}

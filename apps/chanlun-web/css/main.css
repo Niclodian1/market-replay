@@ -79,41 +79,57 @@ body {
 }
 #app { display: flex; flex-direction: column; height: 100%; }
 
-/* ---- 顶部工具条 ---- */
+/* ---- 顶部工具条: 两行分区 ----
+   第一行 .tb-main : 品牌 · 品种 · 周期 · 视角(+⚙缠论设置浮层) · 指标▾ · 研究工具▾ · 报告▾ … 复盘 / 练习
+   第二行 .tb-sub  : 画线 · MA · 我的买点/标注 · [复盘/练习控制条] … 适应/全屏/快照/主题/侧栏 */
 .toolbar {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; padding: 0 12px; min-height: 46px;
+  position: relative; z-index: 100;
+  display: flex; flex-direction: column;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  flex: 0 0 auto; flex-wrap: wrap;
+  flex: 0 0 auto;
   transition: box-shadow .2s ease;
 }
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand-title { font-size: 14px; font-weight: 600; letter-spacing: .2px; }
+.tb-row {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 6px 8px; padding: 0 12px;
+}
+.tb-main { min-height: 46px; padding-top: 4px; padding-bottom: 4px; }
+.tb-sub {
+  min-height: 38px; padding-top: 3px; padding-bottom: 3px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--plane) 45%, var(--surface));
+}
+.tb-group { display: inline-flex; align-items: center; gap: 6px; }
+.tb-sep { width: 1px; height: 20px; background: var(--border); flex: 0 0 auto; margin: 0 2px; }
+.tb-spacer { flex: 1 1 auto; min-width: 8px; }
+.brand { display: flex; align-items: center; gap: 8px; margin-right: 2px; }
+.brand-logo {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px;
+  font-size: 13px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, var(--accent), #7c4dff);
+  box-shadow: 0 2px 8px rgba(41,98,255,.35);
+}
+.brand-title { font-size: 14px; font-weight: 700; letter-spacing: .3px; white-space: nowrap; }
 .brand-sub {
-  font-size: 11px; color: var(--muted);
+  font-size: 11px; color: var(--muted); white-space: nowrap;
   font-variant-numeric: tabular-nums;
   background: var(--panel); border-radius: 4px; padding: 2px 6px;
 }
 .controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* 分区标签: 统一低调灰字, 只做提示不抢视觉 */
 .controls-label {
   display: inline-flex; align-items: center;
-  font-size: 10.5px; font-weight: 700; letter-spacing: .3px;
-  padding: 1px 7px; border-radius: 4px;
-  color: var(--muted); background: transparent;
+  font-size: 11px; font-weight: 500; letter-spacing: .2px;
+  padding: 0 2px; color: var(--muted); background: transparent; white-space: nowrap;
 }
-/* 顶部分区标签用重点色(替代灰色): 周期/视角/复盘/练习/画线/MA 各自语义色 */
-.controls-label.cl-tf      { color: #00bcd4; background: rgba(0,188,212,.13); }
-.controls-label.cl-view    { color: var(--accent); background: rgba(41,98,255,.12); }
-.controls-label.cl-replay  { color: var(--accent); background: rgba(41,98,255,.12); }
-.controls-label.cl-trainer { color: #ff9800; background: rgba(255,152,0,.15); }
-.controls-label.cl-draw    { color: #9c27b0; background: rgba(156,39,176,.15); }
-.controls-label.cl-ma      { color: #26a69a; background: rgba(38,166,154,.15); }
+.tb-main .controls-label.cl-tf, .tb-main .controls-label.cl-view,
+.tb-modes .controls-label { display: none; }   /* 按钮本身已自解释, 第一行不再重复标签 */
 body.trainer-blind .controls-label.cl-replay { display: none; }   /* 盲测时复盘入口隐藏, 标签同步隐藏 */
 /* 已练习局数(工具栏, 随存档自动更新) */
 .practice-count {
   font-size: 11px; font-weight: 600; color: #ff9800; white-space: nowrap;
-  background: rgba(255,152,0,.13); border-radius: 4px; padding: 1px 7px;
+  background: rgba(255,152,0,.12); border-radius: 999px; padding: 2px 9px;
   font-variant-numeric: tabular-nums;
 }
 .practice-count b { font-size: 12.5px; }
@@ -126,8 +142,9 @@ body.trainer-blind .practice-count { background: rgba(255,152,0,.2); }
 }
 .sym-select {
   background: var(--panel); color: var(--ink);
-  border: 1px solid transparent; border-radius: 4px;
-  padding: 4px 8px; font: inherit; font-size: 12px; cursor: pointer;
+  border: 1px solid transparent; border-radius: 6px;
+  padding: 4px 8px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  max-width: 190px;
 }
 .sym-select:hover { border-color: var(--muted); }
 .seg button {
@@ -138,14 +155,108 @@ body.trainer-blind .practice-count { background: rgba(255,152,0,.2); }
 .seg button:hover { background: var(--hover); color: var(--ink-2); }
 .seg button.active { background: var(--panel); color: var(--ink); font-weight: 600; }
 .btn {
+  display: inline-flex; align-items: center; gap: 4px;
   background: transparent; color: var(--ink-2);
-  border: 1px solid transparent; border-radius: 4px;
+  border: 1px solid transparent; border-radius: 6px;
   padding: 4px 10px; font-size: 12px; line-height: 1.5; cursor: pointer; font-family: inherit;
-  white-space: nowrap;
+  white-space: nowrap; text-decoration: none;
 }
 .btn:hover { background: var(--hover); color: var(--ink); }
 .btn:active { background: var(--panel); }
 .btn.active { background: var(--panel); color: var(--ink); font-weight: 600; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-outline { border-color: var(--border); }
+.btn-outline:hover { border-color: var(--muted); }
+.btn-primary { background: var(--accent); color: #fff; font-weight: 600; }
+.btn-primary:hover { background: #1e53e5; color: #fff; }
+.btn-ghost { border-color: var(--border); padding: 3px 9px; font-size: 11.5px; }
+.btn-danger:hover { color: var(--down); border-color: rgba(242,54,69,.5); background: rgba(242,54,69,.08); }
+.tb-input {
+  background: var(--plane); color: var(--ink); border: 1px solid var(--border); border-radius: 6px;
+  padding: 3px 8px; font: inherit; font-size: 12px; height: 28px;
+}
+.tb-input:hover { border-color: var(--muted); }
+#maPeriods { width: 96px; font-variant-numeric: tabular-nums; }
+
+/* 复盘 / 练习: 第一行右侧的主入口, 做成实心胶囊 */
+.tb-modes { gap: 6px; }
+.seg-mode { padding: 0; border: none; background: transparent; }
+.seg-mode button {
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px 12px;
+  color: var(--ink-2); font-weight: 600; background: var(--plane);
+}
+#replayBtn:hover { color: var(--accent); border-color: rgba(41,98,255,.6); background: rgba(41,98,255,.08); }
+#trainerBtn:hover { color: #ff9800; border-color: rgba(255,152,0,.6); background: rgba(255,152,0,.08); }
+
+/* 第二行模式控制条(复盘/练习进行中才出现) */
+.tb-ctl { align-items: center; gap: 4px; flex-wrap: wrap; }
+.tb-ctl-tag { font-size: 11px; font-weight: 700; padding: 0 4px; }
+#replayCtl .tb-ctl-tag { color: var(--accent); }
+#trainerCtl .tb-ctl-tag { color: #ff9800; }
+.tb-ctl-info { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; padding: 0 4px; }
+.tb-stat { cursor: default !important; font-variant-numeric: tabular-nums; background: var(--plane); border-color: var(--border); }
+.tb-stat:hover { background: var(--plane); }
+.tb-view-tools .btn { color: var(--muted); padding: 4px 8px; }
+.tb-view-tools .btn:hover { color: var(--ink); }
+
+/* ---- 工具栏下拉浮层 ---- */
+.tb-pop { position: relative; display: inline-flex; }
+.tb-pop-btn { border-color: var(--border); background: var(--plane); }
+.tb-pop-btn .caret { font-style: normal; font-size: 11px; color: var(--muted); margin-left: 2px; transition: transform .15s ease; }
+.tb-pop-btn.open, #chanDetailsBtn.open { background: var(--panel); color: var(--ink); border-color: var(--muted); }
+.tb-pop-btn.open .caret { transform: rotate(180deg); }
+.pop-count {
+  display: none; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 4px;
+  border-radius: 999px; background: var(--accent); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+}
+.pop-count.on { display: inline-block; }
+.pop-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 120;
+  min-width: 200px; padding: 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 8px;
+  animation: popIn .12s ease;
+}
+.pop-panel[hidden] { display: none; }
+@keyframes popIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.pop-title { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .5px; }
+.pop-list { display: flex; flex-direction: column; gap: 2px; }
+.pop-list .btn { justify-content: flex-start; width: 100%; padding: 6px 10px; }
+.pop-list .btn.active { background: rgba(41,98,255,.14); color: var(--ink); box-shadow: inset 2px 0 0 var(--accent); }
+.pop-row { display: flex; align-items: center; gap: 10px; }
+.pop-row-top { align-items: flex-start; }
+.pop-row-top .pop-label { padding-top: 5px; }
+.pop-label { flex: 0 0 44px; font-size: 11.5px; color: var(--muted); }
+.seg-wrap { flex-wrap: wrap; max-width: 300px; }
+/* 「⚙ 缠论设置」浮层: display 由 07-main.js 写 inline flex/none, 这里只管外观 */
+#chanDetails.chan-details { flex-direction: column; align-items: stretch; gap: 8px; min-width: 360px; }
+/* 指标面板: 左列=叠加到主图开关, 右列=列表/面板; 用 order 让同一算法的两个按钮同排 */
+.indicator-pop { min-width: 280px; }
+.pop-foot { font-size: 10.5px; color: var(--muted); padding: 0 2px; }
+/* 右列(列表/面板类按钮)用 ☰ 图标区分 */
+#cover67IndicatorList::before, #ma20StructureList::before, #ma20AIToggle::before, #macd3segList::before {
+  content: '☰'; width: auto; height: auto; background: none; border-radius: 0; box-shadow: none;
+  font-size: 11px; color: var(--muted); vertical-align: 0;
+}
+.seg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; }
+.seg-grid button {
+  text-align: left; padding: 6px 10px; border: 1px solid transparent; border-radius: 6px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.seg-grid button::before {
+  content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 7px; vertical-align: 1px;
+  border-radius: 50%; background: var(--border);
+}
+.seg-grid button.active { background: rgba(41,98,255,.14); border-color: rgba(41,98,255,.45); color: var(--ink); }
+.seg-grid button.active::before { background: var(--accent); box-shadow: 0 0 0 3px rgba(41,98,255,.2); }
+#indicatorToggle button.active[id$="List"]::before, #indicatorToggle #ma20AIToggle.active::before { background: none; box-shadow: none; color: var(--accent); }
+#cover67IndicatorToggle { order: 1; } #cover67IndicatorList { order: 2; }
+#ma20StructureToggle   { order: 3; } #ma20StructureList   { order: 4; }
+#aiMa20AlgoToggle      { order: 5; } #ma20AIToggle        { order: 6; }
+#macd3segToggle        { order: 7; } #macd3segList        { order: 8; }
+#indicatorToggle > button:not([id]) { order: 9; }
 
 /* ---- 模式重点色: 复盘=蓝 / 练习=橙(盲测更醒目) ---- */
 .mode-badge { display: none; font-size: 11px; font-weight: 700; letter-spacing: .3px; padding: 2px 9px; border-radius: 999px; border: 1px solid transparent; }
@@ -153,10 +264,10 @@ body.trainer-blind .practice-count { background: rgba(255,152,0,.2); }
 .mode-badge.trainer { display: inline-flex; color: #ff9800; background: rgba(255,152,0,.15); border-color: rgba(255,152,0,.5); }
 body.mode-replay .toolbar { box-shadow: inset 0 -2px 0 var(--accent); }
 body.mode-trainer .toolbar { box-shadow: inset 0 -2px 0 #ff9800; }
-body.mode-replay #replayCtl { background: rgba(41,98,255,.08); border: 1px solid rgba(41,98,255,.25); border-radius: 6px; padding: 2px 5px; }
-body.mode-trainer #trainerCtl { background: rgba(255,152,0,.08); border: 1px solid rgba(255,152,0,.28); border-radius: 6px; padding: 2px 5px; }
-body.mode-replay #replayBtn.active { background: rgba(41,98,255,.16); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(41,98,255,.5); }
-body.mode-trainer #trainerBtn.active { background: rgba(255,152,0,.16); color: #ff9800; box-shadow: inset 0 0 0 1px rgba(255,152,0,.55); }
+body.mode-replay #replayCtl { background: rgba(41,98,255,.08); border: 1px solid rgba(41,98,255,.25); border-radius: 8px; padding: 2px 6px; }
+body.mode-trainer #trainerCtl { background: rgba(255,152,0,.08); border: 1px solid rgba(255,152,0,.28); border-radius: 8px; padding: 2px 6px; }
+body.mode-replay #replayBtn.active { background: rgba(41,98,255,.16); color: var(--accent); border-color: rgba(41,98,255,.6); }
+body.mode-trainer #trainerBtn.active { background: rgba(255,152,0,.16); color: #ff9800; border-color: rgba(255,152,0,.6); }
 body.trainer-blind .brand-sub { color: #ff9800; box-shadow: inset 0 0 0 1px rgba(255,152,0,.45); }
 input, select, textarea { font-family: inherit; }
 ::placeholder { color: var(--muted); opacity: .85; }
@@ -184,15 +295,16 @@ input, select, textarea { font-family: inherit; }
 }
 #macd   { height: 180px; flex: 0 0 auto; }
 .pane-resizer {
-  position: relative; height: 14px; flex: 0 0 14px;
-  border-top: 1px solid var(--border); background: var(--surface);
+  position: relative; height: 16px; flex: 0 0 16px;
+  border-top: 1px solid var(--border); background: var(--plane);
   cursor: ns-resize; touch-action: none; user-select: none;
-  color: var(--muted); font-size: 10px; line-height: 13px;
+  color: var(--muted); font-size: 10.5px; font-weight: 600; line-height: 15px; letter-spacing: .3px;
 }
 .pane-resizer::after {
-  content: ''; position: absolute; left: 50%; top: 5px;
-  width: 36px; height: 3px; border-radius: 2px; background: var(--muted);
+  content: ''; position: absolute; left: 50%; top: 6px; transform: translateX(-50%);
+  width: 32px; height: 3px; border-radius: 2px; background: var(--border);
 }
+.pane-resizer:hover::after, .pane-resizer.dragging::after { background: var(--accent); }
 .pane-resizer span { padding-left: 8px; }
 .pane-resizer:hover, .pane-resizer:focus-visible, .pane-resizer.dragging {
   color: var(--ink); background: var(--panel); outline: none;
@@ -219,14 +331,45 @@ body.resizing-pane, body.resizing-pane * { cursor: ns-resize !important; user-se
 .legend-ma { display: inline-flex; align-items: center; gap: 8px; }
 .legend-ma .ma-item { display: inline-flex; align-items: center; gap: 3px; color: var(--ink-2); font-weight: 600; }
 .legend-ma .ma-item i { display: inline-block; width: 12px; height: 2px; border-radius: 1px; }
-/* 距最新读数: 贴右侧价格栏, 随十字光标纵向移动 */
+/* 距最新读数: 严格收在右侧价格栏宽度内(不伸入K线区), 紧贴十字光标价格标下方 */
 .dist-tag {
-  position: absolute; right: 2px; z-index: 6; display: none;
-  padding: 1px 6px; border-radius: 3px;
+  position: absolute; right: 1px; z-index: 6; display: none;
+  box-sizing: border-box; padding: 2px 4px; border-radius: 3px;
   background: var(--panel); border: 1px solid var(--border);
-  color: var(--ink-2); font-size: 11px; font-variant-numeric: tabular-nums;
-  pointer-events: none; transform: translateY(-50%); white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  color: var(--ink-2); font-size: 10px; line-height: 1.25;
+  text-align: right; font-variant-numeric: tabular-nums;
+  pointer-events: none; overflow: hidden; white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+
+/* 开单按钮高亮(练习模式尤甚) */
+#jOpen, #prSubmit {
+  background: rgba(8,153,129,.18); color: #19d3b0;
+  border: 1px solid rgba(8,153,129,.65); border-radius: 6px;
+  font-weight: 700; padding: 6px 14px;
+}
+#jOpen:hover:not(:disabled), #prSubmit:hover:not(:disabled) {
+  background: rgba(8,153,129,.3); color: #fff; border-color: #19d3b0;
+}
+#jOpen:disabled, #prSubmit:disabled { opacity: .4; cursor: not-allowed; }
+body.mode-trainer #jOpen:not(:disabled),
+body.trainer-blind #jOpen:not(:disabled),
+body.mode-trainer #prSubmit:not(:disabled) {
+  width: 100%; text-align: center; font-size: 13px; letter-spacing: .5px;
+  padding: 8px 16px; color: #fff;
+  background: linear-gradient(135deg, #089981 0%, #05b596 100%);
+  border: 1px solid #26e6c0;
+  box-shadow: 0 0 0 1px rgba(255,152,0,.55), 0 3px 12px rgba(8,153,129,.45);
+}
+body.mode-trainer #jOpen:hover:not(:disabled),
+body.trainer-blind #jOpen:hover:not(:disabled),
+body.mode-trainer #prSubmit:hover:not(:disabled) {
+  filter: brightness(1.1);
+  box-shadow: 0 0 0 2px rgba(255,152,0,.8), 0 4px 16px rgba(8,153,129,.6);
+}
+body.mode-trainer #trainerDecision:not(:disabled) {
+  background: rgba(8,153,129,.22); color: #26e6c0;
+  border-color: rgba(8,153,129,.7); font-weight: 700;
 }
 
 .marker-tip {
@@ -254,7 +397,7 @@ body.resizing-pane, body.resizing-pane * { cursor: ns-resize !important; user-se
 
 /* ---- 右侧面板: 卡片不再描边, 以分隔线分区 ---- */
 .side {
-  flex: 0 0 320px; min-width: 0;
+  flex: 0 0 340px; min-width: 0;
   padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0;
   background: var(--surface);
   border-left: 1px solid var(--border);
@@ -262,13 +405,71 @@ body.resizing-pane, body.resizing-pane * { cursor: ns-resize !important; user-se
 .card {
   background: transparent;
   border: none; border-bottom: 1px solid var(--border); border-radius: 0;
-  padding: 12px 14px;
+  padding: 14px 16px;
 }
 .card:last-child { border-bottom: none; }
 .card h3 {
-  margin: 0 0 8px; font-size: 11px; font-weight: 600;
-  color: var(--muted); letter-spacing: .8px; text-transform: uppercase;
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 0 10px; font-size: 12.5px; font-weight: 700;
+  color: var(--ink); letter-spacing: .3px;
 }
+.card h3::before, .card h3.h3-row > span:first-child::before {
+  content: ''; flex: 0 0 auto; width: 3px; height: 12px; border-radius: 2px; background: var(--accent);
+}
+.card h3.h3-row::before { display: none; }
+.card h3.h3-row > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+.h3-sub { font-size: 11px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+
+/* 卡片内: 可折叠说明 / 操作行 / 小标题 */
+.help-details { margin-top: 10px; font-size: 11px; }
+.help-details > summary {
+  cursor: pointer; color: var(--muted); list-style: none; user-select: none;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.help-details > summary::-webkit-details-marker { display: none; }
+.help-details > summary::before { content: 'ⓘ'; font-size: 11px; }
+.help-details > summary:hover { color: var(--ink-2); }
+.help-details[open] > summary { color: var(--ink-2); }
+.help-details .note {
+  margin: 6px 0 0; padding: 8px 10px; border-radius: 6px;
+  background: var(--plane); border: 1px solid var(--border);
+}
+.card-details > summary { list-style: none; cursor: pointer; user-select: none; }
+.card-details > summary::-webkit-details-marker { display: none; }
+.card-details > summary h3 { margin: 0; }
+.card-details > summary h3::after {
+  content: '▸'; margin-left: auto; color: var(--muted); font-size: 11px; transition: transform .15s ease;
+}
+.card-details[open] > summary h3::after { transform: rotate(90deg); }
+.card-details[open] > summary { margin-bottom: 10px; }
+.card-actions { display: flex; gap: 6px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+.card-summary { font-size: 11.5px; color: var(--muted); }
+.sub-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px;
+  font-size: 11.5px; font-weight: 600; color: var(--ink-2);
+}
+.sub-head-hint { font-weight: 400; color: var(--muted); font-size: 11px; }
+.chk { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.tr-per-sym { font-size: 11px; color: var(--muted); line-height: 1.9; }
+
+/* 复盘交易表单 */
+.jform { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.jf-row { display: grid; gap: 8px; }
+.jf-3 { grid-template-columns: 1.2fr 1fr 1fr; }
+.jf-2 { grid-template-columns: 1fr 1fr; }
+.field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); min-width: 0; }
+.field-hint { font-size: 10.5px; color: var(--muted); opacity: .85; }
+.field input, .field select, .field textarea {
+  width: 100%; min-width: 0; box-sizing: border-box;
+  background: var(--plane); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 8px; font: inherit; font-size: 12px;
+}
+.field textarea { resize: vertical; min-height: 44px; line-height: 1.5; }
+.field input:hover, .field select:hover, .field textarea:hover { border-color: var(--muted); }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); outline: none; }
+.jf-hint { font-size: 11px; min-height: 14px; color: var(--muted); line-height: 1.35; margin-top: -2px; }
+#jOpen { justify-content: center; width: 100%; }
 .legend-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: var(--ink-2); }
 .swatch { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
 .swatch.up    { background: var(--up); }
@@ -396,11 +597,25 @@ body.resizing-pane, body.resizing-pane * { cursor: ns-resize !important; user-se
 #trainerBanner b { color: var(--ink); font-size: 13px; }
 #trainerConfig {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  z-index: 40; display: none; flex-direction: column; gap: 12px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-  padding: 18px 22px; font-size: 13px; box-shadow: var(--shadow);
-  min-width: 280px;
+  z-index: 40; display: none; flex-direction: column; gap: 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px 22px; font-size: 12.5px; box-shadow: var(--shadow), 0 0 0 100vmax rgba(0,0,0,.35);
+  width: min(440px, calc(100% - 32px));
 }
+#trainerConfig .cfg-title { font-weight: 700; font-size: 15px; text-align: left; }
+#trainerConfig .cfg-grid {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px 10px; align-items: center;
+}
+#trainerConfig .cfg-k { color: var(--muted); }
+#trainerConfig .cfg-hint { color: var(--muted); font-size: 11px; white-space: nowrap; }
+#trainerConfig .cfg-grid select, #trainerConfig .cfg-grid input[type="number"] {
+  width: 100%; min-width: 0; box-sizing: border-box;
+  background: var(--plane); color: inherit; border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 8px; font: inherit;
+}
+#trainerConfig .cfg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 2px; }
+#trainerConfig .cfg-actions .btn { padding: 6px 16px; }
+#trainerConfig .cfg-actions .btn:not(.btn-primary) { border-color: var(--border); }
 /* 盲测态: 隐藏一切泄露品种名/绝对时间的入口(统计卡的 edge 信息为硬编码日期串, 只能整体隐藏) */
 body.trainer-blind #symSelect,
 body.trainer-blind #tfWrap,
@@ -419,7 +634,7 @@ body.tf-chunked #tradeModeToggle { opacity: .35; pointer-events: none; }
 /* ---- 加载态: 右上角徽章 + 顶部流动细条 ---- */
 body.chunk-loading::after {
   content: '⟳ 分片加载中…';
-  position: absolute; top: 48px; right: 12px; z-index: 35;
+  position: absolute; top: calc(var(--toolbar-h, 46px) + 8px); right: 12px; z-index: 35;
   font-size: 11px; color: var(--muted);
   background: var(--panel); border: 1px solid var(--border);
   border-radius: 4px; padding: 3px 8px;
@@ -446,15 +661,19 @@ body.chunk-loading .chart-box::before {
 #trHistory { max-height: 320px; overflow-y: auto; }
 
 /* ---- 响应式 ---- */
+@media (max-width: 1480px) {
+  .brand-title { display: none; }            /* 窄屏只保留 logo + 品种徽标 */
+  .sym-select { max-width: 150px; }
+}
 @media (max-width: 1280px) {
-  .toolbar { overflow-x: auto; flex-wrap: nowrap; }
-  .toolbar .controls { flex: 0 0 auto; }
+  .tb-row { padding: 0 8px; gap: 5px 6px; }
+  .side { flex-basis: 310px; }
 }
 @media (max-width: 900px) {
   .layout { flex-direction: column; }
   .chart-pane { min-height: 420px; }
   .side { flex: 0 0 auto; width: 100%; flex-direction: row; flex-wrap: wrap; padding: 10px; gap: 10px; border-left: none; border-top: 1px solid var(--border); background: var(--plane); }
-  .side .card { flex: 1 1 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+  .side .card { flex: 1 1 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
 }
 
 /* ---- 侧栏折叠 ---- */
@@ -478,8 +697,7 @@ body.side-collapsed .layout { flex-direction: column; }
   border-radius: 4px; padding: 3px 6px; width: 100px; font: inherit;
 }
 
-/* ---- 缠论细节条(收纳中枢/笔口径/回测/图层/原始合并) ---- */
-#chanDetails { display: none; align-items: center; gap: 8px; }
+/* ---- 缠论细节条: 已改为「⚙ 缠论设置」下拉浮层, 样式见工具栏下拉浮层一节 ---- */
 #chanDetails .controls-label { color: var(--muted); }
 
 /* ---- 参数实验室(09-params-lab.js) ---- */
@@ -587,7 +805,7 @@ body.side-collapsed #sideShowBtn { display: inline-flex; }
 
 /* ---- 标注: 独立右侧抽屉(不嵌在复盘交易里) ---- */
 .ann-drawer {
-  position: fixed; right: 0; top: 52px; bottom: 0; z-index: 80;
+  position: fixed; right: 0; top: var(--toolbar-h, 52px); bottom: 0; z-index: 80;
   width: 396px; display: flex; flex-direction: column;
   background: var(--plane); border-left: 1px solid var(--border);
   box-shadow: -10px 0 28px rgba(0, 0, 0, .28);
@@ -816,3 +1034,40 @@ body.ann-open .layout { margin-right: 396px; transition: margin-right .18s ease;
 .manual-error { color:var(--down); }
 .ann-optional-assessment { margin:10px 0; color:var(--muted); }
 .ann-form-field input,.ann-form-field select,.ann-form-field textarea { background:var(--plane); }
+
+/* 练习判断面板：选点时主图仍可点击。 */
+.pr-decision {
+  position:absolute; right:12px; top:64px; z-index:36; width:min(390px, calc(100% - 24px));
+  max-height:calc(100% - 76px); overflow:auto; box-sizing:border-box;
+  background:var(--surface); color:var(--ink); border:1px solid var(--border);
+  box-shadow:0 8px 26px #0005; border-radius:8px; padding:12px;
+}
+.pr-decision[hidden] { display:none; }
+.pr-decision form { display:grid; gap:8px; }
+.pr-decision-title, .pr-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.pr-decision-title { justify-content:space-between; }
+.pr-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+.pr-fields label, .pr-decision label { display:grid; gap:3px; font-size:11px; color:var(--ink-2); }
+.pr-fields input, .pr-fields select, .pr-decision input, .pr-decision select, .pr-decision textarea {
+  min-width:0; width:100%; box-sizing:border-box; padding:4px 5px; border-radius:4px;
+  background:var(--plane); color:var(--ink); border:1px solid var(--border); font:inherit;
+}
+#prDecisionError { color:var(--top); font-size:11px; }
+#prDecisionError:empty { display:none; }
+.pr-review { margin:7px 0; font-size:11px; line-height:1.6; }
+.pr-review summary { cursor:pointer; color:var(--ink); font-weight:600; }
+.pr-review ul { margin:4px 0; padding-left:18px; overflow-wrap:anywhere; }
+.pr-review .pr-fields { margin:6px 0; }
+.pr-table { overflow:auto; }
+.pr-table table { border-collapse:collapse; width:100%; }
+.pr-table td, .pr-table th { border-bottom:1px solid var(--border); padding:4px; text-align:left; }
+.pr-import { position:relative; cursor:pointer; }
+.pr-import input { position:absolute; inset:0; width:100%; opacity:0; cursor:pointer; }
+.pr-import:focus-within { outline:2px solid var(--bottom); }
+body.trainer-blind .pr-import, body.trainer-blind #practiceBatch, body.trainer-blind #prExport { display:none; }
+.pr-pick-hint {
+  position:absolute; z-index:36; top:64px; left:12px; pointer-events:none;
+  background:var(--surface); color:var(--ink); border:1px solid var(--top);
+  border-radius:5px; padding:6px 9px; font-size:12px;
+}
+.pr-pick-hint[hidden] { display:none; }

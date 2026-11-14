@@ -1,7 +1,7 @@
 /* Structured human evidence. No values are inferred from algorithm grades. */
 (function(root){
 'use strict';
-const VERSION='ma20-assessment/1';
+const VERSION='ma20-assessment/2';
 const FIELDS={
  region:['买点区域','成立','不成立','不确定'],
  trigger:['本根触发','足够强','力度不足','不确定'],
@@ -14,7 +14,7 @@ const FIELDS={
  referenceStatus:['结构参照范围','可以明确标出','不确定','不适用'],
  preferredEntry:['更合适的触发位置','就是当前根','等待后续更强信号','此前已有更好买点','不确定','不适用']
 };
-const ANCHORS={adjustStart:'调整开始K线',adjustEnd:'调整结束K线',referencePeak:'参照高点K线',earlierEntry:'此前更好买点K线'};
+const ANCHORS={adjustStart:'调整开始K线',adjustEnd:'调整结束K线',referencePeak:'参照高点K线',earlierEntry:'此前更好买点K线',advanceLow:'前段上涨起点K线',advancePeak:'前段上涨终点K线'};
 const stamp=(bar,tf)=>new Date(bar.time*1000).toISOString().slice(0,tf==='1D'?10:16).replace('T',' ');
 function inspect(a={},cs=[],i,tf){
  const errors=[];const anchors={};
@@ -47,6 +47,12 @@ function inspect(a={},cs=[],i,tf){
   const segment=cs.slice(anchors.adjustStart.index,anchors.adjustEnd.index+1);
   derived.adjustmentBars=segment.length;derived.adjustmentHigh=Math.max(...segment.map(c=>c.high));derived.adjustmentLow=Math.min(...segment.map(c=>c.low));
   derived.adjustmentRangePct=derived.adjustmentHigh>0?(derived.adjustmentHigh-derived.adjustmentLow)/derived.adjustmentHigh:null;
+ }
+ if(anchors.advanceLow&&anchors.advancePeak){
+  const lo=anchors.advanceLow,hi=anchors.advancePeak;
+  if(lo.index>=hi.index)errors.push('前段上涨起点必须早于终点');
+  else if(hi.high<=lo.low)errors.push('前段上涨终点高价必须高于起点低价');
+  else {derived.precedingAdvancePct=hi.high/lo.low-1;derived.advanceBars=hi.index-lo.index;derived.priceRetracementFraction=(hi.high-cs[i].close)/(hi.high-lo.low);derived.adjustmentTimeRatio=(i-hi.index)/(hi.index-lo.index);}
  }
  if(anchors.referencePeak){const h=anchors.referencePeak.high;derived.drawdownFromReferencePeak=h>0?1-cs[i].close/h:null;}
  if(box.boxHigh!==undefined&&box.boxLow!==undefined){derived.boxWidthPct=(box.boxHigh-box.boxLow)/box.boxLow;derived.signalBoxPosition=(cs[i].close-box.boxLow)/(box.boxHigh-box.boxLow);}

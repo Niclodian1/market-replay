@@ -1,0 +1,5 @@
+# Large reproducible outputs: keep results.json and charts, don't commit equity curves or trade logs
+results/**/equity.csv
+results/**/trades_*.csv
+results/**/meta_trend_trades.csv
+__pycache__/

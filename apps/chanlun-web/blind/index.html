@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>盲测标注 · 一次收集全部判断 (v2)</title>
+<script src="../lightweight-charts.standalone.production.js"></script>
+<script src="items.js"></script>
+<style>
+  :root {
+    --bg: #0f141c; --panel: #161d28; --border: #263142; --text: #e2e8f0;
+    --muted: #8b9bb4; --green: #10b981; --red: #ef4444; --amber: #f59e0b; --blue: #3b82f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  header { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header b { font-size: 14px; }
+  .seg { display: inline-flex; background: #0b0f16; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg button { background: transparent; color: var(--muted); border: 0; padding: 5px 10px; cursor: pointer; font-size: 12px; }
+  .seg button.active { background: var(--blue); color: #fff; font-weight: 600; }
+  .btn { background: #1e2837; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 12px; }
+  .btn:hover { border-color: #475569; }
+  .btn.pri { background: var(--green); border-color: var(--green); color: #052e16; font-weight: 600; }
+  .stat { color: var(--muted); font-size: 12px; }
+  main { flex: 1; display: grid; grid-template-columns: 1fr 420px; min-height: 0; }
+  #charts { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); position: relative; }
+  #pMain { flex: 3; min-height: 0; position: relative; }
+  #pVol { flex: 0.9; min-height: 0; border-top: 1px solid var(--border); }
+  #pMacd { flex: 1.2; min-height: 0; border-top: 1px solid var(--border); }
+  .legend { position: absolute; top: 6px; left: 10px; z-index: 5; pointer-events: none; font-size: 12px; color: var(--muted); background: rgba(15,20,28,.75); padding: 3px 8px; border-radius: 4px; }
+  aside { overflow-y: auto; padding: 12px 14px 80px; background: var(--panel); }
+  .sec { border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; margin-bottom: 9px; background: #121822; }
+  .sec h4 { margin: 0 0 6px; font-size: 12px; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
+  .row { display: flex; align-items: center; gap: 6px; margin: 5px 0; flex-wrap: wrap; }
+  .row label.lbl { width: 72px; color: var(--muted); flex-shrink: 0; font-size: 12px; }
+  .chips { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; }
+  .chip { background: #1a2332; color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 12px; user-select: none; }
+  .chip.on { background: #1e3a5f; border-color: var(--blue); color: #93c5fd; font-weight: 600; }
+  .chip.yes.on { background: #064e3b; border-color: var(--green); color: #6ee7b7; }
+  .chip.no.on { background: #581c1c; border-color: var(--red); color: #fca5a5; }
+  .chip.unsure.on { background: #583c0c; border-color: var(--amber); color: #fcd34d; }
+  input[type=text] { width: 100%; background: #0b0f16; border: 1px solid var(--border); color: var(--text); padding: 5px 8px; border-radius: 5px; font-size: 12px; }
+  .hint { color: var(--muted); font-size: 11px; }
+  .warn { color: #fbbf24; font-size: 12px; margin-top: 4px; }
+  footer { position: sticky; bottom: 0; background: var(--panel); border-top: 1px solid var(--border); padding: 8px 0 0; display: flex; gap: 8px; align-items: center; }
+</style>
+</head>
+<body>
+<header>
+  <b>🎯 盲测标注 v2</b>
+  <div class="seg" id="sessSeg">
+    <button data-s="1" class="active">第1场</button>
+    <button data-s="2">第2场</button>
+    <button data-s="3">第3场</button>
+    <button data-s="4">第4场</button>
+    <button data-s="0">热身(20)</button>
+  </div>
+  <button class="btn" id="prevBtn">← 上一题 [A]</button>
+  <button class="btn" id="nextUnBtn">跳到未做</button>
+  <button class="btn" id="nextBtn">下一题 [D] →</button>
+  <span class="stat" id="progTxt">加载中…</span>
+  <span style="flex:1"></span>
+  <button class="btn" id="exportBtn">💾 导出 JSON</button>
+  <label class="btn">📂 导入<input type="file" id="importInp" accept=".json" style="display:none"></label>
+</header>
+<main>
+  <div id="charts">
+    <div class="legend" id="lgMain">当前K = 100.0（涨跌百分比刻度） · 白=MA20 黄=MA60 紫=MA120 · 最后一根为候选K（已锁定为上穿MA20当根阳线）</div>
+    <div id="pMain"></div>
+    <div id="pVol"></div>
+    <div id="pMacd"></div>
+  </div>
+  <aside id="formPane">
+    <div class="sec">
+      <h4><span>1. 决定与买点位置 <small class="hint">[1买 / 2不买 / 3犹豫]</small></span><span id="itemTag"></span></h4>
+      <div class="row"><label class="lbl">决定 *</label><div class="chips" id="cDec"></div></div>
+      <div class="row"><label class="lbl">把握(1-5)</label><div class="chips" id="cConf"></div></div>
+      <div class="row" id="rowBarOff"><label class="lbl">买点位置</label><div class="chips" id="cBarOff"></div></div>
+    </div>
+
+    <div class="sec" id="secRej" style="display:none">
+      <h4><span>2. 不买的原因 * <small class="hint">勾选自动联动环境/力度；再点一次标为主因★</small></span></h4>
+      <div class="chips" id="cRej"></div>
+    </div>
+
+    <div class="sec" id="secStr">
+      <h4><span>3. 突破K线力度（K线形态 + 相对波动）</span></h4>
+      <div class="row"><label class="lbl">力度总评 *</label><div class="chips" id="cStr"></div></div>
+      <div class="row"><label class="lbl">问题(多选)</label><div class="chips" id="cStrIss"></div></div>
+      <div class="row"><label class="lbl">光头光脚</label><div class="chips" id="cMaru"></div></div>
+    </div>
+
+    <div class="sec" id="secEnv">
+      <h4><span>4. 形态与大环境 <small class="hint">仅统计你亲手点过的项</small></span></h4>
+      <div class="row"><label class="lbl">形态 *</label><div class="chips" id="cSetup"></div></div>
+      <div class="row"><label class="lbl">双均线共振</label><div class="chips" id="cDual"></div></div>
+      <div class="row"><label class="lbl">前期跌幅</label><div class="chips" id="cDrop"></div></div>
+      <div class="row"><label class="lbl">大趋势</label><div class="chips" id="cTrend"></div></div>
+      <div class="row"><label class="lbl">当前位置</label><div class="chips" id="cPos"></div></div>
+      <div class="row"><label class="lbl">震荡阶段</label><div class="chips" id="cStage"></div></div>
+    </div>
+
+    <div class="sec" id="secStop">
+      <h4><span>5. 止损 / 压力位 <small class="hint">主图点击设置</small></span></h4>
+      <div class="row">
+        <button class="btn" id="pickStopBtn">📍 点击主图设止损 [S]</button>
+        <button class="btn" id="useLowBtn">用当根最低</button>
+        <span class="stat" id="stopTxt">未设</span>
+      </div>
+      <div class="row">
+        <button class="btn" id="pickTgtBtn">🎯 点击主图设压力位 [T]</button>
+        <span class="stat" id="tgtTxt">选填</span>
+      </div>
+      <div class="row"><label class="lbl">盈亏比</label><div class="chips" id="cRR"></div></div>
+      <div class="row"><label class="lbl">当前波动</label><div class="chips" id="cVol"></div></div>
+    </div>
+
+    <div class="sec" id="secQual">
+      <h4><span>6. 加分项与出场计划</span></h4>
+      <div class="row"><label class="lbl">加分(多选)</label><div class="chips" id="cQual"></div></div>
+      <div class="row"><label class="lbl">怎么卖</label><div class="chips" id="cExit"></div></div>
+    </div>
+
+    <div class="sec">
+      <div class="row"><input type="text" id="noteInp" placeholder="一句话补充（选填）" /></div>
+    </div>
+
+    <div id="warnBox" class="warn"></div>
+    <footer>
+      <button class="btn pri" id="saveNextBtn" style="flex:1;padding:8px">保存并下一题 [Enter / Space]</button>
+    </footer>
+  </aside>
+</main>
+<script>
+const LS_KEY = 'blind.ann.v3';
+let DATA = [], SESS = 1, IDX = 0, STORE = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+let pickMode = null, enterAt = Date.now();
+let chMain, chVol, chMacd, sCandle, sMa20, sMa60, sMa120, sVol, sHist, sDif, sDea, stopLine, tgtLine;
+
+const DEF = () => ({
+  decision: null, confidence: 3, barOffset: 0,
+  setup: null, dualMA: null,
+  context: { priorDrop: null, trend: null, position: null, rangeStage: null },
+  strength: { overall: null, issues: [], marubozu: false },
+  stopPrice: null, stopTouched: false, targetPrice: null,
+  risk: { rr: null, vol: null },
+  rejectReasons: [], mainRejectReason: null, quality: [], exitPlan: '跌破MA20离场',
+  touched: [], note: ''
+});
+
+function touch(a, k) { if (!a.touched) a.touched = []; if (!a.touched.includes(k)) a.touched.push(k); }
+function saveLS() { localStorage.setItem(LS_KEY, JSON.stringify(STORE)); }
+function sessItems() { return DATA.filter(x => x.session === SESS); }
+function curItem() { return sessItems()[IDX]; }
+function curAns() { const it = curItem(); return it ? (STORE[it.id] || (STORE[it.id] = DEF())) : DEF(); }
+
+function applyRejSync(a) {
+  const r = a.rejectReasons;
+  if (r.includes('位置太高')) { a.context.position = '高'; touch(a, 'position'); }
+  if (r.includes('逆势')) { a.context.trend = '下'; touch(a, 'trend'); }
+  if (r.includes('震荡没走完')) { a.context.rangeStage = '初期'; touch(a, 'rangeStage'); }
+  if (r.includes('力度不够')) { a.strength.overall = '弱'; touch(a, 'strength'); }
+  if (r.includes('波动太大')) { a.risk.vol = '太大'; touch(a, 'vol'); }
+  if (r.includes('盈亏比差') || r.includes('止损太宽')) { a.risk.rr = '差'; touch(a, 'rr'); }
+}
+
+function mkSingle(el, opts, get, set, key, clsMap = {}) {
+  el.innerHTML = '';
+  opts.forEach(([val, txt]) => {
+    const b = document.createElement('span');
+    b.className = 'chip ' + (clsMap[val] || '') + (get() === val ? ' on' : '');
+    b.textContent = txt;
+    b.onclick = () => { const a = curAns(); touch(a, key); set(val); renderForm(); };
+    el.appendChild(b);
+  });
+}
+function mkMulti(el, opts, arr, onStar, afterChange) {
+  el.innerHTML = '';
+  opts.forEach(v => {
+    const on = arr.includes(v), star = onStar && onStar() === v;
+    const b = document.createElement('span');
+    b.className = 'chip' + (on ? ' on' : '');
+    b.textContent = (star ? '★ ' : '') + v;
+    b.onclick = () => {
+      const i = arr.indexOf(v);
+      if (i < 0) { arr.push(v); if (onStar && !onStar()) onStar(v); }
+      else if (onStar && onStar() !== v) { onStar(v); }
+      else { arr.splice(i, 1); if (onStar && onStar() === v) onStar(arr[0] || null); }
+      if (afterChange) afterChange();
+      renderForm();
+    };
+    el.appendChild(b);
+  });
+}
+
+function initCharts() {
+  const opt = (el) => LightweightCharts.createChart(el, {
+    layout: { background: { color: '#0f141c' }, textColor: '#8b9bb4' },
+    grid: { vertLines: { color: '#1b2432' }, horzLines: { color: '#1b2432' } },
+    rightPriceScale: { borderColor: '#263142' },
+    timeScale: { borderColor: '#263142', tickMarkFormatter: (t) => 'B' + Math.round((t - 946684800) / 86400) },
+    crosshair: { mode: 0 }
+  });
+  chMain = opt(document.getElementById('pMain'));
+  chVol = opt(document.getElementById('pVol'));
+  chMacd = opt(document.getElementById('pMacd'));
+  sCandle = chMain.addCandlestickSeries({ upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444' });
+  sMa20 = chMain.addLineSeries({ color: '#f8fafc', lineWidth: 1, priceLineVisible: false });
+  sMa60 = chMain.addLineSeries({ color: '#facc15', lineWidth: 1, priceLineVisible: false });
+  sMa120 = chMain.addLineSeries({ color: '#c084fc', lineWidth: 1, priceLineVisible: false });
+  sVol = chVol.addHistogramSeries({ color: '#3b82f6', priceFormat: { type: 'volume' }, priceLineVisible: false });
+  sHist = chMacd.addHistogramSeries({ priceLineVisible: false });
+  sDif = chMacd.addLineSeries({ color: '#38bdf8', lineWidth: 1, priceLineVisible: false });
+  sDea = chMacd.addLineSeries({ color: '#fb923c', lineWidth: 1, priceLineVisible: false });
+
+  let _syncing = false;
+  [chMain, chVol, chMacd].forEach(c => c.timeScale().subscribeVisibleLogicalRangeChange(r => {
+    if (!r || _syncing) return;
+    if (c === chVol && document.getElementById('pVol').style.display === 'none') return;
+    _syncing = true;
+    try {
+      [chMain, chVol, chMacd].forEach(o => {
+        if (o === c) return;
+        if (o === chVol && document.getElementById('pVol').style.display === 'none') return;
+        o.timeScale().setVisibleLogicalRange(r);
+      });
+    } finally { _syncing = false; }
+  }));
+  chMain.subscribeClick(param => {
+    if (!pickMode || !param.point) return;
+    const p = sCandle.coordinateToPrice(param.point.y);
+    if (p == null) return;
+    const a = curAns();
+    if (pickMode === 'stop') { a.stopPrice = +(p / 100).toFixed(4); a.stopTouched = true; touch(a, 'stop'); }
+    if (pickMode === 'tgt') { a.targetPrice = +(p / 100).toFixed(4); touch(a, 'tgt'); }
+    pickMode = null; renderForm(); drawLines();
+  });
+  new ResizeObserver(() => {
+    ['pMain','pVol','pMacd'].forEach((id, k) => {
+      const el = document.getElementById(id);
+      [chMain, chVol, chMacd][k].applyOptions({ width: el.clientWidth, height: el.clientHeight });
+    });
+  }).observe(document.getElementById('charts'));
+}
+
+function drawLines() {
+  if (stopLine) { sCandle.removePriceLine(stopLine); stopLine = null; }
+  if (tgtLine) { sCandle.removePriceLine(tgtLine); tgtLine = null; }
+  const a = curAns();
+  if (a.stopPrice) stopLine = sCandle.createPriceLine({ price: a.stopPrice * 100, color: '#ef4444', lineWidth: 1, lineStyle: 2, title: '止损' });
+  if (a.targetPrice) tgtLine = sCandle.createPriceLine({ price: a.targetPrice * 100, color: '#10b981', lineWidth: 1, lineStyle: 2, title: '压力' });
+}
+
+function renderChart() {
+  const it = curItem(); if (!it) return;
+  const B = it.bars, n = it.n, t0 = 946684800;
+  const ts = i => t0 + (i + 1) * 86400;
+  sCandle.setData(B.c.map((_, i) => ({ time: ts(i), open: B.o[i]*100, high: B.h[i]*100, low: B.l[i]*100, close: B.c[i]*100 })));
+  sCandle.setMarkers([{ time: ts(n - 1), position: 'aboveBar', color: '#38bdf8', shape: 'arrowDown', text: '候选K' }]);
+  const ln = arr => arr.map((v, i) => v == null ? null : ({ time: ts(i), value: v * 100 })).filter(Boolean);
+  sMa20.setData(ln(B.ma20)); sMa60.setData(ln(B.ma60)); sMa120.setData(ln(B.ma120));
+  document.getElementById('pVol').style.display = B.v ? 'block' : 'none';
+  if (B.v) sVol.setData(B.v.map((v, i) => ({ time: ts(i), value: v || 0, color: B.c[i] >= B.o[i] ? '#10b98188' : '#ef444488' })));
+  sHist.setData(B.hist.map((v, i) => v == null ? null : ({ time: ts(i), value: v, color: v >= 0 ? '#10b981' : '#ef4444' })).filter(Boolean));
+  sDif.setData(B.dif.map((v, i) => v == null ? null : ({ time: ts(i), value: v })).filter(Boolean));
+  sDea.setData(B.dea.map((v, i) => v == null ? null : ({ time: ts(i), value: v })).filter(Boolean));
+  chMain.timeScale().fitContent();
+  const a = curAns();
+  if (a.stopPrice == null) a.stopPrice = +B.l[n - 1].toFixed(4);
+  drawLines();
+  enterAt = Date.now();
+}
+
+function renderForm() {
+  const list = sessItems(), it = curItem(); if (!it) return;
+  const a = curAns();
+  const done = list.filter(x => STORE[x.id] && STORE[x.id].decision).length;
+  document.getElementById('progTxt').textContent = `本场进度 ${done}/${list.length} · 当前第 ${IDX + 1} 题 · 总已标 ${Object.values(STORE).filter(x=>x.decision).length}/${DATA.length}`;
+  document.getElementById('itemTag').textContent = it.id;
+
+  const isNo = a.decision === 'no';
+  document.getElementById('secRej').style.display = isNo ? 'block' : 'none';
+  document.getElementById('secStop').style.display = isNo ? 'none' : 'block';
+  document.getElementById('secQual').style.display = isNo ? 'none' : 'block';
+  document.getElementById('secStr').style.display = (!isNo || a.rejectReasons.includes('力度不够')) ? 'block' : 'none';
+
+  mkSingle(cDec, [['yes','买 [1]'],['no','不买 [2]'],['unsure','犹豫 [3]']], () => a.decision, v => {
+    a.decision = v;
+    if (v === 'yes') {
+      a.rejectReasons = []; a.mainRejectReason = null;
+      if (!a.setup) a.setup = '盘整突破';
+      if (!a.strength.overall) a.strength.overall = '中';
+    }
+  }, 'decision', {yes:'yes',no:'no',unsure:'unsure'});
+  mkSingle(cConf, [[1,'1'],[2,'2'],[3,'3'],[4,'4'],[5,'5']], () => a.confidence, v => a.confidence = v, 'confidence');
+  mkSingle(cBarOff, [[0,'就是当根K'],[-1,'前1根才是'],[-2,'前2根才是']], () => a.barOffset || 0, v => a.barOffset = v, 'barOffset');
+
+  mkMulti(cRej, ['震荡没走完','位置太高','逆势','均线未粘合','力度不够','止损太宽','盈亏比差','波动太大','插针/阴线','刚假突破失败','非突破当根K','其它'],
+          a.rejectReasons,
+          v => v === undefined ? a.mainRejectReason : (a.mainRejectReason = v),
+          () => applyRejSync(a));
+
+  mkSingle(cStr, ['弱','中','强'].map(x=>[x,x]), () => a.strength.overall, v => a.strength.overall = v, 'strength');
+  mkMulti(cStrIss, ['没突破前期震荡','有上下影线(K线不好看)','实体太小(相对平时波动)'], a.strength.issues, null, () => touch(a, 'strengthIssues'));
+  mkSingle(cMaru, [[true,'是(光头光脚)'],[false,'否']], () => a.strength.marubozu, v => a.strength.marubozu = v, 'marubozu');
+
+  mkSingle(cSetup, ['盘整突破','上涨回踩收回','下降趋势线突破','MACD底背离','其它'].map(x=>[x,x]), () => a.setup, v => a.setup = v, 'setup');
+  mkSingle(cDual, [[true,'是'],[false,'否']], () => a.dualMA, v => a.dualMA = v, 'dualMA');
+  mkSingle(cDrop, ['少','中','多'].map(x=>[x,x]), () => a.context.priorDrop, v => a.context.priorDrop = v, 'priorDrop');
+  mkSingle(cTrend, ['上','平','下'].map(x=>[x,x]), () => a.context.trend, v => a.context.trend = v, 'trend');
+  mkSingle(cPos, ['低','中','高'].map(x=>[x,x]), () => a.context.position, v => a.context.position = v, 'position');
+  mkSingle(cStage, ['初期','中期','末期','不适用'].map(x=>[x,x]), () => a.context.rangeStage, v => a.context.rangeStage = v, 'rangeStage');
+
+  mkSingle(cRR, ['好','一般','差'].map(x=>[x,x]), () => a.risk.rr, v => a.risk.rr = v, 'rr');
+  mkSingle(cVol, ['正常','太大','太小'].map(x=>[x,x]), () => a.risk.vol, v => a.risk.vol = v, 'vol');
+  mkMulti(cQual, ['盘整收敛','趋势线碰≥3次','背离明显','放量','双均线','均线粘合'], a.quality, null, () => touch(a, 'quality'));
+  mkSingle(cExit, ['跌破MA20离场','固定目标','移动止损','看情况'].map(x=>[x,x]), () => a.exitPlan, v => a.exitPlan = v, 'exitPlan');
+
+  const stopPct = a.stopPrice ? ((a.stopPrice - 1) * 100).toFixed(2) + '%' : '未设';
+  document.getElementById('stopTxt').textContent = pickMode === 'stop' ? '👉 请在主图点击止损价位…' : `止损: ${stopPct}${a.stopTouched ? ' (已手选)' : ' (默认当根低点)'}`;
+  const tgtPct = a.targetPrice ? ((a.targetPrice - 1) * 100).toFixed(2) + '%' : '选填';
+  document.getElementById('tgtTxt').textContent = pickMode === 'tgt' ? '👉 请在主图点击压力位…' : `压力: ${tgtPct}`;
+  noteInp.value = a.note || '';
+  saveLS();
+}
+
+function validateAndNext() {
+  const a = curAns(), w = document.getElementById('warnBox');
+  if (!a.decision) { w.textContent = '⚠️ 请先选择「买 / 不买 / 犹豫」'; return; }
+  if (a.decision === 'no' && a.rejectReasons.length === 0) { w.textContent = '⚠️ 选「不买」时请至少勾 1 个不买原因'; return; }
+  if (a.decision === 'no' && a.rejectReasons.includes('力度不够') && a.strength.issues.length === 0) {
+    w.textContent = '⚠️ 勾了「力度不够」，请顺手在下方勾一下具体是哪类力度问题'; return;
+  }
+  if (a.decision === 'yes' && (!a.setup || !a.strength.overall)) {
+    w.textContent = '⚠️ 选「买」时请确认「形态」和「力度总评」'; return;
+  }
+  if (a.decision === 'yes' && (!a.context.trend || !a.context.position)) {
+    w.textContent = '⚠️ 选「买」时请顺手点一下「大趋势」和「当前位置」'; return;
+  }
+  w.textContent = '';
+  a.secondsSpent = (a.secondsSpent || 0) + Math.round((Date.now() - enterAt) / 1000);
+  a.updatedAt = new Date().toISOString();
+  saveLS();
+  if (IDX < sessItems().length - 1) { IDX++; renderChart(); renderForm(); }
+  else w.textContent = '🎉 本场已到最后一题，请点击右上角「💾 导出 JSON」保存';
+}
+
+noteInp.oninput = () => { curAns().note = noteInp.value; saveLS(); };
+pickStopBtn.onclick = () => { pickMode = 'stop'; renderForm(); };
+pickTgtBtn.onclick = () => { pickMode = 'tgt'; renderForm(); };
+useLowBtn.onclick = () => { const it = curItem(); const a = curAns(); a.stopPrice = +it.bars.l[it.n - 1].toFixed(4); a.stopTouched = true; touch(a, 'stop'); renderForm(); drawLines(); };
+prevBtn.onclick = () => { if (IDX > 0) { IDX--; renderChart(); renderForm(); } };
+nextBtn.onclick = () => { if (IDX < sessItems().length - 1) { IDX++; renderChart(); renderForm(); } };
+nextUnBtn.onclick = () => { const j = sessItems().findIndex(x => !STORE[x.id] || !STORE[x.id].decision); if (j >= 0) { IDX = j; renderChart(); renderForm(); } };
+saveNextBtn.onclick = validateAndNext;
+document.querySelectorAll('#sessSeg button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#sessSeg button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); SESS = +b.dataset.s; IDX = 0; renderChart(); renderForm();
+});
+exportBtn.onclick = () => {
+  const blob = new Blob([JSON.stringify({ schema: 'blind.ann/2', exportedAt: new Date().toISOString(), count: Object.keys(STORE).length, answers: STORE }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `blind-v2-${new Date().toISOString().slice(0,10)}.json`; a.click();
+};
+importInp.onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => { const d = JSON.parse(t); Object.assign(STORE, d.answers || d); saveLS(); renderChart(); renderForm(); });
+};
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === '1') { const a = curAns(); a.decision = 'yes'; a.rejectReasons = []; a.mainRejectReason = null; if (!a.setup) a.setup = '盘整突破'; if (!a.strength.overall) a.strength.overall = '中'; touch(a, 'decision'); renderForm(); }
+  else if (e.key === '2') { const a = curAns(); a.decision = 'no'; touch(a, 'decision'); renderForm(); }
+  else if (e.key === '3') { const a = curAns(); a.decision = 'unsure'; touch(a, 'decision'); renderForm(); }
+  else if (e.key === 's' || e.key === 'S') { pickMode = 'stop'; renderForm(); }
+  else if (e.key === 't' || e.key === 'T') { pickMode = 'tgt'; renderForm(); }
+  else if (e.key === 'a' || e.key === 'A') prevBtn.click();
+  else if (e.key === 'd' || e.key === 'D') nextBtn.click();
+  else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); validateAndNext(); }
+});
+
+initCharts();
+if (window.BLIND_DATA && window.BLIND_DATA.items) {
+  DATA = window.BLIND_DATA.items;
+  renderChart();
+  renderForm();
+} else {
+  fetch('items.json').then(r => r.json()).then(d => { DATA = d.items; renderChart(); renderForm(); });
+}
+</script>
+</body>
+</html>

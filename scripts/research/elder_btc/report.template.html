@@ -1,0 +1,66 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>埃尔德交易方法 · BTC日线验证</title>
+<style>
+:root{color-scheme:dark;--bg:#0d1522;--card:#152239;--line:#2b3e58;--fg:#e9eff9;--muted:#a1b2ca;--blue:#83bfff;--good:#69d9b6;--warn:#ffd08b}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.7 system-ui,-apple-system,'PingFang SC',sans-serif}main{max-width:1550px;margin:auto;padding:28px}h1{margin:0;font-size:29px}h2{font-size:20px;margin:25px 0 9px}h3{font-size:16px}p{margin:8px 0}a,summary{color:var(--blue)}a{text-decoration:none}small,.muted{color:var(--muted)}.box{padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin:13px 0}.alert{border-left:4px solid var(--warn)}.alert b,.warning{color:var(--warn)}.filters{display:flex;flex-wrap:wrap;gap:16px;align-items:end}label{display:grid;gap:5px;font-size:12px;color:var(--muted)}select,button{background:#101c2d;border:1px solid #425b7b;color:var(--fg);font:inherit;border-radius:6px;padding:8px 12px}button{cursor:pointer}button:disabled{opacity:.4;cursor:default}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{margin:0}.metric b{display:block;font-size:27px;color:var(--blue);margin:6px 0}.metric small{display:block}.two{display:grid;grid-template-columns:1fr 1fr;gap:15px}.wide{overflow:auto}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;white-space:nowrap}td,th{padding:10px 9px;border-bottom:1px solid var(--line);text-align:right}th{font-weight:500;color:var(--muted);font-size:12px}td:first-child,th:first-child{text-align:left}tr[data-name]{cursor:pointer}tbody tr:hover{background:#213650}tr.chosen{background:#213e5b}code,pre{font:12px/1.7 ui-monospace,monospace}pre{white-space:pre-wrap;word-break:break-word}summary{cursor:pointer}.chart{height:620px}.pager{display:flex;gap:12px;align-items:center}.downloads{display:flex;flex-wrap:wrap;gap:10px}.pill{border:1px solid #696040;background:#392e1b;color:var(--warn);border-radius:5px;padding:4px 9px;display:inline-block;margin:12px 0}.rules table{white-space:normal;min-width:850px}.rules td{vertical-align:top;text-align:left;font-size:12px}.rules th{text-align:left}.rules h1{font-size:21px}.rules h2{font-size:18px}.positive{color:var(--good)}.negative{color:#ffa0a0}@media(max-width:900px){main{padding:16px}.grid{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}h1{font-size:24px}.chart{height:500px}}@media print{button,.filters{display:none}.chart{break-inside:avoid}}
+</style>
+<main><h1>埃尔德交易方法 · BTC 日线验证</h1><div class="muted">《以交易为生》第2版 · 2026-11-12 · 本地BTCUSDT快照截止2026-11-02 · 现货只做多</div>
+<div class="pill">本轮未确认可交易的统计优势</div>
+<div class="box alert"><b>先看结论：28组固定配置中，没有一组通过校正后的统计优势检验。</b><p>事前选中的“直接绿买非绿卖”在开发／验证阶段表现良好，留出期显著走弱。这是控制实验，不是作者推荐的完整动力系统。“回调＋动力禁入”值得继续记录，但不能看完留出结果后就把它升格为已验证最优。</p><p class="muted">每边手续费0.05%＋滑点0.05%；单笔风险默认月初净值1%，无杠杆。所有新订单最早次日执行；未扣成本的浮盈不当作净盈利。</p></div>
+<div class="downloads"><button data-dl="report">下载完整分析</button><button data-dl="rules">下载规则清单</button><button data-dl="code">下载冻结策略代码</button><button data-dl="json">下载统计结果JSON</button></div>
+<div class="box filters"><label>结果区间<select id="segment"><option value="test">留出 · 2025-01-01—2026-11-02</option><option value="validation">验证 · 2023—2024</option><option value="train">开发 · 2018—2022</option></select></label><label>查看模型<select id="model"></select></label><label>表格范围<select id="group"><option value="all">全部28配置</option><option value="primary">12个单周期候选</option><option value="reference">周线框架参照</option><option value="ablation">15个规则对照</option></select></label></div>
+<p class="muted">切换显示不改变事前冻结选择。模型对照均使用相同现金账户口径，资金暴露不同；历史收益较好不等于有显著择时优势。</p>
+<div id="scope" class="muted"></div><div id="cards" class="grid"></div><div id="inference" class="box"></div>
+<div class="box"><h2 id="chartTitle">净值与回撤</h2><p class="muted">初始净值归一为1。BTC满仓持有默认隐藏，可点击图例显示；它与低风险仓位暴露不同。支持缩放和导出图片。</p><div id="chart" class="chart"></div></div>
+<h2>配置比较</h2><p class="muted">点击一行查看该模型的净值和逐笔结果。“—”表示样本或分母不足，不填造盈亏比；0笔交易不能判定策略无效。</p><div class="box wide"><table id="models"><thead><tr><th>配置</th><th>交易数</th><th>净胜率</th><th>盈亏比</th><th>利润因子PF</th><th>净收益</th><th>年化</th><th>最大回撤</th><th>夏普</th><th>收盘平均仓位</th><th>均值检验校正p</th></tr></thead><tbody></tbody></table></div>
+<div class="two"><div class="box"><h2>事前选择与泛化</h2><div id="freeze"></div><p class="muted">筛选先要求样本量、PF、回撤和年度表现，再以开发／验证较差的夏普减去复杂度惩罚评分。选择文件在留出计算前写入；没有按留出收益重新排名选赢家。</p></div><div class="box"><h2>成本敏感性 · 事前候选</h2><p class="muted">手续费固定每边5bp；1bp=0.01%。下表改变每边滑点，其他参数不变。</p><div id="cost"></div></div></div>
+<h2>单条规则增益 · 留出区间</h2><p class="muted">每行是事前指定的两组配置的配对日收益差。正值支持左侧方案，负值支持右侧。95%区间由4000次、20日区块重抽样估计；p值对16项比较进行Holm校正。</p><div class="box wide"><table id="contrasts"><thead><tr><th>规则／比较方向</th><th>平均日增益 bp</th><th>95%重采样区间 bp</th><th>原始p</th><th>校正p</th></tr></thead><tbody></tbody></table></div>
+<h2>逐笔明细</h2><div class="pager"><button id="prev">上一页</button><span id="page"></span><button id="next">下一页</button></div><div class="box wide"><table id="trades"><thead><tr><th>信号 → 入场 → 退出</th><th>入场价</th><th>初始止损</th><th>退出价</th><th>持有根数</th><th>净利润</th><th>净R</th><th>退出原因</th></tr></thead><tbody></tbody></table></div>
+<details class="box"><summary>展开书中逻辑与完整量化字典</summary><div class="wide rules"><!--__RULES__--></div></details>
+<details class="box"><summary>展开数据、统计口径与验证说明</summary><ul>
+<li>开发2018-03-05—2022-12-31；验证2023—2024；留出2025-01-01—2026-11-02。历史BTC行情曾用于项目其他研究，本轮时间留出不是从未见过的全新市场或实时前瞻验证。</li>
+<li>主数据3365根连续UTC日线。另一份BTC_USD日线有79条UTC16:00时间戳，本次没有混用。所有输入与代码哈希保留在选择文件。</li>
+<li>EMA13/26、MACD12/26/9、ATR14、100根95%包络。默认初始止损为最低5根低点−0.1ATR；每笔风险预算1%，上限2%；每月gross已实现亏损＋新风险不超过6%。跳空仍可超预算。</li>
+<li>胜率=扣双边成本后净盈利笔数/全部完成交易数；盈亏比=平均盈利金额/平均亏损金额绝对值；PF=总盈利/总亏损绝对值。含区间末尾强平。日收益含空仓日；现金利率0；夏普年化使用√365.25。</li>
+<li>95%重采样区间表示在区块假设下，历史估计的不确定性。跨过0意味着不能排除没有正期望；它不是胜率区间，也不是未来95%会盈利。同根日线顺序上下界是另一类不确定性，不能混为置信区间。</li>
+<li>均值对28组配置做Holm校正；BTC回归alpha也对28组作校正；16条配对差另作校正。没有计算或冒充完整CSCV/PBO；市场非平稳性、规则代理和有限样本仍是限制。</li>
+<li>主结果对同根止损／止盈和突破入场冲突采用不利顺序；另外保存有利顺序。所选控制模型留出期无同根冲突，结果不受顺序选择影响。止损只收紧且次日生效，不能看完当天高低再回填成交。</li>
+<li>13项执行与因果性测试、84个区间账户账本及收益复利/日期顺序检查通过。两种日内顺序情景是局部成交假设诊断，不是整段收益的全局数学上下界；执行审计后的不利主结果及原有选择未改变，审计前版本已保留。页面下载代码只运行离线回测，不发送真实订单。</li>
+</ul><p>方法参考：<a href="https://www.elder.com/product-page/elder-disk-for-metastock-v2-0">作者官网工具说明</a> · <a href="https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf">Bailey等：回测过拟合</a> · <a href="https://www.tradingview.com/pine-script-docs/concepts/strategies/#broker-emulator">TradingView成交模拟说明</a>。本页收益数据均为本地计算。</p></details>
+</main><script>/*__PLOTLY__*/</script><script>
+const DATA=/*__DATA__*/;const $=x=>document.getElementById(x),S=DATA.summary;
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=(x,d=2)=>x==null||!Number.isFinite(x)?'—':x.toFixed(d);const pct=x=>x==null?'—':num(x)+'%';
+const chosen=S.selection.research_candidate;let page=0,current=[];
+const names=Object.keys(DATA.results),reasons={signal_exit:'趋势／动力退出',stop:'保护止损',gap_stop:'跳空止损',target:'通道／均线目标',gap_target:'跳空到达目标',time_exit:'时间退出',boundary_liquidation:'区间末尾强平'};
+$('model').innerHTML=names.map(n=>'<option value="'+n+'">'+esc(S.labels[n])+(n===chosen?' · 事前冻结':'')+'</option>').join('');$('model').value=chosen;
+function card(title,value,note){return '<div class="box metric"><span>'+title+'</span><b>'+value+'</b><small>'+note+'</small></div>';}
+function update(){
+ page=0;const name=$('model').value,seg=$('segment').value,r=DATA.results[name][seg],m=r.metrics,q=S.inference[name];current=r.trades;
+ $('scope').textContent=S.labels[name]+' · '+r.dates[0]+'—'+r.dates.at(-1)+' · '+r.dates.length+' 个自然日 · '+(name===chosen?'事前冻结研究候选':'诊断比较，未替换事前选择');
+ $('cards').innerHTML=card('净收益',pct(m.total_return),'起始100000；已计双边手续费与滑点')+card('最大回撤',pct(m.max_drawdown),'按每日收盘净值计算')+card('夏普比率',num(m.sharpe),'含空仓日；零无风险利率；365.25日年化')+card('净胜率',pct(m.win_rate),m.trades+' 笔完成交易；净利润>0算赢')+card('平均盈利 / 平均亏损',num(m.payoff),'按净盈利／净亏损金额计算')+card('利润因子 PF',num(m.profit_factor),'总净盈利 / 总净亏损绝对值')+card('年化收益',pct(m.cagr),'实际账户净值复利年化')+card('收盘平均仓位',pct(m.exposure),'名义仓位上限100%，未使用杠杆');
+ const bounds=DATA.bounds[name];
+ $('inference').innerHTML=seg==='test'?'<b class="warning">'+(q.positive_return_evidence&&q.timing_alpha_evidence?'通过本轮检验':'未证明稳定统计优势')+'</b><p>日均净收益95%重采样区间：['+num(q.mean_daily_CI95[0]*100,4)+'%, '+num(q.mean_daily_CI95[1]*100,4)+'%]；均值检验原始p='+num(q.mean_p,3)+'，Holm校正p='+num(q.mean_p_holm,3)+'。BTC回归alpha校正p='+num(q.alpha_p_holm,3)+'。</p><small>日内顺序诊断：不利净收益 '+pct(bounds.adverse.total_return)+'，有利 '+pct(bounds.favorable.total_return)+'；不确定K线 '+bounds.adverse.ambiguous_bars+' 根。样本不足和未通过检验不等于证明原理普遍无效。</small>':'<b>开发／验证数字用于事前研究，不能代替留出结果。</b>';
+ $('chartTitle').textContent=S.labels[name]+' · 净值与回撤';draw(r,seg);renderModels();renderTrades();
+}
+function draw(r,seg){
+ const traces=[];let color=0;const colors=['#7ac5ff','#6ee1bb','#ffbf83'];
+ for(const [name,z,hidden] of [[S.labels[$('model').value],r,false],['仅EMA趋势对照',DATA.benchmarks.ema_control[seg],false],['满仓BTC持有',DATA.benchmarks.buy_hold[seg],true]]){
+  let peak=1;const eq=z.equity.map(x=>x/100000),dd=eq.map(v=>{peak=Math.max(peak,v);return (v/peak-1)*100;});
+  traces.push({x:z.dates,y:eq,name,mode:'lines',line:{color:colors[color]},visible:hidden?'legendonly':true,legendgroup:String(color),yaxis:'y'});
+  traces.push({x:z.dates,y:dd,name,mode:'lines',line:{color:colors[color]},visible:hidden?'legendonly':true,legendgroup:String(color),showlegend:false,yaxis:'y2',xaxis:'x2'});color++;
+ }
+ Plotly.react('chart',traces,{paper_bgcolor:'#152239',plot_bgcolor:'#101b2c',font:{color:'#c4d2e7'},margin:{t:45,l:65,r:25,b:40},legend:{orientation:'h',y:1.1},xaxis:{anchor:'y',domain:[0,1]},yaxis:{domain:[.4,1],title:'净值 / 初始'},xaxis2:{anchor:'y2',matches:'x',domain:[0,1]},yaxis2:{domain:[0,.28],title:'回撤 %'},hovermode:'x unified'},{responsive:true,displaylogo:false});
+}
+function renderModels(){
+ const seg=$('segment').value,g=$('group').value;
+ $('models').querySelector('tbody').innerHTML=names.filter((n,i)=>g==='all'||(g==='primary'&&i<12)||(g==='reference'&&i===12)||(g==='ablation'&&i>12)).map(n=>{const m=DATA.results[n][seg].metrics;return '<tr data-name="'+n+'" class="'+(n===chosen?'chosen':'')+'"><td>'+esc(S.labels[n])+(n===chosen?' <small>事前冻结</small>':'')+'</td><td>'+m.trades+'</td><td>'+pct(m.win_rate)+'</td><td>'+num(m.payoff)+'</td><td>'+num(m.profit_factor)+'</td><td class="'+(m.total_return>0?'positive':'negative')+'">'+pct(m.total_return)+'</td><td>'+pct(m.cagr)+'</td><td>'+pct(m.max_drawdown)+'</td><td>'+num(m.sharpe)+'</td><td>'+pct(m.exposure)+'</td><td>'+(seg==='test'?num(S.inference[n].mean_p_holm,3):'—')+'</td></tr>';}).join('');
+}
+function renderTrades(){const size=30;const count=Math.max(1,Math.ceil(current.length/size));$('page').textContent=(page+1)+' / '+count+' 页 · '+current.length+' 笔';$('prev').disabled=page===0;$('next').disabled=page+1>=count;
+ $('trades').querySelector('tbody').innerHTML=current.slice(page*size,(page+1)*size).map(t=>'<tr><td>'+esc(t.signal_date)+' → '+esc(t.entry_date)+' → '+esc(t.exit_date)+'</td><td>'+num(t.entry)+'</td><td>'+num(t.initial_stop)+'</td><td>'+num(t.exit)+'</td><td>'+t.hold+'</td><td>'+num(t.pnl)+'</td><td>'+num(t.R)+'</td><td>'+esc(reasons[t.reason]||t.reason)+'</td></tr>').join('');}
+$('freeze').innerHTML='<p>事前冻结：<b>'+esc(S.labels[chosen])+'</b>；留出期没有更换。</p><table><thead><tr><th>区间</th><th>交易数</th><th>净收益</th><th>夏普</th></tr></thead><tbody>'+[['train','开发'],['validation','验证'],['test','留出']].map(([s,l])=>{const m=S.models[chosen][s];return '<tr><td>'+l+'</td><td>'+m.trades+'</td><td>'+pct(m.total_return)+'</td><td>'+num(m.sharpe)+'</td></tr>';}).join('')+'</tbody></table>';
+$('cost').innerHTML='<table><thead><tr><th>每边滑点</th><th>留出净收益</th><th>夏普</th><th>PF</th></tr></thead><tbody>'+S.sensitivity.filter(r=>r.kind==='slippage').map(r=>'<tr><td>'+num(r.value*10000,1)+' bp</td><td>'+pct(r.metrics.total_return)+'</td><td>'+num(r.metrics.sharpe)+'</td><td>'+num(r.metrics.profit_factor)+'</td></tr>').join('')+'</tbody></table>';
+$('contrasts').querySelector('tbody').innerHTML=S.contrasts.map(r=>'<tr><td>'+esc(r.rule)+'<br><small>'+esc(S.labels[r.lhs])+' − '+esc(S.labels[r.rhs])+'</small></td><td>'+num(r.daily_delta*10000,3)+'</td><td>['+r.CI95.map(x=>num(x*10000,3)).join(', ')+']</td><td>'+num(r.p,3)+'</td><td>'+num(r.p_holm,3)+'</td></tr>').join('');
+for(const id of ['segment','model'])$(id).onchange=update;$('group').onchange=renderModels;
+$('models').onclick=e=>{const row=e.target.closest('[data-name]');if(row){$('model').value=row.dataset.name;update();}};
+$('prev').onclick=()=>{page--;renderTrades();};$('next').onclick=()=>{page++;renderTrades();};
+document.querySelectorAll('[data-dl]').forEach(b=>b.onclick=()=>{const k=b.dataset.dl,files={report:['研究结论.md',DATA.report],rules:['书中逻辑与量化规则.md',DATA.rules],code:['final_strategy.py',DATA.code],json:['summary.json',JSON.stringify(S,null,2)]};const [name,content]=files[k],url=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});update();
+</script></html>

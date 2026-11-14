@@ -80,36 +80,49 @@ function sma(closes, period){
   }
   return out;
 }
-function rebuildMA(){
+function rebuildMA(append = false){
   const periods = parseMaPeriods();
   const cs = candlesFor(activeView);
-  const closes = cs.map(c => c.close);
-  // 复用已有 series, 多退少补
-  while (maSeries.length < periods.length){
-    const s = chart.addLineSeries({
-      lineWidth: 1.4, priceLineVisible: false, lastValueVisible: false,
-      crosshairMarkerVisible: false,
+  const appendMA=append===true&&maSeries.length===periods.length&&maSeries.every((item,i)=>item.period===periods[i]);
+  if(appendMA){
+    const bar=cs.at(-1);
+    for(const {period,series} of maSeries){
+      if(cs.length<period)continue;
+      let sum=0;
+      for(let i=cs.length-period;i<cs.length;i++)sum+=cs[i].close;
+      series.update({time:bar.time,value:sum/period});
+    }
+  }else{
+    const closes = cs.map(c => c.close);
+    // 复用已有 series, 多退少补
+    while (maSeries.length < periods.length){
+      const s = chart.addLineSeries({
+        lineWidth: 1.4, priceLineVisible: false, lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      maSeries.push({ period: 0, series: s });
+    }
+    while (maSeries.length > periods.length){
+      const { series } = maSeries.pop();
+      chart.removeSeries(series);
+    }
+    periods.forEach((p, i) => {
+      const item = maSeries[i];
+      item.period = p;
+      item.series.applyOptions({ color: MA_COLORS[i % MA_COLORS.length] });
+      const vals = sma(closes, p);
+      item.series.setData(cs.map((c, j) => vals[j] != null ? { time: c.time, value: vals[j] } : null).filter(Boolean));
     });
-    maSeries.push({ period: 0, series: s });
+    renderMaLegend();
   }
-  while (maSeries.length > periods.length){
-    const { series } = maSeries.pop();
-    chart.removeSeries(series);
-  }
-  periods.forEach((p, i) => {
-    const item = maSeries[i];
-    item.period = p;
-    item.series.applyOptions({ color: MA_COLORS[i % MA_COLORS.length] });
-    const vals = sma(closes, p);
-    item.series.setData(cs.map((c, j) => vals[j] != null ? { time: c.time, value: vals[j] } : null).filter(Boolean));
-  });
-  renderMaLegend();
   // 均线重建后同步斜率高亮(数据/周期/复盘位置变了)
   if (typeof maSlopeRefresh === 'function') maSlopeRefresh();
   if (typeof maTrendRefresh === 'function') maTrendRefresh();
   if (typeof maDualRefresh === 'function') maDualRefresh();
   if (typeof annRefresh === 'function') annRefresh();
   if (typeof cover67IndicatorRefresh === 'function') cover67IndicatorRefresh();
+  if (typeof ma20StructureRefresh === 'function') ma20StructureRefresh();
+  if (typeof ma20AIRefresh === 'function') ma20AIRefresh();
 }
 // 左上角 MA 图例: 颜色色块 + 周期, 与 MA_COLORS 顺序一致; MA 关闭或留空时隐藏
 function renderMaLegend(){
@@ -154,28 +167,50 @@ function biasSnapshot(){
 macdHistSeries.priceScale().applyOptions({ scaleMargins: { top: 0.25, bottom: 0.05 } });
 
 // ---- 三面板时间轴同步 ----
-// 重入锁 + 退化范围过滤 + 隐藏面板跳过:
-//   1) setVisibleLogicalRange 会触发对方面板的 range 回调, 三图互相反写会形成反馈环;
+// 重入锁 + 退化范围过滤 + 隐藏面板跳过 + 副图被动同步守卫:
+//   1) setVisibleLogicalRange 会异步触发对方面板的 range 回调, 三图互相反写会形成反馈环;
 //   2) 副图被隐藏(display:none)后宽度为 0, 写进去的范围会被钳成 from≈to 的退化值,
 //      再回写给主图 → 主图也被钳 → 无限互写, 页面卡死 / 重新打开副图时一片空白;
-//   3) 隐藏面板本身不参与同步, 重新显示时由开关回调单独对齐一次。
+//   3) 副图(volume/macd)在 setData / applyOptions / alignPanes 调整宽高时会异步产生微小
+//      logicalRange 偏移, 若反写回主图会导致切换K线级别后主副图持续来回抖动。因此仅当用户
+//      鼠标/滚轮实际在副图内交互时, 才允许副图反向驱动主图。
 let _syncingRange = false;
+let _applyingSeries = false;
+let _syncUnlockRaf = 0;
+let _activeSubPane = null;
+for (const subId of ['volume', 'macd']) {
+  const el = document.getElementById(subId);
+  if (!el) continue;
+  el.addEventListener('pointerenter', () => { _activeSubPane = subId; }, { passive: true });
+  el.addEventListener('pointerleave', () => { if (_activeSubPane === subId) _activeSubPane = null; }, { passive: true });
+  el.addEventListener('wheel', () => { _activeSubPane = subId; }, { passive: true });
+}
+document.getElementById('chart')?.addEventListener('pointerenter', () => { _activeSubPane = null; }, { passive: true });
+
+const holdSyncLock = () => {
+  _syncingRange = true;
+  if (_syncUnlockRaf) cancelAnimationFrame(_syncUnlockRaf);
+  _syncUnlockRaf = requestAnimationFrame(() => {
+    _syncUnlockRaf = 0;
+    _syncingRange = false;
+  });
+};
+
 const paneReady = id => {
   const el = document.getElementById(id);
   return !!el && !el.classList.contains('pane-off') && el.clientWidth >= 10 && el.clientHeight >= 10;
 };
 const syncAll = (r, source = 'chart') => {
-  if (!r || _syncingRange || !paneReady(source)) return;
+  if (!r || _syncingRange || _applyingSeries || !paneReady(source)) return;
+  if (source !== 'chart' && _activeSubPane !== source) return;
   if (!Number.isFinite(r.from) || !Number.isFinite(r.to) || r.to - r.from <= 0) return;
-  _syncingRange = true;
-  try {
-    for (const [c, id] of [[chart, 'chart'], [volumeChart, 'volume'], [macdChart, 'macd']]) {
-      if (!paneReady(id)) continue;
-      const cur = c.timeScale().getVisibleLogicalRange();
-      if (cur && Math.abs(cur.from - r.from) < 1e-6 && Math.abs(cur.to - r.to) < 1e-6) continue;
-      c.timeScale().setVisibleLogicalRange(r);
-    }
-  } finally { _syncingRange = false; }
+  holdSyncLock();
+  for (const [c, id] of [[chart, 'chart'], [volumeChart, 'volume'], [macdChart, 'macd']]) {
+    if (id === source || !paneReady(id)) continue;
+    const cur = c.timeScale().getVisibleLogicalRange();
+    if (cur && Math.abs(cur.from - r.from) < 1e-4 && Math.abs(cur.to - r.to) < 1e-4) continue;
+    c.timeScale().setVisibleLogicalRange(r);
+  }
 };
 chart.timeScale().subscribeVisibleLogicalRangeChange(r => syncAll(r, 'chart'));
 volumeChart.timeScale().subscribeVisibleLogicalRangeChange(r => syncAll(r, 'volume'));
@@ -183,15 +218,17 @@ macdChart.timeScale().subscribeVisibleLogicalRangeChange(r => syncAll(r, 'macd')
 // 分钟级复盘(非练习): 向左滚近窗口左缘自动前插上一分片, 并平移视口保持画面不跳
 // 练习模式(trLocked)不走此漫游——练习视口有硬边界, 只展示本次练习窗口
 chart.timeScale().subscribeVisibleLogicalRangeChange(r => {
-  if (!chunkedActive() || trLocked() || !r || !ChunkStore.win || ChunkStore._extending) return;
+  if (!chunkedActive() || trLocked() || _applyingSeries || _syncingRange || !r || !ChunkStore.win || ChunkStore._extending) return;
+  if (ChunkStore.win.loIdx <= 0) return;
   if (r.from < 30){
     ChunkStore._extending = true;
     ChunkStore.extend(-1).then(added => {
-      ChunkStore._extending = false;
       if (added > 0){
+        const cur = chart.timeScale().getVisibleLogicalRange() || r;
         refreshAll();
-        chart.timeScale().setVisibleLogicalRange({ from: r.from + added, to: r.to + added });
+        chart.timeScale().setVisibleLogicalRange({ from: cur.from + added, to: cur.to + added });
       }
+      requestAnimationFrame(() => { ChunkStore._extending = false; });
     });
   }
 });

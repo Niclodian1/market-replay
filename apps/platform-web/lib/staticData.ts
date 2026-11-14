@@ -22,6 +22,20 @@ export type StaticWatchData = {
 
 const BASE = '/data'
 
+const STATIC_SYMBOL_ALIASES: Record<string, string[]> = {
+  '^NDX': ['^NDX', 'NDX', '^IXIC'],
+  'NDX': ['NDX', '^NDX', '^IXIC'],
+  '^IXIC': ['^IXIC', 'NDX', '^NDX'],
+  '纳指': ['NDX', '^NDX', '^IXIC'],
+  '纳斯达克': ['NDX', '^NDX', '^IXIC'],
+  '纳斯达克100': ['NDX', '^NDX'],
+  '^GSPC': ['^GSPC', 'SPX'],
+  'SPX': ['SPX', '^GSPC'],
+  '标普500': ['SPX', '^GSPC'],
+  '^N225': ['^N225', 'N225'],
+  'N225': ['N225', '^N225'],
+}
+
 export async function loadStaticWatch(
   symbol: string,
   timeframe: string,
@@ -30,8 +44,16 @@ export async function loadStaticWatch(
     const manifestResponse = await fetch(`${BASE}/manifest.json`, { cache: 'no-store' })
     if (!manifestResponse.ok) return null
     const manifest = await manifestResponse.json()
+    const rawSym = symbol.trim()
+    const upSym = rawSym.toUpperCase()
+    const candidates = new Set<string>([
+      upSym,
+      upSym.replace(/^\^/, ''),
+      ...(STATIC_SYMBOL_ALIASES[rawSym] ?? []),
+      ...(STATIC_SYMBOL_ALIASES[upSym] ?? []),
+    ])
     const entry = (manifest?.symbols ?? []).find(
-      (item: { symbol: string }) => item.symbol === symbol.toUpperCase(),
+      (item: { symbol: string }) => candidates.has(String(item.symbol || '').toUpperCase()),
     )
     const info = entry?.timeframes?.[timeframe]
     if (!info?.path) return null

@@ -77,22 +77,16 @@ const probe = async yFrac => {
   return { text, vis, expected };
 };
 const top = await probe(0.08);
-assert.match(top.text, /^-?[\d,.]+ · 距最新 \+[\d,.]+ \(\+\d+\.\d{2}%\)( · \d+根)?$/, '顶部光标应显示价格与正距离: ' + top.text);
+assert.match(top.text, /^\+\d+\.\d{2}%\+[\d,.]+(\d+根)?$/, '顶部光标应显示正百分比与正距离: ' + top.text);
 assert.equal(top.vis.display, 'block', '读数应显示在右侧价格栏');
 assert.ok(Math.abs(top.vis.rightGap) <= 4, '读数应贴右侧价格栏: gap=' + top.vis.rightGap);
 const bottom = await probe(0.92);
-assert.match(bottom.text, /^-?[\d,.]+ · 距最新 -[\d,.]+ \(-\d+\.\d{2}%\)( · \d+根)?$/, '底部光标应显示价格与负距离: ' + bottom.text);
+assert.match(bottom.text, /^-\d+\.\d{2}%-[\d,.]+(\d+根)?$/, '底部光标应显示负百分比与负距离: ' + bottom.text);
 for (const [name, p] of [['top', top], ['bottom', bottom]]){
-  const shown = Number((p.text.match(/距最新 ([+-][\d,.]+)/) || [])[1]?.replace(/,/g, ''));
+  const shown = Number((p.text.match(/[+-]\d+\.\d{2}%([+-][\d,.]+?)(?:\d+根)?$/) || [])[1]?.replace(/,/g, ''));
   const tol = Math.max(0.2, Math.abs(p.expected.dp) * 0.005);
   assert.ok(Math.abs(shown - p.expected.dp) <= tol,
     `${name} 距离数值应与计算一致: 显示 ${shown} vs 计算 ${p.expected.dp.toFixed(2)}`);
-  // 光标价格: 按价格轴每像素跨度换算容差(CDP 鼠标坐标取整误差 ≤ ~2px)
-  const perPx = await ev(`Math.abs(candleSeries.coordinateToPrice(0) - candleSeries.coordinateToPrice(document.getElementById('chart').clientHeight)) / document.getElementById('chart').clientHeight`);
-  const priceShown = Number((p.text.match(/^(-?[\d,.]+) ·/) || [])[1]?.replace(/,/g, ''));
-  const ptol = Math.max(0.5, perPx * 2);
-  assert.ok(Math.abs(priceShown - p.expected.px) <= ptol,
-    `${name} 光标价格应与计算一致(±${ptol.toFixed(0)}): 显示 ${priceShown} vs 计算 ${p.expected.px.toFixed(2)}`);
 }
 // 光标移出图表 → 读数隐藏; 左上角图例不再承载该读数
 await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1600, y: 700, button: 'none', buttons: 0 });

@@ -1,0 +1,98 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>MACD 两低点背离＋新低 · 1.5R 保本研究</title>
+<style>
+:root{color-scheme:dark;--bg:#0d1523;--card:#152136;--line:#2a3b54;--text:#e6edf7;--muted:#9badc6;--blue:#70b7ff;--green:#5ddcba;--orange:#ffbd74}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.65 system-ui,-apple-system,"PingFang SC",sans-serif}main{max-width:1600px;margin:auto;padding:30px}h1{font-size:27px;margin:0 0 8px}h2{font-size:19px;margin:25px 0 9px}p{margin:9px 0}.muted,small{color:var(--muted)}a{color:var(--blue)}.intro{max-width:1120px}.box{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:15px;margin:12px 0}.filters{display:flex;flex-wrap:wrap;gap:13px;position:sticky;top:0;z-index:2;background:#101b2deb;backdrop-filter:blur(10px)}label{display:grid;gap:5px;color:var(--muted);font-size:12px}select,input,button{font:inherit;color:var(--text);background:#0e192a;border:1px solid #3b506d;border-radius:6px;padding:7px 10px}button{cursor:pointer}button:disabled{opacity:.4;cursor:default}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{margin:0}.metric b{display:block;font-size:26px;line-height:1.25;color:var(--green);margin:8px 0}.metric small{display:block}.wide{overflow:auto}table{border-collapse:collapse;width:100%;white-space:nowrap;font-variant-numeric:tabular-nums}th,td{border-bottom:1px solid var(--line);text-align:right;padding:10px 9px}th{color:var(--muted);font-weight:500;font-size:12px}th:first-child,td:first-child{text-align:left}tbody tr:hover{background:#21314a}tr[data-sym]{cursor:pointer}.blue{color:var(--blue)}.orange{color:var(--orange)}.two{display:grid;grid-template-columns:1fr 1fr;gap:15px}.barrow{display:grid;grid-template-columns:90px 1fr 130px;gap:9px;align-items:center;margin:12px 0}.track{height:13px;border-radius:5px;background:#273448;position:relative}.certain,.possible{position:absolute;left:0;top:0;height:100%;border-radius:5px}.possible{background:#70b7ff50}.certain{background:var(--blue)}.note{border-left:3px solid var(--orange);padding-left:12px}.pager{display:flex;gap:10px;align-items:center;margin:12px 0}details>summary{cursor:pointer;color:var(--blue)}code{font-size:12px}.badge{border:1px solid #43628b;border-radius:4px;padding:1px 6px;font-size:11px}@media(max-width:900px){main{padding:16px}.grid{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}h1{font-size:23px}.filters{position:static}}@media print{.filters,.pager,button{display:none}body{background:white;color:black}.box{background:white;color:black}.wide{overflow:visible}table{font-size:8px}.grid{grid-template-columns:repeat(4,1fr)}}
+</style>
+<main>
+<h1>MACD 两低点背离＋新低：1.5R 后移至保本</h1>
+<div class="muted">分析日期 2026-11-11 · 项目当前前端算法 · 日线为主，其他周期独立查看 · 日期按 UTC 显示</div>
+<div class="intro"><p>比较两段 MACD 负柱里的价格低点：本次低点不高于参照低点，该处负柱绝对值更小；等后面的缩柱 K 线确认后，<b>按确认 K 线收盘买入，初始止损为前面新低 K 线最低价。</b>1R＝买入价－初始止损。上涨触及 1.5R 后立即把止损移至买入价，此后不再抬高，也不另加均线退出。</p>
+<p class="note">最大运行距离是<b>止损／保本退出之前曾出现的浮盈空间</b>，不等于已实现盈利。尚未退出的交易在窗口末按收盘估值。所有收益均未扣手续费及额外滑点；保本价跳空穿越按开盘退出，因此也可能出现小额亏损。</p></div>
+<div class="filters box">
+<label>周期<select id="tf"><option value="1D">日线</option><option value="4H">4 小时</option><option value="1H">1 小时</option><option value="15F">15 分钟</option></select></label>
+<label>入场样本区间<select id="period"><option value="last5y">近 5 年 · 2021-11-11 起</option><option value="all">全部可用历史</option></select></label>
+<label>观察窗口<select id="horizon"><option value="20">20 根</option><option value="60" selected>60 根</option><option value="120">120 根</option><option value="end">直到本品种数据末尾</option></select></label>
+<label>市场<select id="market"><option value="">全部市场</option><option>加密</option><option>美股</option><option>贵金属</option><option>指数</option><option>港股</option><option>A股</option></select></label>
+<label>品种<select id="sym"><option value="">全部品种</option></select></label>
+</div>
+<div id="scope" class="muted"></div><div id="cards" class="grid"></div><p id="lossNote" class="muted"></p>
+<div class="two"><div class="box"><h2>短期离场：原始止损与保本退出</h2><p class="muted">累计比例，分母为本筛选下已完整覆盖观察窗口的机会；不是每天的条件止损概率。</p><div id="short"></div></div>
+<div class="box"><h2>趋势空间：退出前能走到几 R</h2><p class="muted">实色为确定达到，浅色延伸为同根先后不明时可能达到。对照只保留初始止损。</p><div id="targets"></div><p id="distribution" class="muted"></p><div id="comparison" class="muted"></div></div></div>
+<h2>逐品种比较</h2><p class="muted">点击品种行可筛选交易明细。频率按各品种实际可观测日历年计算；不同周期与同市场信号不视为独立验证。</p>
+<div class="box wide"><table id="assets"><thead><tr><th>品种 / 数据截止</th><th>机会 / 行情段</th><th>每年机会</th><th>可评估 / 全部</th><th>亏损止损率</th><th>保本退出率</th><th>第1 / 3 / 5根内原始止损</th><th>最大浮盈中位 R</th><th>中位 %</th><th>75%分位 R</th><th>达到3R</th></tr></thead><tbody></tbody></table></div>
+<h2>逐笔明细</h2><div class="pager"><button id="prev">上一页</button><span id="pageInfo"></span><button id="next">下一页</button></div>
+<div class="box wide"><table id="trades"><thead><tr><th>确认入场日期</th><th>品种 / 新低日期</th><th>确认滞后根数</th><th>入场 / 初始止损</th><th>初始风险 %</th><th>背离强度</th><th>触发1.5R保本</th><th>离场状态</th><th>退出前最大 R</th><th>最大 %</th><th>窗口末估值 R</th></tr></thead><tbody></tbody></table></div>
+<details class="box"><summary>口径、数据与复核说明</summary>
+<ul>
+<li>直接调用 <code>AnnotationSignals.bottomDivergence()</code>，参数为 minGap=3、lowTolerance=0、minStrength=0。MACD(12,26,9) 使用前端原有 SMA 播种。不会在回画的新低 K 线上提前买入；已做按确认时间截断的前缀一致性检验。</li>
+<li>当前实现的 lowTolerance=0 仍接受“低点恰好相等”；保留代码现状，不私自改变买入条件。无法形成正的初始风险距离、或确认发生在 60 根预热前的信号不列入可交易机会。</li>
+<li>每个信号独立观察，允许不同机会的持仓期重叠；本页不假设资金配置、杠杆或复利，不能据此推导组合年化收益。</li>
+<li>固定窗口只纳入有完整后续 20／60／120 根数据的入场机会，即使近端信号提前止损，也不把它单独加入分母。末尾窗口含未平仓机会，观察时长不一致，适合查轨迹，不适合横向比较持有收益。</li>
+<li>在退出／保护价同根触发的关键 K 线上，优先使用完整且 OHLC 与父级匹配的小周期数据，最细到已有 15 分钟；股票、贵金属等缺少细周期时，保留所有可行的触发顺序。区间两端是历史 OHLC 约束下的可能范围，<b>不是 95% 置信区间</b>。</li>
+<li>可能路径允许盘中反复穿越：触及 1.5R 后先回到入场价退出，再出现的高点不保证能够取得。不会把整根最高价或退出后的大涨当成确定浮盈。</li>
+<li>数据来自项目已有图表快照，不联网更新；个别品种截止日期较早。当前品种清单不包含退市样本，未做幸存者偏差修正。本次只描述历史，不是样本外验证。</li>
+</ul><p id="audit" class="muted"></p><p>回测成交顺序问题可参照 <a href="https://www.tradingview.com/pine-script-docs/concepts/strategies/#broker-emulator" target="_blank" rel="noopener">TradingView 官方 Broker Emulator 说明</a>；本报告使用更保守的路径范围，而非默认假定一条日内路径。</p></details>
+</main><script>const DATA=/*__DATA__*/;
+for(const r of DATA.trades){r.be.windows={};r.base={windows:{}};['20','60','120','end'].forEach((h,i)=>{r.be.windows[h]=r._be[r._bi[i]];r.base.windows[h]=r._base[r._bai[i]];});delete r._be;delete r._bi;delete r._base;delete r._bai;}
+const $=id=>document.getElementById(id), esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const n=(x,d=2)=>Number.isFinite(x)?x.toFixed(d):'—';const price=x=>Number.isFinite(x)?x.toLocaleString('en-US',{maximumSignificantDigits:9}):'—';
+const range=(x,d=2,suffix='')=>!x?'—':(Math.abs(x[0]-x[1])<Math.pow(10,-d)/2?n(x[0],d):n(x[0],d)+'～'+n(x[1],d))+suffix;
+const rate=(a,total)=>total?range(a.map(x=>x/total*100),1,'%'):'—';
+const median=a=>{if(!a.length)return null;const b=[...a].sort((x,y)=>x-y),i=Math.floor(b.length/2);return b.length%2?b[i]:(b[i-1]+b[i])/2;};
+const quantile=(a,q)=>{if(!a.length)return null;const b=[...a].sort((x,y)=>x-y),i=(b.length-1)*q,k=Math.floor(i);return b[k]+(b[Math.ceil(i)]-b[k])*(i-k);};
+let page=0, current=[];
+function summary(rows,base=false){
+ const h=$('horizon').value, ps=rows.map(r=>r[base?'base':'be'].windows[h]).filter(p=>p.complete), total=ps.length;
+ const count=f=>[0,1].map(i=>ps.reduce((a,p)=>a+f(p)[i],0));
+ const med=k=>[0,1].map(i=>median(ps.map(p=>p[k][i])));
+ if(base)return {total,loss:count(p=>p.loss_stop),mfe:med('mfe_R'),target:k=>count(p=>p.targets[k])};
+ return {total,loss:count(p=>p.loss_stop),negative:count(p=>p.negative_exit),be:count(p=>p.breakeven_stop),open:count(p=>p.open),armed:count(p=>p.armed),mfe:med('mfe_R'),mfePct:med('mfe_pct'),
+  p75:[0,1].map(i=>quantile(ps.map(p=>p.mfe_R[i]),.75)),p90:[0,1].map(i=>quantile(ps.map(p=>p.mfe_R[i]),.9)),max:[0,1].map(i=>total?Math.max(...ps.map(p=>p.mfe_R[i])):null),
+  meanR:[0,1].map(i=>total?ps.reduce((a,p)=>a+p.pnl_R[i],0)/total:null),short:k=>count(p=>p.first_sl[k]),shortBe:k=>count(p=>p.first_be[k]),target:k=>count(p=>p.targets[k])};
+}
+function card(title,value,note){return '<div class="box metric"><span>'+title+'</span><b>'+value+'</b><small>'+note+'</small></div>';}
+function rowsFor(since,sym){return DATA.trades.filter(r=>r.tf===$('tf').value&&r.time>=since&&(!$('market').value||r.market===$('market').value)&&(!sym||r.sym===sym));}
+function update(reset=true){
+ if(reset)page=0;
+ const tf=$('tf').value,p=$('period').value,h=$('horizon').value,since=p==='all'?-Infinity:Date.UTC(2021,10,11)/1000;
+ const options=DATA.series.filter(s=>s.tf===tf&&(!$('market').value||s.market===$('market').value));
+ const selected=$('sym').value;
+ $('sym').innerHTML='<option value="">全部品种</option>'+options.map(s=>'<option value="'+esc(s.sym)+'">'+esc(s.name)+'</option>').join('');
+ if(options.some(s=>s.sym===selected))$('sym').value=selected;
+ const ss=options.filter(s=>!$('sym').value||s.sym===$('sym').value);
+ current=rowsFor(since,$('sym').value).sort((a,b)=>b.time-a.time||a.sym.localeCompare(b.sym));
+ const a=summary(current),base=summary(current,true),years=ss.reduce((v,s)=>v+s.periods[p].observed_years,0),episodes=new Set(current.map(r=>r.episode)).size;
+ $('scope').textContent=ss.length+' 个品种 · '+current.length+' 个有效入场 / '+episodes+' 个当前负柱行情段 · '+a.total+' 个可评估窗口 · '+(current.length-a.total)+' 个窗口未走完。';
+ $('cards').innerHTML=card('机会频率',n(current.length/years,2)+' 次/年','每品种年均；有效入场 '+current.length+' 个')+
+ card('原始亏损止损率',rate(a.loss,a.total),'计入移保本前触及初始止损的情况')+
+ card('保本退出率',rate(a.be,a.total),'到 1.5R 后回到入场价；不扣成本')+
+ card('最大运行距离中位',range(a.mfe,2,'R'),'价格幅度中位 '+range(a.mfePct,2,'%'))+
+ card('入场后 1 根内原始止损',rate(a.short('1'),a.total),range(a.short('1'),0)+' 个 / '+a.total+' 个窗口')+
+ card('入场后 5 根内原始止损',rate(a.short('5'),a.total),range(a.short('5'),0)+' 个 / '+a.total+' 个窗口')+
+ card('达到 1.5R 保护触发',rate(a.armed,a.total),'持续上涨的机会也计为已触发保护')+
+ card('窗口末估值平均',range(a.meanR,2,'R'),'含尚未平仓的收盘估值；未退出 '+rate(a.open,a.total));
+ $('lossNote').textContent='包含保本价被跳空穿越的亏损后，实际亏损离场 '+range(a.negative,0)+' 个 / '+rate(a.negative,a.total)+'。平均估值可能由少数大行情主导，请同时看最大运行中位数与达到 3R 的比例。';
+ $('short').innerHTML='<table><thead><tr><th>入场后</th><th>原始止损次数 / 比例</th><th>保本退出次数 / 比例</th></tr></thead><tbody>'+[1,3,5,10,20].map(k=>'<tr><td>'+k+' 根内</td><td>'+range(a.short(String(k)),0)+' / '+rate(a.short(String(k)),a.total)+'</td><td>'+range(a.shortBe(String(k)),0)+' / '+rate(a.shortBe(String(k)),a.total)+'</td></tr>').join('')+'</tbody></table>';
+ $('targets').innerHTML=[2,3,5,10].map(k=>{const counts=a.target(String(k)),pct=counts.map(x=>a.total?x/a.total*100:0);return '<div class="barrow"><span>达到 '+k+'R</span><div class="track"><i class="possible" style="width:'+pct[1]+'%"></i><i class="certain" style="width:'+pct[0]+'%"></i></div><span>'+rate(counts,a.total)+'</span></div>';}).join('');
+ $('distribution').textContent='最大运行距离：75% 分位 '+range(a.p75,2,'R')+'；90% 分位 '+range(a.p90,2,'R')+'；样本最高 '+range(a.max,2,'R')+'。例如 75% 分位为 2.5R，表示约四分之三的机会最大浮盈不超过 2.5R。';
+ $('comparison').textContent='不移保本的同批对照：原始止损率 '+rate(base.loss,base.total)+'；达到 3R '+rate(base.target('3'),base.total)+'；最大运行中位 '+range(base.mfe,2,'R')+'。移保本后是否改善入场后损失，要同时看它截断了多少趋势空间。';
+ $('assets').querySelector('tbody').innerHTML=ss.map(s=>{
+ const q=s.periods[p],z=q.summary[h],stop=z.loss_stop||[0,0],be=z.breakeven_stop||[0,0];
+ return '<tr data-sym="'+esc(s.sym)+'"><td>'+esc(s.name)+'<br><small>'+esc(s.first.slice(0,10))+'～'+esc(s.last.slice(0,10))+'</small></td><td>'+q.signals+' / '+q.episodes+'</td><td>'+n(q.annual)+'</td><td>'+z.n+' / '+q.signals+'</td><td>'+rate(stop,z.n)+'</td><td>'+rate(be,z.n)+'</td><td>'+[1,3,5].map(k=>rate(z.short_sl?.[k]||[0,0],z.n)).join(' / ')+'</td><td class="blue">'+range(z.mfe_R_median,2,'R')+'</td><td>'+range(z.mfe_pct_median,2,'%')+'</td><td>'+range(z.mfe_R_p75,2,'R')+'</td><td>'+rate(z.targets?.['3']||[0,0],z.n)+'</td></tr>';
+ }).join('');
+ $('audit').textContent='算法文件 SHA256：'+DATA.engine_sha256+'。排除项：'+Object.entries(DATA.exclusions).map(([k,v])=>k+'='+v).join('；')+'。结果文件可追溯每个源数据的 SHA256。';
+ renderTrades();
+}
+function renderTrades(){
+ const h=$('horizon').value,size=40;
+ $('pageInfo').textContent='第 '+(page+1)+' / '+Math.max(1,Math.ceil(current.length/size))+' 页 · '+current.length+' 个机会';
+ $('prev').disabled=page===0;$('next').disabled=(page+1)*size>=current.length;
+ const names={sl:'原始止损',be:'保本退出',live:'仍在持仓'};
+ $('trades').querySelector('tbody').innerHTML=current.slice(page*size,(page+1)*size).map(r=>{
+ const p=r.be.windows[h];
+ return '<tr><td>'+esc(r.date)+'</td><td>'+esc(r.sym)+' / '+esc(r.low_date)+'</td><td>'+r.lag_bars+'</td><td>'+price(r.be.entry)+' / '+price(r.be.stop)+'</td><td>'+n(r.be.risk_pct)+'</td><td>'+n(r.strength*100,1)+'%</td><td>'+(['否','可能','是'][p.armed[0]+p.armed[1]])+'</td><td>'+(!p.complete?'<span class="orange">窗口未完成</span>':p.statuses.map(s=>names[s]).join(' 或 '))+'</td><td class="blue">'+range(p.mfe_R,2)+'</td><td>'+range(p.mfe_pct,2,'%')+'</td><td>'+range(p.pnl_R,2)+'</td></tr>';
+ }).join('');
+}
+for(const id of ['tf','period','horizon','market','sym'])$(id).addEventListener('change',()=>update());
+$('assets').addEventListener('click',e=>{const row=e.target.closest('[data-sym]');if(!row)return;$('sym').value=row.dataset.sym;update();$('trades').scrollIntoView({behavior:'smooth',block:'start'});});
+$('prev').onclick=()=>{page--;renderTrades();};$('next').onclick=()=>{page++;renderTrades();};update();
+</script></html>

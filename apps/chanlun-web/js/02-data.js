@@ -157,6 +157,7 @@ const ChunkStore = {
       if (!add.length) return 0;
       if (w.candles.length + add.length > 900000){ flashBtn('snapshotBtn', '⚠ 已达内存上限'); return 0; }
       w.candles = w.candles.concat(add);
+      w.times = w.times.concat(add.map(c => c.time));
       w.hiIdx = ni;
       return add.length;
     } else {
@@ -165,6 +166,7 @@ const ChunkStore = {
       if (!add.length) return 0;
       if (w.candles.length + add.length > 900000){ flashBtn('snapshotBtn', '⚠ 已达内存上限'); return 0; }
       w.candles = add.concat(w.candles);
+      w.times = add.map(c => c.time).concat(w.times);
       w.baseIdx -= add.length;
       w.loIdx = ni;
       return add.length;
@@ -204,25 +206,51 @@ const L = () => DATA.levels[activeTF];
 // 笔口径 → 数据键前缀: 老笔链系列以 old* 命名(oldStrokesRaw / oldPivotsStrokeRaw /
 // oldBuyPointsSegmentRaw / oldBeichiPointsRaw ...), 与新笔主键一一对应。
 const PK = n => strokeStd === 'old' ? 'old' + n.charAt(0).toUpperCase() + n.slice(1) : n;
-function candlesFor(v){
-  if (chunkedActive()){
-    const w = ChunkStore.win;
-    if (!w) return [];
-    // 复盘/练习截断: 只暴露 replayT 之前的K线(否则盲测泄露未来)
-    return inReplay() ? w.candles.filter(c => c.time <= replayT) : w.candles;
+// The source arrays are replaced when a market or a chunk changes. Cache only the
+// normalized history and its current replay prefix; consumers treat both as read-only.
+const chartCandleCache = new WeakMap();
+function candleFrame(v){
+  const chunk = chunkedActive();
+  const source = chunk ? ChunkStore.win?.candles : (v === 'raw' ? L().candles : L().mergedCandles);
+  if (!source) return null;
+  let frame = chartCandleCache.get(source);
+  if (!frame){
+    const bars = chunk ? source : source.map(c => {
+      const hi = Math.max(c[2], c[3]), lo = Math.min(c[2], c[3]);
+      return { time:c[0], open:Math.min(hi, Math.max(lo, c[1])), high:hi, low:lo,
+        close:Math.min(hi, Math.max(lo, c[4])) };
+    });
+    frame = { bars, through:undefined, prefix:null, volumes:null };
+    chartCandleCache.set(source,frame);
   }
-  const all = (v === 'raw' ? L().candles : L().mergedCandles).map(c => ({ time:c[0], open:c[1], high:c[2], low:c[3], close:c[4] }));
-  return inReplay() ? all.filter(c => c.time <= replayT) : all;
+  return frame;
+}
+function candlesFor(v){
+  const frame = candleFrame(v);
+  if (!frame) return [];
+  if (!inReplay()) return frame.bars;
+  if (frame.through !== replayT){
+    let lo=0, hi=frame.bars.length;
+    while(lo<hi){
+      const mid=(lo+hi)>>>1;
+      if(frame.bars[mid].time<=replayT)lo=mid+1;else hi=mid;
+    }
+    frame.prefix=frame.bars.slice(0,lo);
+    frame.through=replayT;
+    frame.volumes=null;
+  }
+  return frame.prefix;
 }
 function volArrFor(v){
   if (chunkedActive()){
-    const w = ChunkStore.win;
-    if (!w) return [];
-    const arr = w.candles.map(c => c.volume);
-    return inReplay() ? arr.filter((_, i) => w.times[i] <= replayT) : arr;
+    const frame=candleFrame(v);
+    if(!frame)return [];
+    if(!inReplay())return frame.bars.map(c=>c.volume);
+    const cs=candlesFor(v);
+    return frame.volumes ??= cs.map(c=>c.volume);
   }
   const arr = v === 'raw' ? L().volume : L().mergedVolume;
-  return inReplay() ? arr.filter((_, i) => ((v === 'raw' ? L().candles : L().mergedCandles)[i][0]) <= replayT) : arr;
+  return inReplay() ? arr.slice(0,candlesFor(v).length) : arr;
 }
 function topMarks(v){ if (chunkedActive()) return []; return (v === 'raw' ? L().topMarkers : L().topMergedMarkers).filter(x => before(x.time)); }
 function botMarks(v){ if (chunkedActive()) return []; return (v === 'raw' ? L().bottomMarkers : L().bottomMergedMarkers).filter(x => before(x.time)); }

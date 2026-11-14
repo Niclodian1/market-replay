@@ -10,7 +10,13 @@ const JKEY = 'chan_journal_v1';
 const ACCT_KEY = 'chan_account_v2';
 const INIT_CAPITAL = 100000;
 const jLoad = () => { try { return JSON.parse(localStorage.getItem(JKEY)) || []; } catch { return []; } };
-const jSave = arr => localStorage.setItem(JKEY, JSON.stringify(arr));
+function jSave(arr){
+  try{localStorage.setItem(JKEY,JSON.stringify(arr));}
+  catch(error){
+    if(!trLocked()||!TR.research)throw error;
+    console.warn('交易日志写入失败；练习操作仍会写入练习存档。',error);
+  }
+}
 const acctLoad = () => { try { return JSON.parse(localStorage.getItem(ACCT_KEY)) || {}; } catch { return {}; } };
 const acctSave = o => localStorage.setItem(ACCT_KEY, JSON.stringify(o));
 const curModeKey = () => (TR.active && !TR.revealed) ? 'trainer' : 'replay';
@@ -35,7 +41,7 @@ const posById = id => positions.find(p => p.id === id);
 const posLayoutOk = pos => (pos.sym === currentSym || pos.sym === DATA.meta.symbol) && pos.tf === activeTF;
 
 function curBar(){
-  const cs = candlesFor(activeView);
+  const cs = candlesFor(trLocked() ? 'raw' : activeView);
   return cs.length ? cs[cs.length-1] : null;
 }
 const posCapital = pos => pos.entries.reduce((a,e) => a + e.capital, 0);
@@ -182,7 +188,7 @@ function renderJournal(){
     const rv = ok && bar ? rNow(pos, bar.close) : null;
     if (rv != null) pos.maxR = Math.max(pos.maxR ?? rv, rv);
     const rRow = pos.stop != null
-      ? `<span data-r="${pos.id}" style="font-weight:600; font-size:12px;">${rv != null ? `R ${fmtR(rv)} · 最大 ${fmtR(pos.maxR)}` : 'R —'}</span><br>`
+      ? `<span data-r="${pos.id}" style="font-weight:600; font-size:12px;">${rv != null ? `R ${fmtR(rv)} · 最大收盘 ${fmtR(pos.maxR)}` : 'R —'}</span><br>`
       : '<span style="opacity:.55; font-size:11px;">未设止损 · 无 R 基准</span><br>';
     // 乖离档位: 仅匹配当前布局的持仓卡显示(异布局行情的乖离对该持仓无意义)
     const biasRow = ok
@@ -304,7 +310,7 @@ function updateLivePnl(){
     const r = rNow(pos, bar.close);
     if (r != null) pos.maxR = Math.max(pos.maxR ?? r, r);
     if (rEl){
-      rEl.textContent = r != null ? `R ${fmtR(r)} · 最大 ${fmtR(pos.maxR)}` : 'R —';
+      rEl.textContent = r != null ? `R ${fmtR(r)} · 最大收盘 ${fmtR(pos.maxR)}` : 'R —';
       rEl.style.color = r >= 0 ? 'var(--up)' : 'var(--down)';
     }
     const bd = document.querySelector(`[data-budget="${pos.id}"]`);
@@ -391,13 +397,16 @@ function addPosFromCard(pos, card, fillMax){
     step: TR.active && !TR.revealed ? TR.step : null,
   });
   const ns = q('.inp-add-stop').value;
-  if (ns) pos.stop = +ns;
+  if (ns && Number.isFinite(+ns) && +ns > 0) updatePositionStop(pos,+ns,logic);
   ensureRisk(pos);   // 若此前无止损/无 R, 此时锁定; 已有 R 则移动止损不改基准
   if (TR.active && !TR.revealed){   // 练习局: 标记发生过加仓并刷新净值曲线
     TR.hadAdds = true;
+    const leg=pos.entries.at(-1);
+    prEvent('add',pos,{price:leg.price,capital:leg.capital,leverage:leg.leverage,reason:logic});
     if (typeof recordEquity === 'function') recordEquity();
   }
   renderJournal();
+  prCheckpoint();
   refreshAll({ light: true });   // 立即在图上标记加仓位置
   flashBtn('snapshotBtn', `${fillMax ? '✓ 一键加满 ' + wantCap.toFixed(2) + 'U · ' : '✓ '}新成本 ${posAvgEntry(pos).toPrecision(6)}`);
   return true;
@@ -416,6 +425,7 @@ function closePosObj(pos, r, exitLogic, reason = '手动平仓', force = false){
   const arr = jLoad(); arr.push(rec); jSave(arr);
   if (TR.active && !TR.revealed){   // 练习局: 记入本局战绩, 揭示时统一入账; 同步累计加仓贡献
     TR.session.push(rec);
+    prEvent('exit',pos,{price:rec.exit_price,fraction:r,pnl:rec.pnl_u,exitType:reason,reason:exitLogic});
     TR.addPnlRealized = (TR.addPnlRealized || 0) + (rec.add_pnl || 0);
     if (rec.adds > 0) TR.hadAdds = true;
   }
@@ -423,6 +433,7 @@ function closePosObj(pos, r, exitLogic, reason = '手动平仓', force = false){
   if (r >= 1) positions = positions.filter(p => p !== pos);
   else pos.entries.forEach(e => { e.capital = +(e.capital * (1 - r)).toFixed(6); });
   if (TR.active && !TR.revealed && typeof recordEquity === 'function') recordEquity();
+  prCheckpoint();
   renderJournal();
   refreshAll({ light: true });   // 出场标记立即上图(练习局)
   return true;
@@ -440,7 +451,7 @@ function makeRec(pos, r, exitPrice, exitTs, pnl, exitLogic, reason){
     entry_ts_list: pos.entries.map(e => e.t), entry_prices: pos.entries.map(e => e.price),
     entry_time: fmtTimeReal(pos.entries[0].t), entry: +posAvgEntry(pos).toFixed(2),
     exit_time: fmtTimeReal(exitTs), exit_price: exitPrice,
-    stop: pos.stop ?? '', logic: pos.entries[0].logic,
+    stop: pos.stop ?? '', initial_stop: pos.initialStop ?? null, opportunity_id: pos.opportunityId ?? null, logic: pos.entries[0].logic,
     adds: pos.entries.length - 1, ratio: +r.toFixed(2), partial: r < 1,
     entries: pos.entries.map(e => ({t: fmtTimeReal(e.t), price: e.price, capital: e.capital, leverage: e.leverage, logic: e.logic, step: e.step ?? null })),
     exit_logic: exitLogic,
@@ -463,17 +474,19 @@ function checkStopAndLiquidate(){
   let changed = false;
   for (const pos of mine){
     const cap = posCapital(pos);
+    if (trLocked() && bar.time <= pos.entries[0].t) continue;
     const hitStop = pos.stop != null &&
       ((pos.side === '多' && bar.low <= pos.stop) ||
        (pos.side === '空' && bar.high >= pos.stop));
     const liq = pnlOf(pos, bar.close) <= -cap;
     if (!hitStop && !liq) continue;
-    const px = hitStop ? pos.stop : bar.close;
-    const pnl = hitStop ? pnlOf(pos, pos.stop) : -cap;
+    const px = hitStop ? (trLocked() ? (pos.side==='多' ? Math.min(bar.open,pos.stop) : Math.max(bar.open,pos.stop)) : pos.stop) : bar.close;
+    const pnl = hitStop ? pnlOf(pos, px) : -cap;
     const rec = makeRec(pos, 1, px, bar.time, Math.max(pnl, -cap), '', hitStop ? '触发止损' : '单笔爆仓');
     const arr = jLoad(); arr.push(rec); jSave(arr);
     if (TR.active && !TR.revealed){
       TR.session.push(rec);
+      prEvent('exit',pos,{price:px,fraction:1,pnl:rec.pnl_u,exitType:rec.exit_reason});
       TR.addPnlRealized = (TR.addPnlRealized || 0) + (rec.add_pnl || 0);
       if (rec.adds > 0) TR.hadAdds = true;
     }
@@ -548,6 +561,47 @@ function closeAllPositions(){
   for (const pos of [...mine]) closePosObj(pos, 1, '一键全部平仓', '一键全部平仓');
   if (others) flashBtn('snapshotBtn', `⚠ 另有 ${others} 笔异布局持仓未平`);
 }
+function openJournalPosition(opts = {}){
+  const fail = message => { (opts.onError || alert)(message); return false; };
+  if (!inReplay()) return fail('请先进入复盘模式');
+  const miss = ltMissing();
+  if (!opts.details && miss.length) return fail('市场环境/入场信号必填——还缺: ' + miss.join('、'));
+  const logic = opts.logic ?? combineEntryLogic(selectedLogicTags(), document.getElementById('jLogic').value);
+  if (!logic) return fail('请记录开仓理由');
+  const bar = curBar();
+  if (!bar) return fail('当前没有可用 K 线');
+  const side = opts.side ?? document.getElementById('jSide').value;
+  const research = trLocked() && TR.research?.mode === 'research';
+  const margin = +(document.getElementById('jCapital').value || 100000);
+  if (!Number.isFinite(margin) || margin <= 0) return fail('保证金须大于 0');
+  if (margin > acctBal()) return fail(`余额不足：当前可用本金 ${acctBal().toFixed(2)}U。可在右侧开仓表单调整保证金。`);
+  const price = opts.entry ?? (research ? bar.close : (+document.getElementById('jEntry').value || bar.close));
+  const input = document.getElementById('jStop').value.trim();
+  const stop = opts.stop ?? (research ? prDefaultStop(bar,side,price) : input ? +input : null);
+  if (!Number.isFinite(price) || price <= 0) return fail('开仓价须大于 0');
+  if (research && stop == null) return fail('此 K 线没有有效的初始止损距离。');
+  if (stop != null && (!Number.isFinite(stop)||stop<=0||(side==='多'?stop>=price:stop<=price)))
+    return fail('初始止损必须在开仓价的不利方向。');
+  acctAdj(-margin);
+  const np = {
+    id: posSeq++, sym: currentSym, tf: activeTF, side, stop, initialStop:stop, r0:null, maxR:null,
+    entries:[{t:bar.time,price,capital:margin,leverage:Math.min(125,Math.max(1,+document.getElementById('jLeverage').value||10)),
+      logic,step:trLocked()?TR.step:null}],
+  };
+  positions.push(np);
+  ensureRisk(np);
+  prRecordOrder(np,bar,opts.details ?? (research?{reason:logic,basis:'signal_close_and_extreme',invalid:side==='空'?'价格触及当前 K 线高点':'价格触及当前 K 线低点'}:null),logic);
+  prCheckpoint();
+  renderJournal();
+  refreshAll({ light: true });
+  return true;
+}
+function updatePositionStop(pos, next, reason){
+  const old=pos.stop;
+  if(old===next)return;
+  pos.stop=next;
+  prEvent('stop_change',pos,{from:old,to:next,reason});
+}
 function setupJournal(){
   document.getElementById('jLogicTags').addEventListener('click', e => {
     const catBtn = e.target.closest('.lt-cat');
@@ -578,41 +632,7 @@ function setupJournal(){
     el.addEventListener('input', updateStopLossEstimate);
     el.addEventListener('change', updateStopLossEstimate);
   });
-  document.getElementById('jOpen').addEventListener('click', () => {
-    if (!inReplay()){ alert('请先进入复盘模式'); return; }
-    const miss = ltMissing();
-    if (miss.length){ alert(`市场环境/入场信号必填——还缺: ${miss.join('、')}。请点开对应一级标签选择二级标签`); return; }
-    const logic = combineEntryLogic(selectedLogicTags(), document.getElementById('jLogic').value);
-    if (!logic){ alert('开单逻辑/信号必填'); return; }
-    const bar = curBar();
-    if (!bar) return;
-    // 保证金 = 表单本金; 从账户余额划扣(多笔持仓各自独立占用)
-    const margin = +(document.getElementById('jCapital').value) || 100000;
-    if (margin > acctBal()){
-      alert(`余额不足: 当前可用本金 ${acctBal().toFixed(2)}U`);
-      return;
-    }
-    acctAdj(-margin);
-    const np = {
-      id: posSeq++,
-      sym: currentSym, tf: activeTF,   // 绑定开仓布局(用键名, 与 posLayoutOk/切换逻辑一致)
-      side: document.getElementById('jSide').value,
-      stop: document.getElementById('jStop').value ? +document.getElementById('jStop').value : null,
-      r0: null, maxR: null,            // R 基准(首次设止损时锁定) / 最大到达 R
-      entries: [{
-        t: bar.time,
-        price: +document.getElementById('jEntry').value || bar.close,
-        capital: margin,
-        leverage: Math.min(125, +document.getElementById('jLeverage').value || 10),
-        logic,
-        step: TR.active && !TR.revealed ? TR.step : null,   // 练习局: 记录开仓步号(信号K影响复盘用)
-      }],
-    };
-    positions.push(np);
-    ensureRisk(np);   // 开仓即带止损 → 立即锁定 R 基准
-    renderJournal();
-    refreshAll({ light: true });   // 立即在图上标记开仓位置
-  });
+  document.getElementById('jOpen').addEventListener('click', () => openJournalPosition());
   // 持仓卡事件委托: 加仓/平仓表单切换 + 确认动作 + 重置本金
   document.getElementById('jPositions').addEventListener('click', e => {
     if (e.target.id === 'jResetAcct'){
@@ -675,7 +695,7 @@ function setupJournal(){
   document.getElementById('jExport').addEventListener('click', () => {
     const arr = jLoad();
     if (!arr.length){ alert('暂无历史记录'); return; }
-    const cols = ['symbol','tf','side','leverage','capital','entry_time','entry','exit_time','exit_price','stop','adds','exit_logic','pnl_u','pnl_pct_capital','result','exit_reason','logic','r0','r_final','max_r'];
+    const cols = ['symbol','tf','side','leverage','capital','entry_time','entry','exit_time','exit_price','stop','initial_stop','opportunity_id','adds','exit_logic','pnl_u','pnl_pct_capital','result','exit_reason','logic','r0','r_final','max_r'];
     const esc = v => '"' + String(v ?? '').replace(/"/g,'""') + '"';
     const csv = '\ufeff' + cols.join(',') + '\n' +
       arr.map(r => cols.map(c => esc(r[c])).join(',')).join('\n');
@@ -746,7 +766,7 @@ function openPosPopup(pos, point){
       <button class="btn" data-pp="close-pop">✕</button>
     </div>
     <div class="pp-stop" style="display:none;">
-      <input type="number" class="pp-stop-inp" step="any" value="${pos.stop ?? ''}" placeholder="留空=取消止损">
+      <input type="number" class="pp-stop-inp" step="any" value="${pos.stop ?? ''}" placeholder="留空=取消止损"><input class="pp-stop-reason" type="text" maxlength="200" placeholder="调整理由（规则研究必填）">
       <button class="btn" data-pp="stop-save">保存</button>
     </div>`;
   posPopupEl.style.display = 'flex';
@@ -764,6 +784,7 @@ function openPosPopup(pos, point){
 
 // 点击命中检测: 视口 y 与各持仓入场/止损线的像素距离 <7px 视为点击该线
 chart.subscribeClick(param => {
+  if (prChartPicking()) return;
   if (posPopup && posPopupEl.style.display !== 'none'){
     // 点击已有弹层时交给弹层按钮处理(弹层是 body 子元素, 不在 chart 上)
   }
@@ -811,7 +832,10 @@ posPopupEl.addEventListener('click', e => {
     }
     case 'stop-save': {
       const v = parseFloat(posPopupEl.querySelector('.pp-stop-inp').value);
-      pos.stop = (isNaN(v) || v <= 0) ? null : v;
+      const reason = posPopupEl.querySelector('.pp-stop-reason')?.value.trim()||'';
+      if(trLocked()&&TR.research?.mode==='research'&&!reason){alert('请填写调整止损的理由。');return;}
+      updatePositionStop(pos,(isNaN(v) || v <= 0) ? null : v,reason);
+      prCheckpoint();
       ensureRisk(pos);   // 首次设置止损时锁定 R 基准
       renderJournal();   // 同步卡片显示 + 重画持仓线
       closePosPopup();

@@ -148,6 +148,9 @@ function annCoverBuild(all) {
     kind: r.selected ? 'selected' : 'excluded', grade: r.grade, version: Cover67.VERSION }));
 }
 function annCoverActive() { return ['ma20_simple_v2','ma20_simple_check_v2'].includes(ANN.source); }
+function annV3Active(){return typeof ma20StructureActive==='function'&&ma20StructureActive();}
+function annAIActive(){return typeof ma20AIActive==='function'&&ma20AIActive();}
+function annAssessmentActive(){return annCoverActive()||annV3Active()||annAIActive();}
 function annCoverMeta(i) {
   const r = annCoverContext().rows[i];
   return r ? { version: Cover67.VERSION, selected: r.selected, volumeGrade: r.grade,
@@ -210,7 +213,7 @@ function annCancelChartPick(clear=false){
   if(ANN._built)annApplyBlind();
 }
 function annStartChartPick(field){
-  if(!ANN.on||!annCoverActive()||!AnnotationForm.ANCHORS[field])return;
+  if(!ANN.on||!annAssessmentActive()||!AnnotationForm.ANCHORS[field])return;
   annSaveAssessment();
   if(activeView!=='raw'){
     const range=chart.timeScale().getVisibleRange();setView('raw');
@@ -228,7 +231,7 @@ function annStartChartPick(field){
 function annHandleChartPick(param){
   if(manualHandlePick(param))return;
   const field=ANN_CHART_PICK.target;if(!field)return;
-  if(!ANN.on||!annCoverActive()||activeView!=='raw'||ANN_CHART_PICK.context!==annChartPickContext()){annCancelChartPick(true);return;}
+  if(!ANN.on||!annAssessmentActive()||activeView!=='raw'||ANN_CHART_PICK.context!==annChartPickContext()){annCancelChartPick(true);return;}
   const cs=candlesFor('raw'),sg=ANN.sigs[ANN.idx];
   const index=cs.findIndex(c=>c.time===param.time);
   const status=document.getElementById('annChartPickBanner').querySelector('span');
@@ -248,7 +251,7 @@ function annHandleChartPick(param){
 }
 
 function annAssessmentCard(d) {
-  if(!annCoverActive())return '';
+  if(!annAssessmentActive())return '';
   const a=d?.assessment||{},cs=candlesFor('raw'),sg=ANN.sigs[ANN.idx];
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const select=key=>{const [label,...options]=AnnotationForm.FIELDS[key];return `<label class="ann-form-field"><span>${label}（可选）</span><select data-assessment="${key}"><option value="">请选择</option>${options.map(v=>`<option${a[key]===v?' selected':''}>${v}</option>`).join('')}</select></label>`;};
@@ -264,6 +267,7 @@ function annAssessmentCard(d) {
     <p class="ann-line">能明确范围时填调整起止K线；不确定时允许留空。结束可为信号前一根或当前根，以你的判断为准。前高和箱体边界可选。</p>
     <details class="ann-reference-details" ${a.referenceStatus==='可以明确标出'?'open':''}><summary>填写参照K线、箱体或更好买点</summary>
     ${input('adjustStart','调整开始K线（UTC）',placeholder)}${input('adjustEnd','调整结束K线（UTC）',placeholder)}${input('referencePeak','参照高点K线（UTC，可选）',placeholder)}
+    ${input('advanceLow','前段上涨起点K线（UTC，可选）',placeholder)}${input('advancePeak','前段上涨终点K线（UTC，可选）',placeholder)}<p class="ann-line">补充前段上涨的起止，可计算调整时间与前段上涨的比例；不确定可留空，自动参考点不会替你填写。</p>
     ${input('boxHigh','箱体上沿（价格，可选）','例如 2500','number')}${input('boxLow','箱体下沿（价格，可选）','例如 2300','number')}
     ${select('preferredEntry')}${input('earlierEntry','此前更好买点K线（UTC）',placeholder)}
     </details>
@@ -273,7 +277,7 @@ function annAssessmentCard(d) {
   </section>`;
 }
 function annSaveAssessment() {
-  if(!annCoverActive())return null;
+  if(!annAssessmentActive())return null;
   const sg=ANN.sigs[ANN.idx];if(!sg)return null;
   const key=annKey(sg.i),prev=ANN.decisions[key]||{d:null,reasons:[]},a={...prev.assessment};
   document.querySelectorAll('[data-assessment]').forEach(el=>{a[el.dataset.assessment]=el.value;});
@@ -284,6 +288,992 @@ function annSaveAssessment() {
   return check;
 }
 
+
+// ------------------------------------------------------- 我的买点算法 v4 -- //
+// 从 72 个手工买点反推：候选 = 最近 3 根内上穿 MA20，再用「盘整/趋势线/力度/量能/MACD/双均线/距离」打分。
+// 分数 ≥30 视为识别到的买点。对 72 个手选点：精确命中 66，±1 根 68，±2 根 69（95.8%）；
+// 代价是信号从 142 增到 239（约 26 个/年）——因为手选点里有 9 个不是「首次」上穿，
+// 而是突破后回踩 1~2 根再站上。A/B/C 只是优先级，不是硬过滤。
+const ANN_MYBUY = {
+  minScore: 30,        // 分数下限：对 72 个手选点召回 95.8%
+  maxDist20: 0.10,     // 收盘离 MA20 超过 10% 说明是一根暴力 K 线，先排除
+  minDist20: 0.0,
+  maxDist120: null,    // 不按 MA120 位置过滤（手选点里有距 MA120 −27% 的超跌买点）
+  reclaimBars: 3,      // 最近 N 根内上穿过 MA20 就算「站上」；1 = 只认首次上穿
+  cooldownBars: 8,     // 同波段冷却期（默认 8 根，可在面板切换 5 / 8 / 10）
+  allowMa60Upgrade: true, // 豁免 1：同波段内首次站上 MA60（双均线共振升级）允许出信号
+  allowStopReset: true,   // 豁免 2：上一笔信号已触及当根最低点止损（前单出局）重置冷却
+  metaFilter: 'active',   // AI-MA20交易算法默认展示判断为买入的买点('active'=1x+2x, 'heavy'=仅2x高置信, 'std'=仅1x中置信, 'all'=含0x全部, 'skip'=0x放弃)
+};
+
+// AI-MA20交易算法 (v2.1 · 350题盲测查表 + 四维正交风控增强: 熊市禁2x / MA60乖离过滤 / 极窄止损托底 / 阶梯保本锁盈)
+const AI_MA20_FROZEN_SPEC = Object.freeze({
+  name: 'MA20突破·查表置信度算法',
+  version: 'MA20-TRAD-v2.1',
+  frozenDate: '2026-11-11',
+  docUrl: 'docs/ai-ma20-v1-frozen.html',
+  thSkip: 0.55,
+  thHeavy: 0.75,
+});
+
+// 保留旧树模型对象仅作只读向后兼容，实际打分已全面切换为 350 题盲测验证的「4加5扣传统查表法」
+const ANN_META_MODEL = Object.freeze({"features":["atr_pct","slope20","ret20","d20","risk_pct","pos90","tr10_60","vol_ratio"],"featureNames":["ATR波动率","MA20斜率","前20日涨跌","距MA20偏离","初始止损宽","90日分位","振幅压缩比","信号日量比"],"featureUnits":["%","%/根","%","%","%","%","×","×"],"center":[3.977632,-0.135418,0.785712,1.96713,4.208568,52.130038,0.880411,1.078727],"scale":[1.918745,0.425755,7.71098,2.763759,2.978627,53.338523,0.328065,0.545209],"lrCoef":[0.02347,0.272797,0.017489,-0.079178,-0.44213,-0.373389,-0.242811,0.236384],"lrIntercept":-0.021425,"gbInit":-0.0,"gbLr":0.05,"gbTrees":[],"thSkip":0.55,"thHeavy":0.75});
+
+// 350题全盲测验证：4加5扣纯查表置信度打分（0~100分，无2%绝对值限制，跨品种/跨周期通用）
+function annTradScoreAt(i, ctx) {
+  const { h, l, c, o, m20, m60, m120, atr } = ctx;
+  const a = (atr && atr[i] != null && atr[i] > 0) ? atr[i] : c[i] * 0.02;
+  const rng = Math.max(1e-12, h[i] - l[i]);
+
+  // 1. 箱体收敛 vs 震荡发散/深坑 (近25根振幅 & 距近20根高点阻力)
+  let hi25 = -Infinity, lo25 = Infinity, hi20 = -Infinity;
+  for (let k = Math.max(0, i - 25); k < i; k++) {
+    if (h[k] > hi25) hi25 = h[k];
+    if (l[k] < lo25) lo25 = l[k];
+    if (k >= i - 20 && h[k] > hi20) hi20 = h[k];
+  }
+  const box25Atr = hi25 > -Infinity ? (hi25 - lo25) / a : 5.0;
+  const distHi20Atr = hi20 > -Infinity ? (hi20 - c[i]) / a : 0.0;
+  const condBoxTight = box25Atr <= 5.5 && distHi20Atr <= 1.2;
+  const vetoChopWide = box25Atr > 7.5 || distHi20Atr > 2.5;
+
+  // 2. 双均线粘合与顺势 vs 逆势均线压制
+  const s20 = (i >= 5 && m20[i] != null && m20[i - 5] != null) ? (m20[i] - m20[i - 5]) / (5 * a) : 0;
+  const s60 = (m60 && i >= 10 && m60[i] != null && m60[i - 10] != null) ? (m60[i] - m60[i - 10]) / (10 * a) : 0;
+  const s120 = (m120 && i >= 20 && m120[i] != null && m120[i - 20] != null) ? (m120[i] - m120[i - 20]) / (20 * a) : 0;
+  const above60 = m60 && m60[i] != null && c[i] >= m60[i];
+  const above120 = m120 && m120[i] != null && c[i] >= m120[i];
+  const ma20_60Gap = (m60 && m60[i] != null && m20[i] != null) ? Math.abs(m20[i] - m60[i]) / a : 9.9;
+  const d60Atr = (m60 && m60[i] != null) ? (c[i] - m60[i]) / a : 0;
+
+  const condMaSqueeze = ma20_60Gap <= 1.2 && above60;
+  const condTrendUp = s20 >= -0.03 && (above60 || s60 >= 0.0 || s120 >= 0.02);
+  const vetoCounterTrend = (!above60 && s60 < -0.04) || (!above60 && ma20_60Gap > 2.2);
+
+  // 3. K线形态 + 相对波动（不看2%绝对值）
+  const body = o ? (c[i] - o[i]) : (c[i] - l[i]) * 0.6;
+  const bodyR = body / rng;
+  const closePos = (c[i] - l[i]) / rng;
+  const upWickR = (h[i] - c[i]) / rng;
+  let sumRng10 = 0, cntRng10 = 0;
+  for (let k = Math.max(0, i - 10); k < i; k++) { sumRng10 += (h[k] - l[k]); cntRng10++; }
+  const rng10 = cntRng10 ? sumRng10 / cntRng10 : rng;
+  const rngRatio = rng / Math.max(1e-12, rng10);
+  const bodyAtr = body / a;
+  const riskAtr = (c[i] - l[i]) / a;
+
+  const condStrongCandle = bodyR >= 0.60 && closePos >= 0.70 && (bodyAtr >= 0.55 || rngRatio >= 1.1) && riskAtr <= 2.2;
+  const vetoWeakOrWick = bodyR < 0.45 || upWickR > 0.40 || (bodyAtr < 0.40 && rngRatio < 0.95) || riskAtr > 2.5;
+
+  // 4. 上根大阴线未反包 & 250根视野位置
+  const prev1Bear = (o && i >= 1) ? (o[i - 1] - c[i - 1]) / a : 0;
+  const vetoPrevBigBear = i >= 1 && o && prev1Bear >= 0.95 && c[i] < o[i - 1];
+
+  let hi250 = -Infinity, lo250 = Infinity;
+  for (let k = Math.max(0, i - 250); k <= i; k++) {
+    if (h[k] > hi250) hi250 = h[k];
+    if (l[k] < lo250) lo250 = l[k];
+  }
+  const pos250 = (c[i] - lo250) / Math.max(1e-12, hi250 - lo250);
+  const vetoHighPos = pos250 > 0.80;
+
+  // 5. 查表合成分数 (基础分 50，范围 0~100)
+  let score = 50;
+  const contribs = [];
+  if (condBoxTight) {
+    score += 15;
+    contribs.push({ key: 'box_tight', name: '箱体收敛上沿', val: `${box25Atr.toFixed(1)}ATR`, impact: 0.15, text: `箱体收敛(${box25Atr.toFixed(1)}ATR) +15分` });
+  }
+  if (condMaSqueeze) {
+    score += 15;
+    contribs.push({ key: 'ma_squeeze', name: '双均线粘合站稳', val: `${ma20_60Gap.toFixed(2)}ATR`, impact: 0.15, text: `双均线粘合(${ma20_60Gap.toFixed(1)}ATR) +15分` });
+  }
+  if (condTrendUp) {
+    score += 10;
+    contribs.push({ key: 'trend_up', name: '均线顺势支撑', val: `${s20 >= 0 ? '+' : ''}${s20.toFixed(2)}`, impact: 0.10, text: `顺势支撑 +10分` });
+  }
+  if (condStrongCandle) {
+    score += 10;
+    contribs.push({ key: 'strong_candle', name: '阳线饱满有力', val: `${(bodyR * 100).toFixed(0)}%|${bodyAtr.toFixed(2)}ATR`, impact: 0.10, text: `阳线有力(实${(bodyR * 100).toFixed(0)}%/波${rngRatio.toFixed(1)}x) +10分` });
+  }
+  if (vetoChopWide) {
+    score -= 20;
+    contribs.push({ key: 'chop_wide', name: '震荡未收敛/深坑', val: `${box25Atr.toFixed(1)}ATR`, impact: -0.20, text: `震荡未走完(箱${box25Atr.toFixed(1)}ATR/阻${distHi20Atr.toFixed(1)}ATR) -20分` });
+  }
+  if (vetoCounterTrend) {
+    score -= 20;
+    contribs.push({ key: 'counter_trend', name: '逆势均线压制', val: `${s60.toFixed(2)}`, impact: -0.20, text: `逆势(MA60压制) -20分` });
+  }
+  if (vetoWeakOrWick) {
+    score -= 20;
+    contribs.push({ key: 'weak_wick', name: '弱阳/长上影/宽损', val: `实${(bodyR * 100).toFixed(0)}%`, impact: -0.20, text: `力度弱或插针(实${(bodyR * 100).toFixed(0)}%) -20分` });
+  }
+  if (vetoPrevBigBear) {
+    score -= 20;
+    contribs.push({ key: 'prev_bear', name: '上根大阴线未反包', val: `${prev1Bear.toFixed(2)}ATR`, impact: -0.20, text: `上根大阴线(${prev1Bear.toFixed(1)}ATR未包) -20分` });
+  }
+  if (vetoHighPos) {
+    score -= 15;
+    contribs.push({ key: 'high_pos', name: '年线视野高位', val: `${(pos250 * 100).toFixed(0)}%`, impact: -0.15, text: `位置偏高(${(pos250 * 100).toFixed(0)}%分位) -15分` });
+  }
+
+  // 5a. v2.1 正交增强 M2 & M1：MA60多头乖离透支扣分(>3.2ATR) + 宏观熊市禁2x重仓
+  if (d60Atr > 3.2) {
+    score = Math.min(70, score - 20);
+    contribs.push({ key: 'bull_overext', name: 'MA60多头乖离透支', val: `+${d60Atr.toFixed(1)}ATR`, impact: -0.20, text: `远离MA60(+${d60Atr.toFixed(1)}ATR透支) -20分` });
+  }
+  const macroBear = !above120 && s120 < -0.04 && s60 < -0.02;
+  if (macroBear && score >= 75) {
+    score = 70;
+    contribs.push({ key: 'macro_bear_cap', name: '宏观空头禁2x重仓', val: `${s120.toFixed(2)}`, impact: -0.10, text: `⚠宏观熊市压制(禁2x→1x)` });
+  }
+
+  // 5b. 加密市场恐慌贪婪指数 (FGI) 情绪过热禁区 (56~74 贪婪追高区 16笔 3R率=0%, 100%亏损)
+  let fngVal = null;
+  if (typeof window !== 'undefined' && window.CRYPTO_FNG) {
+    const isCrypto = typeof currentSym === 'string' && ['BTC', 'ETH', 'SOL', 'PEPE', 'HYPE'].includes(currentSym);
+    if (isCrypto) {
+      let barTs = ctx.t?.[i] ?? ctx.bars?.[i]?.time ?? null;
+      if (barTs == null && typeof candlesFor === 'function') {
+        const rawCs = candlesFor('raw');
+        if (rawCs && rawCs[i]) barTs = rawCs[i].time;
+      }
+      if (barTs != null) {
+        const dtStr = new Date(barTs * 1000).toISOString().slice(0, 10);
+        if (window.CRYPTO_FNG[dtStr] != null) fngVal = window.CRYPTO_FNG[dtStr];
+      }
+    }
+  }
+  if (fngVal != null && fngVal >= 56 && fngVal <= 74) {
+    score = Math.min(50, score - 35);
+    contribs.push({ key: 'fng_greed', name: '情绪贪婪过热禁区', val: `FGI=${fngVal}`, impact: -0.35, text: `⛔情绪贪婪过热(FGI=${fngVal}) -35分` });
+  } else if (fngVal != null && fngVal >= 26 && fngVal <= 55) {
+    contribs.push({ key: 'fng_golden', name: '恐慌修复/中性黄金区', val: `FGI=${fngVal}`, impact: 0.05, text: `🎯情绪黄金区(FGI=${fngVal})` });
+  }
+
+  score = Math.max(0, Math.min(100, score));
+  const p = score / 100.0;
+  // 结构止损位：近 3 根最低点 min(low[i-2..i])，中位约 1.25 ATR，与盲测手点止损完全对齐
+  let structStop = l[i];
+  for (let k = Math.max(0, i - 2); k <= i; k++) {
+    if (l[k] < structStop) structStop = l[k];
+  }
+  const structRiskPct = c[i] > 0 ? (c[i] - structStop) / c[i] : 0;
+
+  // v2.1 正交增强 M3：极窄止损噪音底限保护 (<0.75ATR 自适应托底，上限 1.25ATR 防暴跌长针摊薄仓位)
+  let execStop = l[i];
+  let narrowStopProtected = false;
+  if ((c[i] - l[i]) < 0.75 * a) {
+    execStop = Math.max(Math.min(structStop, c[i] - 0.75 * a), c[i] - 1.25 * a);
+    narrowStopProtected = execStop < l[i] - 1e-12;
+  }
+  const execRiskPct = c[i] > 0 ? (c[i] - execStop) / c[i] : 0;
+
+  contribs.sort((a2, b2) => Math.abs(b2.impact) - Math.abs(a2.impact));
+  const tier = score >= 75 ? 'heavy' : score >= 55 ? 'std' : 'skip';
+  const mult = tier === 'heavy' ? 2.0 : tier === 'std' ? 1.0 : 0.0;
+  const label = tier === 'heavy' ? 'A档·2x强推' : tier === 'std' ? 'B档·1x合格' : (score >= 35 ? 'C档·0x观望' : 'D档·0x否决');
+  return {
+    p,
+    tradScore: score,
+    fng: fngVal,
+    tier,
+    mult,
+    label,
+    execStop,
+    execRiskPct,
+    narrowStopProtected,
+    structStop,
+    structRiskPct,
+    reasons: contribs.slice(0, 5),
+    allContribs: contribs,
+  };
+}
+
+function annMetaScoreAt(i, ctx) {
+  return annTradScoreAt(i, ctx);
+}
+
+function annMetaAdaptiveScoreAt(i, ctx, _stopBufAtr) {
+  return annTradScoreAt(i, ctx);
+}
+
+function annMyBuyScore(cs, i, ctx) {
+  const { h, c, o, v, m20, m60, m120, hist, av20 } = ctx;
+  const bars = (k) => cs[k];
+  const w = [];
+  let score = 0;
+  // 1) 盘整够久：站上之前连续跌破 MA20 的根数
+  let barsBelow = 0;
+  for (let k = i - 1; k >= 0; k--) { if (c[k] < m20[k]) barsBelow++; else break; }
+  if (barsBelow >= 5) { score += 20; w.push('盘整够久'); }
+  // 2) 突破下跌趋势线：最近两个摆动高的连线
+  const sh = [];
+  for (let j = Math.max(3, i - 60); j <= i - 4; j++) {
+    let mx = -Infinity;
+    for (let k = j - 3; k <= j + 3; k++) mx = Math.max(mx, h[k]);
+    if (h[j] === mx) sh.push(j);
+  }
+  if (sh.length >= 2) {
+    const j1 = sh[sh.length - 2], j2 = sh[sh.length - 1];
+    if (j2 - j1 >= 3) {
+      const sl = (h[j2] - h[j1]) / (j2 - j1);
+      const line = h[j2] + sl * (i - j2);
+      if (c[i] > line) { score += 20; w.push('破下跌趋势线'); }
+    }
+  }
+  // 3) 力度
+  const body = (c[i] - o[i]) / o[i];
+  if (body >= 0.02) { score += 15; w.push('实体≥2%'); }
+  // 4) 量能
+  const vr = av20[i] ? v[i] / av20[i] : 0;
+  if (vr >= 1.0) { score += 15; w.push('放量'); }
+  // 5) MACD 柱在走强
+  if (i > 3 && hist[i] != null && hist[i - 3] != null && hist[i] > hist[i - 3]) { score += 10; w.push('MACD转强'); }
+  // 6) 双均线
+  if (m60[i] != null && c[i] > m60[i]) { score += 10; w.push('站上MA60'); }
+  // 7) 离开均线的距离
+  const d20 = c[i] / m20[i] - 1;
+  if (d20 >= 0.01 && d20 <= 0.03) { score += 10; w.push('距MA20 1~3%'); }
+  return { score, why: w, barsBelow, vr, body, d20 };
+}
+
+function annMyBuyBuild(cs = candlesFor('raw')) {
+  const n = cs.length;
+  const h = cs.map(x => x.high), l = cs.map(x => x.low), c = cs.map(x => x.close), o = cs.map(x => x.open);
+  const v = volArrFor('raw');
+  const m20 = mdSma(c, 20), m60 = mdSma(c, 60), m120 = mdSma(c, 120);
+  // MACD(12,26,9)，与统计脚本同一套种子
+  const ema = (a, k) => { const out = new Array(a.length); out[0] = a[0]; const al = 2 / (k + 1); for (let i = 1; i < a.length; i++) out[i] = a[i] * al + out[i - 1] * (1 - al); return out; };
+  const e12 = ema(c, 12), e26 = ema(c, 26);
+  const dif = c.map((_, i) => e12[i] - e26[i]);
+  const dea = ema(dif, 9);
+  const hist = dif.map((x, i) => x - dea[i]);
+  const av20 = new Array(n).fill(null);
+  for (let i = 20; i < n; i++) { let s = 0; for (let k = i - 20; k < i; k++) s += v[k]; av20[i] = s / 20; }
+  const tr = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) tr[i] = Math.max(h[i] - l[i], Math.abs(h[i] - c[i - 1]), Math.abs(l[i] - c[i - 1]));
+  const atr = new Array(n).fill(null);
+  for (let i = 14; i < n; i++) { let s = 0; for (let k = i - 13; k <= i; k++) s += tr[k]; atr[i] = s / 14; }
+  const ctx = { bars:cs, h, l, c, o, v, m20, m60, m120, hist, av20, atr };
+  const out = [];
+  const rb = Math.max(1, ANN_MYBUY.reclaimBars | 0);
+  for (let i = 121; i < n; i++) {
+    if (m20[i] == null || m20[i - 1] == null) continue;
+    if (c[i] <= m20[i]) continue;                                // 必须收在 MA20 上方
+    let reclaimed = false, back = 0;
+    for (let k = i - rb + 1; k <= i; k++) {                      // 最近 rb 根内出现过上穿
+      if (k >= 1 && m20[k - 1] != null && c[k - 1] <= m20[k - 1] && c[k] > m20[k]) {
+        reclaimed = true; back = i - k; break;
+      }
+    }
+    if (!reclaimed) continue;
+    if (c[i] <= o[i]) continue;                                  // 阳线
+    const d20 = c[i] / m20[i] - 1;
+    if (d20 > ANN_MYBUY.maxDist20 || d20 < ANN_MYBUY.minDist20) continue;
+    if (ANN_MYBUY.maxDist120 != null && m120[i] != null && c[i] / m120[i] - 1 > ANN_MYBUY.maxDist120) continue;
+    const r = annMyBuyScore(cs, i, ctx);
+    if (r.score < ANN_MYBUY.minScore) continue;
+    if (back > 0) r.why.unshift(`回踩${back}根再站上`);
+    const rawRiskPct = (c[i] - l[i]) / c[i];
+    const meta = annMetaScoreAt(i, ctx);
+    const execStop = meta.execStop != null ? meta.execStop : l[i];
+    const riskPct = meta.execRiskPct != null ? meta.execRiskPct : rawRiskPct;
+    const grade = meta.tradScore >= 75 ? 'A' : meta.tradScore >= 55 ? 'B' : meta.tradScore >= 35 ? 'C' : 'D';
+    out.push({
+      i, side: 'buy', tag: `买点-${grade} ${meta.tradScore}分`, grade, score: meta.tradScore, ruleScore: r.score,
+      why: r.why.join('·'), stop: execStop, rawStop: l[i], narrowStopProtected: !!meta.narrowStopProtected,
+      structStop: meta.structStop, riskPct, rawRiskPct, structRiskPct: meta.structRiskPct,
+      metaP: meta.p, tradScore: meta.tradScore, fng: meta.fng, metaTier: meta.tier, metaMult: meta.mult, metaLabel: meta.label, metaReasons: meta.reasons,
+    });
+  }
+  return out;
+}
+
+// 统一因果订单轨迹模拟（供 13-annotate.js 与 17-ai-ma20-algo.js 共享，确保 100% 口径一致）：
+//   - 策略 A：执行止损 st（含 M3 极窄止损托底）、最长持有 120 根
+//   - 策略 B（v2.1 实盘规则）：执行止损 st + k>=3 收盘破MA20离场 + M4 阶梯保本锁盈（冲2.5R移保本+0.05R，冲4.0R锁盈+1.2R）
+function annCalcOrderOutcome(idx, stInput, c, h, l, m20) {
+  const n = c.length;
+  const e = c[idx];
+  const st = stInput != null ? stInput : l[idx];
+  const r0 = e - st;
+  if (r0 <= 0) {
+    return {
+      rA: 0, holdA: 0, exitReasonA: '无效风险',
+      rB: 0, holdB: 0, exitReasonB: '无效风险',
+      stopBar: null, stopBarB: null, mfePct: 0, mfeR: 0, mfe60R: 0,
+    };
+  }
+  const end = Math.min(n - 1, idx + 120);
+  const end60 = Math.min(n - 1, idx + 60);
+  let stopBar = null, mfe = 0, mfe60 = 0;
+  let rA = null, holdA = end - idx, exitReasonA = '120根到期';
+
+  let curStop = st, mfeB = 0, stopBarB = null;
+  let rB = null, holdB = end - idx, exitReasonB = '120根到期';
+
+  for (let j = idx + 1; j <= end; j++) {
+    const k = j - idx;
+    // 1. 策略 A 轨迹（基准初始止损观察窗）
+    if (stopBar == null) {
+      if (l[j] <= st) {
+        stopBar = k;
+        rA = -1.0;
+        holdA = k;
+        exitReasonA = `第${k}根止损`;
+      } else {
+        const d = h[j] - e;
+        if (d > mfe) mfe = d;
+        if (j <= end60 && d > mfe60) mfe60 = d;
+      }
+    }
+
+    // 2. 策略 B 轨迹（v2.1 严格因果：盘中先检最低价止损 -> 存活后更新MFE -> k>=3检收盘破MA20 -> 收盘后更新次日保护止损）
+    if (rB == null) {
+      if (l[j] <= curStop) {
+        rB = (curStop - e) / r0;
+        holdB = k;
+        if (curStop > st + 1e-12) {
+          exitReasonB = curStop >= e + r0 ? `第${k}根锁盈(+1.2R)` : `第${k}根保本止损`;
+        } else {
+          stopBarB = k;
+          exitReasonB = `第${k}根止损`;
+        }
+      } else {
+        const urR = (h[j] - e) / r0;
+        if (urR > mfeB) mfeB = urR;
+        if (k >= 3 && m20[j] != null && c[j] < m20[j]) {
+          rB = (c[j] - e) / r0;
+          holdB = k;
+          exitReasonB = `第${k}根破MA20`;
+        } else {
+          if (mfeB >= 2.5 && c[j] > e + 0.2 * r0) {
+            curStop = Math.max(curStop, e + 0.05 * r0);
+          }
+          if (mfeB >= 4.0 && c[j] > e + 1.4 * r0) {
+            curStop = Math.max(curStop, e + 1.2 * r0);
+          }
+        }
+      }
+    }
+
+    if (stopBar != null && rB != null) break;
+  }
+  if (rA == null) rA = (c[end] - e) / r0;
+  if (rB == null) rB = (c[end] - e) / r0;
+  return {
+    rA, holdA, exitReasonA,
+    rB, holdB, exitReasonB,
+    stopBar,
+    stopBarB,
+    mfePct: mfe / e,
+    mfeR: mfe / r0,
+    mfe60R: mfe60 / r0,
+  };
+}
+
+// 同波段冷却去重状态机 + AI Meta-Labeling 分仓评估
+function annMyBuyCdEval(opts) {
+  const cs = candlesFor('raw');
+  const n = cs.length;
+  const c = cs.map(x => x.close), l = cs.map(x => x.low), h = cs.map(x => x.high);
+  const m20 = mdSma(c, 20), m60 = mdSma(c, 60);
+  const rb = Math.max(1, ANN_MYBUY.reclaimBars | 0);
+  const cd = opts && opts.cd != null ? opts.cd : (ANN_MYBUY.cooldownBars | 0);
+  const allowMa60 = opts && opts.allowMa60 != null ? opts.allowMa60 : !!ANN_MYBUY.allowMa60Upgrade;
+  const allowStop = opts && opts.allowStop != null ? opts.allowStop : !!ANN_MYBUY.allowStopReset;
+
+  const base = annMyBuyBuild(cs);
+  const calcOut = (s) => annCalcOrderOutcome(s.i, s.stop, c, h, l, m20);
+
+  const all = [], kept = [], dropped = [], hardKept = [];
+  let lastSig = null, lastCross = -999, lastStop = -Infinity, lastAbove60 = false;
+  let hardLastIdx = -999;
+
+  for (const s of base) {
+    const i = s.i;
+    let crossIdx = i;
+    for (let k = i; k >= i - rb + 1; k--) {
+      if (k >= 1 && m20[k - 1] != null && c[k - 1] <= m20[k - 1] && c[k] > m20[k]) {
+        crossIdx = k; break;
+      }
+    }
+    const nowAbove60 = m60[i] != null && c[i] > m60[i];
+    const isUpgrade = allowMa60 && lastSig != null && !lastAbove60 && nowAbove60;
+    let prevStopped = false;
+    if (allowStop && lastSig != null) {
+      for (let j = lastSig.i + 1; j <= i; j++) {
+        if (l[j] <= lastStop) { prevStopped = true; break; }
+      }
+    }
+
+    let dropReason = null, dropKind = null, exemptReason = null;
+    const gap = lastSig ? (i - lastSig.i) : null;
+    if (lastSig != null) {
+      if (crossIdx === lastCross) {
+        if (!isUpgrade) {
+          dropKind = 'same_cross';
+          dropReason = `同次MA20上穿连报（距上笔 ${gap} 根）`;
+        } else {
+          exemptReason = '首次突破MA60（双均线升级）';
+        }
+      } else if (cd > 0 && gap < cd) {
+        if (!prevStopped && !isUpgrade) {
+          dropKind = 'in_cooldown';
+          dropReason = `冷却期内震荡重穿（距上笔 ${gap}<${cd} 根，且前单未触发止损）`;
+        } else if (isUpgrade) {
+          exemptReason = '首次突破MA60（双均线升级）';
+        } else if (prevStopped) {
+          exemptReason = '前单已触及最低点止损（止损重置）';
+        }
+      }
+    }
+
+    const out = calcOut(s);
+    const rVal = out.rA;
+    const mfe60R = out.mfe60R;
+    const dateStr = annDate(cs[i].time);
+    const item = {
+      ...s,
+      orderId: `AIMA20-${dateStr.replace(/-/g, '')}`,
+      time: cs[i].time,
+      date: dateStr,
+      dateStr,
+      entry: c[i],
+      crossIdx,
+      gap,
+      rVal,
+      rA: rVal,
+      rB: out.rB,
+      isBuy: s.metaTier !== 'skip',
+      holdA: out.holdA,
+      exitReasonA: out.exitReasonA,
+      holdB: out.holdB,
+      exitReasonB: out.exitReasonB,
+      stopBar: out.stopBar,
+      stopBarB: out.stopBarB,
+      stoppedLe5: out.stopBar != null && out.stopBar <= 5,
+      stoppedLe10: out.stopBar != null && out.stopBar <= 10,
+      stoppedLe20: out.stopBar != null && out.stopBar <= 20,
+      stopped120: out.stopBar != null,
+      mfePct: out.mfePct,
+      mfeR: out.mfeR,
+      mfe60R,
+      ge1R: out.mfeR >= 1.0,
+      ge2R: out.mfeR >= 2.0,
+      ge3R: mfe60R >= 3.0,
+      kept: !dropReason,
+      dropKind,
+      dropReason,
+      exemptReason,
+      suppressedBy: dropReason && lastSig ? { i: lastSig.i, date: annDate(cs[lastSig.i].time), tag: lastSig.tag } : null,
+      suppressedList: [],
+    };
+    if (dropReason) {
+      item.tag = `去重压制·${s.grade} ${s.score}分`;
+      if (lastSig) lastSig.suppressedList.push({ i, date: annDate(cs[i].time), gap, reason: dropReason, rVal });
+      dropped.push(item);
+    } else {
+      if (exemptReason) item.tag = `⚡豁免·${s.grade} ${s.score}分`;
+      if (ANN.source === 'mybuy_meta') {
+        item.tag = `AI-MA20 ${s.metaLabel}(P=${(s.metaP * 100).toFixed(0)}%)·${s.grade}`;
+      }
+      kept.push(item);
+      lastSig = item;
+      lastCross = crossIdx;
+      lastStop = s.rawStop != null ? s.rawStop : l[i];
+      lastAbove60 = nowAbove60;
+    }
+    if (i - hardLastIdx >= cd) {
+      hardKept.push(item);
+      hardLastIdx = i;
+    }
+    all.push(item);
+  }
+
+  // 对照手工买点召回（若当前有手工买点）
+  const manualPts = manualBuild().map(m => m.i);
+  const hitCount = (arr) => {
+    if (!manualPts.length) return null;
+    const idxSet = arr.map(x => x.i);
+    return manualPts.filter(p => idxSet.some(x => Math.abs(x - p) <= 2)).length;
+  };
+  const sumR = (arr) => arr.reduce((a, b) => a + (b.rVal || 0), 0);
+  const meanR = (arr) => arr.length ? sumR(arr) / arr.length : 0;
+
+  // 统计任意置信度分档的止损率与历史订单指标
+  const calcTierOrderStats = (arr, maxBarIdx = Infinity) => {
+    const sub = maxBarIdx === Infinity ? arr : arr.filter(x => x.i < maxBarIdx);
+    const total = sub.length;
+    if (!total) {
+      return {
+        n: 0, stopLe5Rate: 0, stopLe10Rate: 0, stopLe20Rate: 0,
+        stop120Rate: 0, noStop120Rate: 0,
+        stopTotalRate: 0, neverStopRate: 0, stopMa20Rate: 0,
+        ge1RRate: 0, ge3RRate: 0, meanRA: 0, sumRA: 0, meanRB: 0,
+        avgRiskPct: 0, avgP: 0, orders: [],
+      };
+    }
+    const stopLe5 = sub.filter(x => x.stoppedLe5).length / total;
+    const stopLe10 = sub.filter(x => x.stoppedLe10).length / total;
+    const stopLe20 = sub.filter(x => x.stoppedLe20).length / total;
+    const stopTotal = sub.filter(x => x.stopped120).length / total;
+    const stopMa20 = sub.filter(x => (x.rB || 0) < 0).length / total;
+    const ge1R = sub.filter(x => x.ge1R).length / total;
+    const ge3R = sub.filter(x => x.ge3R).length / total;
+    const sRA = sub.reduce((a, b) => a + (b.rVal || 0), 0);
+    const sRB = sub.reduce((a, b) => a + (b.rB || 0), 0);
+    const avgRisk = sub.reduce((a, b) => a + (b.riskPct || 0), 0) / total;
+    const avgP = sub.reduce((a, b) => a + (b.metaP || 0), 0) / total;
+    return {
+      n: total,
+      stopLe5Rate: stopLe5,
+      stopLe10Rate: stopLe10,
+      stopLe20Rate: stopLe20,
+      stop120Rate: stopTotal,
+      noStop120Rate: 1 - stopTotal,
+      stopTotalRate: stopTotal,
+      neverStopRate: 1 - stopTotal,
+      stopMa20Rate: stopMa20,
+      ge1RRate: ge1R,
+      ge3RRate: ge3R,
+      meanRA: sRA / total,
+      sumRA: sRA,
+      meanRB: sRB / total,
+      avgRiskPct: avgRisk,
+      avgP,
+      orders: sub,
+    };
+  };
+
+  // AI Meta-Labeling 动态分仓统计（在 kept 信号池上对比等权 1x、二元硬过滤、三级分仓 0x/1x/2x）
+  const evalSizing = (arr, multFn) => {
+    let activeN = 0, riskBudget = 0, totalR = 0, ge3N = 0, eq = 0, peak = 0, maxDD = 0;
+    for (const x of arr) {
+      const w = multFn(x);
+      if (w > 0) {
+        activeN++;
+        riskBudget += w;
+        if (x.ge3R) ge3N++;
+      }
+      const rw = (x.rVal || 0) * w;
+      totalR += rw;
+      eq += rw;
+      if (eq > peak) peak = eq;
+      if (peak - eq > maxDD) maxDD = peak - eq;
+    }
+    return {
+      activeN,
+      riskBudget,
+      ge3Rate: activeN ? ge3N / activeN : 0,
+      meanRRisk: riskBudget > 0 ? totalR / riskBudget : 0,
+      totalR,
+      maxDD,
+    };
+  };
+  const metaHeavy = kept.filter(x => x.metaTier === 'heavy');
+  const metaStd = kept.filter(x => x.metaTier === 'std');
+  const metaActive = kept.filter(x => x.metaTier !== 'skip');
+  const metaSkipped = kept.filter(x => x.metaTier === 'skip');
+  const mf = ANN_MYBUY.metaFilter || 'active';
+  const metaFiltered = mf === 'active'
+    ? metaActive
+    : mf === 'heavy'
+      ? metaHeavy
+      : mf === 'std'
+        ? metaStd
+        : mf === 'skip'
+          ? metaSkipped
+          : kept;
+
+  return {
+    cd, allowMa60, allowStop,
+    all, kept, dropped, hardKept,
+    metaFiltered, metaActive, metaHeavy, metaStd, metaSkipped,
+    calcTierOrderStats,
+    tierOrderStats: {
+      heavy: calcTierOrderStats(metaHeavy),
+      std: calcTierOrderStats(metaStd),
+      active: calcTierOrderStats(metaActive),
+      skip: calcTierOrderStats(metaSkipped),
+    },
+    metaStats: {
+      base1x: evalSizing(kept, () => 1.0),
+      binary01: evalSizing(kept, x => x.metaTier === 'skip' ? 0.0 : 1.0),
+      tiered012: evalSizing(kept, x => x.metaMult),
+      soft025: evalSizing(kept, x => x.metaTier === 'skip' ? 0.25 : x.metaMult),
+      heavyMeanR: meanR(metaHeavy),
+      stdMeanR: meanR(metaStd),
+      skipMeanR: meanR(metaSkipped),
+      heavyGe3: metaHeavy.length ? metaHeavy.filter(x => x.ge3R).length / metaHeavy.length : 0,
+      stdGe3: metaStd.length ? metaStd.filter(x => x.ge3R).length / metaStd.length : 0,
+      skipGe3: metaSkipped.length ? metaSkipped.filter(x => x.ge3R).length / metaSkipped.length : 0,
+    },
+    stats: {
+      manualTotal: manualPts.length,
+      allN: all.length, keptN: kept.length, droppedN: dropped.length, hardN: hardKept.length,
+      sameCrossDropN: dropped.filter(x => x.dropKind === 'same_cross').length,
+      cdDropN: dropped.filter(x => x.dropKind === 'in_cooldown').length,
+      exemptN: kept.filter(x => !!x.exemptReason).length,
+      allRecall: hitCount(all), keptRecall: hitCount(kept), hardRecall: hitCount(hardKept),
+      allMeanR: meanR(all), keptMeanR: meanR(kept), droppedMeanR: meanR(dropped), hardMeanR: meanR(hardKept),
+      allSumR: sumR(all), keptSumR: sumR(kept), droppedSumR: sumR(dropped), hardSumR: sumR(hardKept),
+    },
+  };
+}
+
+// ---------------------------------- 买点算法 v5 · 自适应跨品种/4H 版本 -- //
+// 保留原版 v4 的同时，新增「ATR 归一化 + 4H MA120 大周期共振过滤 + 0.25ATR 止损缓冲 + 无量纲 AI 分仓」
+const ANN_MYBUY_V5 = {
+  minScore: 30,
+  maxDistAtr: 2.4,       // 偏离 MA20 上限 = 2.4 × ATR14（替代固定 10%）
+  minBodyAtr: 0.45,      // 阳线实体加分门槛 = 0.45 × ATR14（替代固定 2%）
+  sweetMinAtr: 0.20,     // 贴线适中加分下限 = 0.20 × ATR14（替代固定 1%）
+  sweetMaxAtr: 0.85,     // 贴线适中加分上限 = 0.85 × ATR14（替代固定 3%）
+  reclaimBars: 3,
+  cooldownBars: 8,
+  allowMa60Upgrade: true,
+  allowStopReset: true,
+  mtfFilterMode: 'auto', // 'auto' = 非 1D 周期自动开启 MA120 大周期共振过滤, 'on' = 强制开启, 'off' = 关闭
+  stopBufMode: 'off',    // 默认保持当根低点刚性止损(不稀释盈亏比R)，可在面板一键勾选 0.25ATR 防插针缓冲
+  metaFilter: 'all',     // 'all' | 'active' | 'heavy' | 'skip'
+};
+
+// 保留旧 adaptive 模型常量作向后兼容，实际打分已统一走 annTradScoreAt (350题全盲测验证)
+const ANN_META_ADAPTIVE_MODEL = Object.freeze({"features":[],"thSkip":0.55,"thHeavy":0.75});
+
+function annMyBuyAdaptiveEval() {
+  const cs = candlesFor('raw');
+  const n = cs.length;
+  const h = cs.map(x => x.high), l = cs.map(x => x.low), c = cs.map(x => x.close), o = cs.map(x => x.open);
+  const v = volArrFor('raw');
+  const m20 = mdSma(c, 20), m60 = mdSma(c, 60), m120 = mdSma(c, 120);
+  const ema = (a, k) => { const out = new Array(a.length); out[0] = a[0]; const al = 2 / (k + 1); for (let i = 1; i < a.length; i++) out[i] = a[i] * al + out[i - 1] * (1 - al); return out; };
+  const e12 = ema(c, 12), e26 = ema(c, 26);
+  const dif = c.map((_, i) => e12[i] - e26[i]);
+  const dea = ema(dif, 9);
+  const hist = dif.map((x, i) => x - dea[i]);
+  const av20 = new Array(n).fill(null);
+  for (let i = 20; i < n; i++) { let s = 0; for (let k = i - 20; k < i; k++) s += v[k]; av20[i] = s / 20; }
+  const tr = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) tr[i] = Math.max(h[i] - l[i], Math.abs(h[i] - c[i - 1]), Math.abs(l[i] - c[i - 1]));
+  const atr = new Array(n).fill(null);
+  for (let i = 14; i < n; i++) { let s = 0; for (let k = i - 13; k <= i; k++) s += tr[k]; atr[i] = s / 14; }
+  const ctx = { bars:cs, h, l, c, o, v, m20, m60, m120, hist, av20, atr };
+
+  const isSubTf = typeof activeTF !== 'undefined' && activeTF !== '1D';
+  const useMtf = ANN_MYBUY_V5.mtfFilterMode === 'on' ? true : ANN_MYBUY_V5.mtfFilterMode === 'off' ? false : isSubTf;
+  const stopBufAtr = (ANN_MYBUY_V5.stopBufMode === 'on' ? true : ANN_MYBUY_V5.stopBufMode === 'off' ? false : isSubTf) ? 0.25 : 0.0;
+  const rb = Math.max(1, ANN_MYBUY_V5.reclaimBars | 0);
+  const cd = ANN_MYBUY_V5.cooldownBars | 0;
+
+  const calcOutBuf = (idx, stopPx) => {
+    const e = c[idx], r0 = e - stopPx;
+    if (r0 <= e * 1e-4) return { rA: 0, mfe60R: 0 };
+    const end = Math.min(n - 1, idx + 120);
+    const end60 = Math.min(n - 1, idx + 60);
+    let mfe60 = 0;
+    for (let j = idx + 1; j <= end; j++) {
+      if (l[j] <= stopPx) return { rA: -1, mfe60R: mfe60 / r0 };
+      if (j <= end60 && h[j] - e > mfe60) mfe60 = h[j] - e;
+    }
+    return { rA: (c[end] - e) / r0, mfe60R: mfe60 / r0 };
+  };
+
+  const raw = [];
+  for (let i = 125; i < n; i++) {
+    if (m20[i] == null || m20[i - 1] == null || c[i] <= m20[i] || c[i] <= o[i]) continue;
+    let crossIdx = -1, back = 0;
+    for (let k = i; k >= i - rb + 1; k--) {
+      if (k >= 1 && m20[k - 1] != null && c[k - 1] <= m20[k - 1] && c[k] > m20[k]) {
+        crossIdx = k; back = i - k; break;
+      }
+    }
+    if (crossIdx < 0) continue;
+    if (useMtf) {
+      if (m120[i] == null || m120[i - 5] == null) continue;
+      if (c[i] <= m120[i] || m120[i] < m120[i - 5]) continue;
+    }
+    const ap = (atr[i] != null && c[i] > 0 && atr[i] / c[i] > 1e-6) ? (atr[i] / c[i]) : 0.02;
+    const d20 = (c[i] - m20[i]) / m20[i];
+    const d20Atr = d20 / ap;
+    if (d20 < 0 || d20Atr > ANN_MYBUY_V5.maxDistAtr) continue;
+
+    let barsBelow = 0;
+    for (let k = crossIdx - 1; k >= Math.max(0, crossIdx - 60); k--) {
+      if (m20[k] != null && c[k] <= m20[k]) barsBelow++; else break;
+    }
+    const sh = [];
+    for (let j = Math.max(2, i - 60); j < i - 2; j++) {
+      let mx = -Infinity;
+      for (let k = j - 2; k <= j + 2; k++) mx = Math.max(mx, h[k]);
+      if (h[j] === mx) sh.push(j);
+    }
+    let tlBreak = false;
+    if (sh.length >= 2) {
+      const k1 = sh[sh.length - 2], k2 = sh[sh.length - 1];
+      if (h[k2] < h[k1] && k2 > k1) {
+        const proj = h[k2] + (h[k2] - h[k1]) / (k2 - k1) * (i - k2);
+        if (c[i] > proj && c[i - 1] <= proj * 1.01) tlBreak = true;
+      }
+    }
+    const body = (c[i] - o[i]) / c[i];
+    const bodyAtr = body / ap;
+    const vr = av20[i] ? v[i] / av20[i] : 1.0;
+
+    let score = 0;
+    const w = [];
+    if (back > 0) w.push(`回踩${back}根站上`);
+    if (useMtf) w.push('4H共振>MA120');
+    if (barsBelow >= 5) { score += 20; w.push(`盘整${barsBelow}根`); }
+    if (tlBreak) { score += 20; w.push('破下跌趋势线'); }
+    if (bodyAtr >= ANN_MYBUY_V5.minBodyAtr) { score += 15; w.push(`实体${bodyAtr.toFixed(2)}ATR`); }
+    if (vr >= 1.0) { score += 15; w.push(`放量${vr.toFixed(1)}x`); }
+    if (i > 3 && hist[i] != null && hist[i - 3] != null && hist[i] > hist[i - 3]) { score += 10; w.push('MACD转强'); }
+    if (m60[i] != null && c[i] > m60[i]) { score += 10; w.push('站上MA60'); }
+    if (d20Atr >= ANN_MYBUY_V5.sweetMinAtr && d20Atr <= ANN_MYBUY_V5.sweetMaxAtr) { score += 10; w.push(`距MA20=${d20Atr.toFixed(2)}ATR`); }
+    if (score < ANN_MYBUY_V5.minScore) continue;
+
+    const grade = score >= 60 ? 'A' : score >= 40 ? 'B' : 'C';
+    const stopPx = l[i] - (stopBufAtr > 0 && atr[i] != null ? stopBufAtr * atr[i] : 0);
+    const riskPct = (c[i] - stopPx) / c[i];
+    const meta = annMetaAdaptiveScoreAt(i, ctx, stopBufAtr);
+    raw.push({
+      i, crossIdx, side: 'buy', grade, score,
+      tag: `v5-${grade} ${score}分`,
+      why: w.join('·'),
+      stop: stopPx,
+      riskPct,
+      d20Atr, bodyAtr, atrPct: ap,
+      metaP: meta.p, metaTier: meta.tier, metaMult: meta.mult, metaLabel: meta.label, metaReasons: meta.reasons,
+    });
+  }
+
+  // 状态机冷却去重
+  const kept = [], dropped = [];
+  let lastSig = null, lastCross = -999, lastStop = -Infinity, lastAbove60 = false;
+  for (const s of raw) {
+    const i = s.i;
+    const nowAbove60 = m60[i] != null && c[i] > m60[i];
+    const isUpgrade = ANN_MYBUY_V5.allowMa60Upgrade && lastSig != null && !lastAbove60 && nowAbove60;
+    let prevStopped = false;
+    if (ANN_MYBUY_V5.allowStopReset && lastSig != null) {
+      for (let j = lastSig.i + 1; j <= i; j++) {
+        if (l[j] <= lastStop) { prevStopped = true; break; }
+      }
+    }
+    let dropReason = null, exemptReason = null;
+    const gap = lastSig ? (i - lastSig.i) : null;
+    if (lastSig != null) {
+      if (s.crossIdx === lastCross) {
+        if (!isUpgrade) dropReason = `同次上穿连报(+${gap}根)`;
+        else exemptReason = '破MA60升级';
+      } else if (cd > 0 && gap < cd) {
+        if (!prevStopped && !isUpgrade) dropReason = `冷却期内重穿(+${gap}<${cd}根)`;
+        else if (isUpgrade) exemptReason = '破MA60升级';
+        else if (prevStopped) exemptReason = '前单止损重置';
+      }
+    }
+    const out = calcOutBuf(i, s.stop);
+    const item = {
+      ...s,
+      gap,
+      rVal: out.rA,
+      mfe60R: out.mfe60R,
+      ge3R: out.mfe60R >= 3.0,
+      kept: !dropReason,
+      dropReason,
+      exemptReason,
+    };
+    if (!dropReason) {
+      if (ANN.source === 'mybuy_v5_meta') {
+        item.tag = `v5·AI ${s.metaLabel}(P=${(s.metaP * 100).toFixed(0)}%)·${s.grade}`;
+      } else if (exemptReason) {
+        item.tag = `v5⚡${s.grade} ${s.score}分`;
+      }
+      kept.push(item);
+      lastSig = item;
+      lastCross = s.crossIdx;
+      lastStop = s.stop;
+      lastAbove60 = nowAbove60;
+    } else {
+      dropped.push(item);
+    }
+  }
+
+  const evalSizing = (arr, multFn) => {
+    let activeN = 0, riskBudget = 0, totalR = 0, ge3N = 0, winN = 0;
+    for (const x of arr) {
+      const w = multFn(x);
+      if (w > 0) {
+        activeN++;
+        riskBudget += w;
+        if (x.ge3R) ge3N++;
+        if ((x.rVal || 0) > 0) winN++;
+      }
+      totalR += (x.rVal || 0) * w;
+    }
+    return {
+      activeN,
+      winRate: activeN ? winN / activeN : 0,
+      ge3Rate: activeN ? ge3N / activeN : 0,
+      meanRRisk: riskBudget > 0 ? totalR / riskBudget : 0,
+      totalR,
+    };
+  };
+
+  // 同步获取当前品种/周期下 v4 原版冷却去重的表现做直观前后对比
+  const v4Ev = annMyBuyCdEval();
+  const v4Kept = v4Ev.kept || [];
+  const v4Win = v4Kept.length ? v4Kept.filter(x => (x.rVal || 0) > 0).length / v4Kept.length : 0;
+
+  const metaHeavy = kept.filter(x => x.metaTier === 'heavy');
+  const metaStd = kept.filter(x => x.metaTier === 'std');
+  const metaActive = kept.filter(x => x.metaTier !== 'skip');
+  const metaSkipped = kept.filter(x => x.metaTier === 'skip');
+  const mf = ANN_MYBUY_V5.metaFilter || 'all';
+  const metaFiltered = mf === 'active' ? metaActive : mf === 'heavy' ? metaHeavy : mf === 'skip' ? metaSkipped : kept;
+
+  let medAtr = 0;
+  const validAtrs = [];
+  for (let i = 20; i < n; i++) if (atr[i] != null && c[i] > 0) validAtrs.push(atr[i] / c[i]);
+  if (validAtrs.length) {
+    validAtrs.sort((a, b) => a - b);
+    medAtr = validAtrs[validAtrs.length >> 1];
+  }
+
+  return {
+    useMtf, stopBufAtr, medAtr,
+    raw, kept, dropped,
+    metaFiltered, metaActive, metaHeavy, metaStd, metaSkipped,
+    compare: {
+      v4: {
+        n: v4Kept.length,
+        winRate: v4Win,
+        meanR: v4Ev.stats ? v4Ev.stats.keptMeanR : 0,
+        totalR: v4Ev.stats ? v4Ev.stats.keptSumR : 0,
+      },
+      v5Rule: evalSizing(kept, () => 1.0),
+      v5Ai01: evalSizing(kept, x => x.metaTier === 'skip' ? 0.0 : 1.0),
+      v5Ai012: evalSizing(kept, x => x.metaMult),
+    },
+  };
+}
+
+// ------------------------------------------ Pine 买点识别 v1（四模式） -- //
+// 由 Pine v5 脚本移植：A 盘整突破 / B 回踩收回 / C 双均线共振 / D MACD 拐头。
+// 与 Pine 保持同口径：ta.sma(volume,20) 含当根、ta.atr 用 Wilder RMA、信号不连续两期。
+// 所有阈值都是相对量（% / ATR 倍数），换品种、换周期不用改参数。
+const ANN_PINE = {
+  d20Min: 0.002,      // 收盘站上 MA20 的最小偏离
+  d20Max: 0.080,      // 偏离上限（超过就是追高）
+  closePosMin: 0.60,  // 收盘在当根区间的位置（光头度）
+  bodyAtrMin: 0.42,   // 实体 / ATR
+  riskMax: 0.075,     // 直接市价买入可接受的最大止损比例
+  atrBuf: 0.20,       // 止损防插针的 ATR 缓冲
+  // 模式 A
+  slopeAbsMax: 0.40,  // |s20| 上限（MA20 走平）
+  atrPctMax: 0.055,
+  // 模式 B
+  d60B: 0.005, d120B: 0.010,
+  // 模式 C
+  d60CMin: 0.0, d60CMax: 0.055, volC: 1.15,
+  // 模式 D
+  histPrevNeg: true, volD: 1.25, d120D: -0.050, d20DFloor: -0.012,
+};
+
+// Pine ta.rma：前 k 根用 SMA 播种，之后 alpha = 1/k
+function annRma(arr, k) {
+  const out = new Array(arr.length).fill(null);
+  let sum = 0;
+  for (let i = 0; i < arr.length; i++) {
+    sum += arr[i];
+    if (i >= k) sum -= arr[i - k];
+    if (i === k - 1) out[i] = sum / k;
+    else if (i >= k) out[i] = out[i - 1] + (arr[i] - out[i - 1]) / k;
+  }
+  return out;
+}
+
+function annPineBuild(opts) {
+  const cs = candlesFor('raw');
+  const n = cs.length;
+  if (n < 130) return [];
+  const o = cs.map(x => x.open), h = cs.map(x => x.high), l = cs.map(x => x.low);
+  const c = cs.map(x => x.close), v = volArrFor('raw');
+  const m20 = mdSma(c, 20), m60 = mdSma(c, 60), m120 = mdSma(c, 120);
+  const vol20 = mdSma(v, 20);                       // 含当根，对齐 Pine ta.sma(volume,20)
+  const tr = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    const pc = i > 0 ? c[i - 1] : c[i];
+    tr[i] = Math.max(h[i] - l[i], Math.abs(h[i] - pc), Math.abs(l[i] - pc));
+  }
+  const atr = annRma(tr, 14);
+  const ema = (a, k) => { const out = new Array(a.length); out[0] = a[0]; const al = 2 / (k + 1); for (let i = 1; i < a.length; i++) out[i] = a[i] * al + out[i - 1] * (1 - al); return out; };
+  const e12 = ema(c, 12), e26 = ema(c, 26);
+  const dif = c.map((_, i) => e12[i] - e26[i]);
+  const dea = ema(dif, 9);
+  const hist = dif.map((x, i) => x - dea[i]);
+
+  const P = Object.assign({}, ANN_PINE, opts || {});
+  const out = [];
+  let prevRaw = false;
+  for (let i = Math.max(25, 121); i < n; i++) {
+    if (m20[i] == null || m20[i - 1] == null || m60[i] == null || m120[i] == null || atr[i] == null) { prevRaw = false; continue; }
+    const rng = Math.max(h[i] - l[i], 1e-8);
+    const body = (c[i] - o[i]) / o[i];
+    const closePos = (c[i] - l[i]) / rng;
+    const d20 = c[i] / m20[i] - 1;
+    const d60 = c[i] / m60[i] - 1;
+    const d120 = c[i] / m120[i] - 1;
+    const atrPct = atr[i] / c[i];
+    const vr = vol20[i] ? v[i] / vol20[i] : 0;
+    const s20 = (m20[i] - m20[i - 5]) / (5 * atr[i]);
+
+    const strongBull = c[i] > o[i] && closePos >= P.closePosMin && (body / atrPct) >= P.bodyAtrMin;
+    const near = d20 >= P.d20Min && d20 <= P.d20Max;
+    const crossOrTouch = l[i] <= m20[i] * 1.006 || c[i - 1] <= m20[i - 1] * 1.005;
+
+    const A = strongBull && near && crossOrTouch && Math.abs(s20) < P.slopeAbsMax && atrPct < P.atrPctMax;
+    const B = strongBull && near && (l[i] < m20[i] || c[i - 1] < m20[i - 1]) && d60 > P.d60B && d120 > P.d120B;
+    const C = strongBull && near && d60 > P.d60CMin && d60 < P.d60CMax &&
+      (l[i] < m60[i] || c[i - 1] < m60[i - 1]) && vr >= P.volC;
+    const D = strongBull && hist[i] > hist[i - 1] && hist[i - 1] < 0 && vr >= P.volD &&
+      d120 < P.d120D && (near || d20 > P.d20DFloor);
+
+    const raw = A || B || C || D;
+    if (raw && !prevRaw) {
+      const riskPct = (c[i] - l[i]) / c[i];
+      const stop = l[i] - P.atrBuf * atr[i];
+      const why = [];
+      if (C) why.push('双均线共振');
+      if (B) why.push('回踩收回');
+      if (D) why.push('MACD拐头');
+      if (A) why.push('盘整突破');
+      if (vr >= 1) why.push(`量${vr.toFixed(2)}x`);
+      const pat = C ? 'C' : B ? 'B' : D ? 'D' : 'A';
+      out.push({
+        i, side: 'buy',
+        tag: `Pine-${pat} · 风险${(riskPct * 100).toFixed(1)}%`,
+        grade: pat,
+        score: (A ? 1 : 0) + (B ? 1 : 0) + (C ? 1 : 0) + (D ? 1 : 0),
+        why: why.join(' · '),
+        pattern: pat,
+        matches: [A ? 'A' : null, B ? 'B' : null, C ? 'C' : null, D ? 'D' : null].filter(Boolean),
+        entry: c[i],
+        rawStop: l[i],
+        stop,                       // ATR 缓冲后的止损
+        midEntry: (c[i] + o[i]) / 2,
+        riskPct,
+        isGiant: riskPct > P.riskMax,
+      });
+    }
+    prevRaw = raw;
+  }
+  return out;
+}
+
 const ANN_SOURCES = {
   [MANUAL_SOURCE]: {name:'我的买点 · 不限指标',group:'我的买点',hidden:true,build:manualBuild},
   ma20_simple_v2: { name: 'MA20 简化 v2 · 阳线上穿候选', group: '我的规则', build() { return annCoverBuild(false); } },
@@ -291,6 +1281,59 @@ const ANN_SOURCES = {
   zzy: {
     name: 'ZZY-MA突破 v2', group: '我的规则',
     build() { return annZzyBuild(); },
+  },
+  mybuy: {
+    name: '买点算法 v4 · 原始（未去重）', group: '我的规则',
+    build() { return annMyBuyCdEval().all; },
+  },
+  mybuy_cd: {
+    name: '买点算法 v4 · 同波段冷却去重', group: '我的规则',
+    build() { return annMyBuyCdEval().kept; },
+  },
+  mybuy_meta: {
+    name: 'AI-MA20交易算法 (v4三级分仓·冻结版)', group: '我的规则',
+    build() { return annMyBuyCdEval().metaFiltered; },
+  },
+  mybuy_cd_drop: {
+    name: '买点算法 v4 · 被冷却压制的重复信号', group: '我的规则',
+    build() { return annMyBuyCdEval().dropped; },
+  },
+  mybuy_v5: {
+    name: '买点算法 v5 · 自适应跨品种/4H (ATR归一化)', group: '我的规则',
+    build() { return annMyBuyAdaptiveEval().kept; },
+  },
+  mybuy_v5_meta: {
+    name: '买点算法 v5 · 自适应跨品种/4H + AI分仓', group: '我的规则',
+    build() { return annMyBuyAdaptiveEval().metaFiltered; },
+  },
+  pine4: {
+    name: 'Pine 四模式 v1 · 原参数', group: '我的规则',
+    build() { return annPineBuild(); },
+  },
+  pine4w: {
+    // 放宽三条硬门槛后：覆盖手工买点 68/72（94.4%），信号 157 → 189
+    name: 'Pine 四模式 v1 · 宽松', group: '我的规则',
+    build() { return annPineBuild({ atrPctMax: 0.08, closePosMin: 0.50, bodyAtrMin: 0.33, d20Max: 0.10 }); },
+  },
+  mydif: {
+    name: '买点差距（算法有、我没选）', group: '我的规则',
+    // 供第三轮标注：算法出了、但不在我手选列表里的点，按分数从高到低排
+    build() {
+      const cs = candlesFor('raw');
+      const mine = new Set(manualBuild().map(s => cs[s.i] && cs[s.i].time));
+      const algo = annMyBuyBuild();
+      const out = [];
+      for (const s of algo) {
+        const t = cs[s.i] && cs[s.i].time;
+        if (mine.has(t)) continue;
+        out.push({ i: s.i, side: 'buy', tag: `差距·${s.grade} ${s.score}分`, grade: s.grade, score: s.score, why: s.why });
+      }
+      for (const s of manualBuild()) {           // 反向：我选了、算法没识别
+        const hit = algo.some(a => a.i === s.i || Math.abs(a.i - s.i) <= 2);
+        if (!hit) out.push({ i: s.i, side: 'buy', tag: '漏·我的买点', grade: 'M', score: 0, why: '算法未识别' });
+      }
+      return out.sort((a, b) => (b.score - a.score) || (a.i - b.i));
+    },
   },
   dif: {
     name: '分歧复核 我 vs 规则', group: '我的规则',
@@ -325,10 +1368,10 @@ const ANN_SOURCES = {
     build() { return AnnotationSignals.bodyBreakouts(candlesFor('raw'), [20,120]); } },
   k60120_v1: { name: '阳线同时突破 MA60＋MA120', group: '双均线突破',
     build() { return AnnotationSignals.bodyBreakouts(candlesFor('raw'), [60,120]); } },
-  macd_low_dif_v1: { name: '创新低＋DIF底背离候选', group: 'MACD背离',
-    build() { return AnnotationSignals.divergence(candlesFor('raw'), 'dif'); } },
-  macd_low_hist_v1: { name: '创新低＋MACD负柱底背离候选', group: 'MACD背离',
-    build() { return AnnotationSignals.divergence(candlesFor('raw'), 'hist'); } },
+  macd_peak_div: { name: '柱极值底背离 · 只看动能', group: 'MACD背离',
+    build() { return AnnotationSignals.peakDivergence(candlesFor('raw')); } },
+  macd_low_div: { name: '底背离 · 两低点比负柱', group: 'MACD背离',
+    build() { return AnnotationSignals.bottomDivergence(candlesFor('raw')); } },
   x2060: annCrossSource(20, 60),
   x60120: annCrossSource(60, 120),
   x20120: annCrossSource(20, 120),
@@ -419,7 +1462,7 @@ const ANN_SOURCES = {
 function annKey(i) {
   const cs = candlesFor('raw');
   const tt = cs[i] ? cs[i].time : 0;
-  return [currentSym, activeTF, ANN.source, tt].join('|');
+  return [currentSym, activeTF, typeof ma20StructureDecisionSource==='function'?ma20StructureDecisionSource(ANN.source):ANN.source, tt].join('|');
 }
 function annLoad() {
   try { ANN.decisions = JSON.parse(localStorage.getItem(ANN_STORE_KEY) || '{}') || {}; }
@@ -454,6 +1497,7 @@ function annSave() {
 function annDecision(i) { return ANN.decisions[annKey(i)] || null; }
 // 查"另一个信号源"在同一根K线上的历史判定(用于分歧复核)
 function annDecisionOf(time, src) {
+  if(typeof ma20StructureDecisionSource==='function')src=ma20StructureDecisionSource(src);
   return ANN.decisions[[currentSym, activeTF, src, time].join('|')] || null;
 }
 
@@ -608,6 +1652,147 @@ class AnnRenderer {
       }
       if (!main) return;
       manualDrawInterval(ctx,chartOf,W,H);
+      // ---- 全部买点：箭头 + 止损短横线（只画到当前这根，未来的不画）----
+      if (ANN.sigs.length > 1) {
+        const ts = chartOf.timeScale();
+        for (const sg of ANN.sigs) {
+          const bar = cs[sg.i];
+          if (!bar || (ANN.hideFuture && bar.time > c.time)) continue;
+          const sx = ts.timeToCoordinate(bar.time);
+          if (sx == null || sx < -10 || sx > W + 10) continue;
+          const yl = this._prim._series.priceToCoordinate(bar.low);
+          if (yl == null) continue;
+          const focus = sg === s;
+          const isMetaSrc = ANN.source === 'mybuy_meta' || ANN.source === 'mybuy_v5_meta';
+          if (isMetaSrc && sg.metaTier === 'skip') {
+            ctx.strokeStyle = focus ? '#f59e0b' : 'rgba(248,113,113,.85)';
+            ctx.lineWidth = focus ? 2.2 : 1.6;
+            ctx.beginPath();
+            ctx.arc(sx, yl + 13, 4.2, 0, Math.PI * 2);
+            ctx.stroke();
+          } else {
+            ctx.fillStyle = focus
+              ? '#f59e0b'
+              : (isMetaSrc
+                  ? (sg.metaTier === 'heavy' ? '#10b981' : '#38bdf8')
+                  : (sg.exemptReason ? '#22d3ee' : 'rgba(16,185,129,.9)'));
+            const rSz = (isMetaSrc && sg.metaTier === 'heavy') ? 5.5 : 4.5;
+            ctx.beginPath();
+            ctx.moveTo(sx, yl + 8); ctx.lineTo(sx - rSz, yl + 17); ctx.lineTo(sx + rSz, yl + 17);
+            ctx.closePath(); ctx.fill();
+          }
+          if (isMetaSrc && sg.metaTier) {
+            ctx.fillStyle = sg.metaTier === 'heavy' ? '#10b981' : sg.metaTier === 'std' ? '#38bdf8' : 'rgba(248,113,113,.85)';
+            ctx.font = '600 9.5px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(sg.metaTier === 'heavy' ? '2x' : sg.metaTier === 'std' ? '1x' : '0x', sx, yl + 27);
+            ctx.textAlign = 'left';
+          }
+          if (sg.stop != null) {
+            const ys = this._prim._series.priceToCoordinate(sg.stop);
+            if (ys != null) {
+              ctx.strokeStyle = focus ? 'rgba(248,113,113,.95)' : 'rgba(248,113,113,.35)';
+              ctx.lineWidth = focus ? 2 : 1;
+              ctx.setLineDash(focus ? [5, 3] : [2, 3]);
+              ctx.beginPath(); ctx.moveTo(sx, ys); ctx.lineTo(Math.min(W, sx + 26), ys); ctx.stroke();
+              ctx.setLineDash([]);
+            }
+          }
+        }
+        // ---- 柱极值背离：把「参照段 vs 本次段」摊在图上，免得对不上是哪一段 ----
+        if (s.evidence && (s.evidence.type === 'macd_low_divergence_v1' || s.evidence.type === 'macd_peak_divergence_v1')) {
+          const pd = s.evidence;
+          const curIdx = pd.lowIndex != null ? pd.lowIndex : pd.peakIndex;
+          const band = (i0, i1) => {
+            const a = ts.timeToCoordinate(cs[i0].time), b = ts.timeToCoordinate(cs[i1].time);
+            if (a == null || b == null) return null;
+            return [Math.min(a, b), Math.max(a, b)];
+          };
+          const paintBand = (rg, fill, color, label) => {
+            if (!rg) return;
+            ctx.fillStyle = fill;
+            ctx.fillRect(rg[0], 0, Math.max(1, rg[1] - rg[0]), H);
+            ctx.fillStyle = color;
+            ctx.font = '600 10px system-ui, sans-serif';
+            ctx.fillText(label, rg[0] + 3, 13);
+          };
+          paintBand(band(pd.referenceSegment[0], pd.referenceSegment[1]), 'rgba(248,113,113,.075)', 'rgba(248,113,113,.95)', '参照段');
+          paintBand(band(pd.segment[0], pd.segment[1]), 'rgba(16,185,129,.075)', 'rgba(16,185,129,.95)', '本次段');
+          // 两个极值连一条虚线：比的正是这两根
+          const xA = ts.timeToCoordinate(cs[pd.referenceIndex].time), yA = this._prim._series.priceToCoordinate(cs[pd.referenceIndex].low);
+          const xB = ts.timeToCoordinate(cs[curIdx].time), yB = this._prim._series.priceToCoordinate(cs[curIdx].low);
+          if (xA != null && xB != null && yA != null && yB != null) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(148,163,184,.8)';
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(xA, yA + 6); ctx.lineTo(xB, yB + 6); ctx.stroke();
+            ctx.setLineDash([]);
+            [[xA, yA, 'rgba(248,113,113,.95)'], [xB, yB, 'rgba(16,185,129,.95)']].forEach(([px, py, cc]) => {
+              ctx.beginPath(); ctx.arc(px, py + 6, 3.4, 0, Math.PI * 2);
+              ctx.fillStyle = cc; ctx.fill();
+            });
+            ctx.restore();
+          }
+        }
+        // 在 AI Meta-Labeling 视图下，若当前筛选了子集（如仅看 1x+2x），把其余信号也画成半透明对照标记
+        if ((ANN.source === 'mybuy_meta' && ANN_MYBUY.metaFilter !== 'all') ||
+            (ANN.source === 'mybuy_v5_meta' && ANN_MYBUY_V5.metaFilter !== 'all')) {
+          const cdEval = ANN.source === 'mybuy_v5_meta' ? annMyBuyAdaptiveEval() : annMyBuyCdEval();
+          const curSet = new Set(ANN.sigs.map(x => x.i));
+          for (const osg of cdEval.kept) {
+            if (curSet.has(osg.i)) continue;
+            const bar = cs[osg.i];
+            if (!bar || (ANN.hideFuture && bar.time > c.time)) continue;
+            const sx = ts.timeToCoordinate(bar.time);
+            if (sx == null || sx < -10 || sx > W + 10) continue;
+            const yl = this._prim._series.priceToCoordinate(bar.low);
+            if (yl == null) continue;
+            ctx.strokeStyle = osg.metaTier === 'skip' ? 'rgba(248,113,113,.65)' : 'rgba(56,189,248,.55)';
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.arc(sx, yl + 13, 3.8, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = osg.metaTier === 'skip' ? 'rgba(248,113,113,.7)' : 'rgba(56,189,248,.65)';
+            ctx.font = '500 9px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(osg.metaTier === 'skip' ? '0x' : (osg.metaTier === 'heavy' ? '2x' : '1x'), sx, yl + 26);
+            ctx.textAlign = 'left';
+          }
+        }
+        // 在同波段冷却去重视图下，同时画出「被压制的重复信号」（紫色空心圆）与「保留信号」形成直观对比
+        if (['mybuy_cd', 'mybuy_cd_drop'].includes(ANN.source)) {
+          const cdEval = annMyBuyCdEval();
+          const others = ANN.source === 'mybuy_cd' ? cdEval.dropped : cdEval.kept;
+          for (const osg of others) {
+            const bar = cs[osg.i];
+            if (!bar || (ANN.hideFuture && bar.time > c.time)) continue;
+            const sx = ts.timeToCoordinate(bar.time);
+            if (sx == null || sx < -10 || sx > W + 10) continue;
+            const yl = this._prim._series.priceToCoordinate(bar.low);
+            if (yl == null) continue;
+            if (ANN.source === 'mybuy_cd') {
+              // 画被压制的重复信号：紫色空心圆 + 简短“去重”字样
+              ctx.strokeStyle = 'rgba(167,139,250,.85)';
+              ctx.lineWidth = 1.6;
+              ctx.beginPath();
+              ctx.arc(sx, yl + 14, 4, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.fillStyle = 'rgba(167,139,250,.85)';
+              ctx.font = '500 10px system-ui, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('去重', sx, yl + 28);
+              ctx.textAlign = 'left';
+            } else {
+              // 在查看被压制信号时，把保留的主信号用绿色实心三角标出来
+              ctx.fillStyle = 'rgba(16,185,129,.75)';
+              ctx.beginPath();
+              ctx.moveTo(sx, yl + 9); ctx.lineTo(sx - 4, yl + 16); ctx.lineTo(sx + 4, yl + 16);
+              ctx.closePath(); ctx.fill();
+            }
+          }
+        }
+      }
       const picked=ANN_CHART_PICK.context===annChartPickContext()?ANN_CHART_PICK.selected:null;
       if(picked&&activeView==='raw'){
         const px=chartOf.timeScale().timeToCoordinate(picked.time),ph=this._prim._series.priceToCoordinate(picked.high),pl=this._prim._series.priceToCoordinate(picked.low);
@@ -635,6 +1820,23 @@ class AnnRenderer {
         ctx.strokeStyle = '#f59e0b';
         ctx.lineWidth = 2;
         ctx.strokeRect(x - 6, Math.min(yH, yL) - 6, 12, Math.abs(yL - yH) + 12);
+      }
+      // ---- 止损位：整条虚线 + 右侧读数 ----
+      if (s.stop != null) {
+        const ys = this._prim._series.priceToCoordinate(s.stop);
+        if (ys != null) {
+          ctx.strokeStyle = 'rgba(248,113,113,.9)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath(); ctx.moveTo(x, ys); ctx.lineTo(W, ys); ctx.stroke();
+          ctx.setLineDash([]);
+          const dp = s.stop >= 1000 ? 0 : s.stop >= 100 ? 1 : 2;
+          ctx.fillStyle = '#f87171';
+          ctx.font = '600 11px system-ui, -apple-system, sans-serif';
+          ctx.textAlign = 'right';
+          ctx.fillText(`止损 ${s.stop.toFixed(dp)} · 风险 ${(s.riskPct * 100).toFixed(1)}%`, W - 8, ys - 5);
+          ctx.textAlign = 'left';
+        }
       }
       ctx.fillStyle = '#f59e0b';
       ctx.font = '600 11px system-ui, -apple-system, sans-serif';
@@ -673,6 +1875,7 @@ function annBuildSigs() {
 }
 
 function annGo(k) {
+  document.getElementById('ma20V3Volume')?.remove();
   if (!ANN.sigs.length) return;
   ANN.idx = Math.max(0, Math.min(k, ANN.sigs.length - 1));
   const s = ANN.sigs[ANN.idx];
@@ -693,6 +1896,10 @@ function annGo(k) {
 
 function annDraw() {
   if (typeof cover67IndicatorRefresh === 'function') cover67IndicatorRefresh();
+  if (typeof ma20StructureRefresh === 'function') ma20StructureRefresh();
+  if (typeof ma20AIRefresh === 'function') ma20AIRefresh();
+  if (typeof aiMa20AlgoRefresh === 'function') aiMa20AlgoRefresh();
+  if (typeof macd3segRefresh === 'function') macd3segRefresh();
   for (const pr of (ANN._prims || [])) if (pr) pr.requestUpdate();
 }
 
@@ -979,7 +2186,7 @@ function annMark(d) {
   const s = ANN.sigs[ANN.idx];
   if (!s) return;
   const k = annKey(s.i);
-  if(annCoverActive()){
+  if(annAssessmentActive()){
     annSaveAssessment();
   }
   const prev = ANN.decisions[k] || { reasons: [] };
@@ -987,7 +2194,7 @@ function annMark(d) {
   if (d === 'no') {
     const noteEl = document.getElementById('annNote');
     const noteTxt = noteEl ? noteEl.value.trim() : '';
-    const hasReason = (prev.reasons && prev.reasons.length > 0) || noteTxt.length > 0 || (annCoverActive() && !!prev.assessment?.primaryReason);
+    const hasReason = (prev.reasons && prev.reasons.length > 0) || noteTxt.length > 0 || (annAssessmentActive() && !!prev.assessment?.primaryReason);
     if (!hasReason) {
       const chipBox = document.getElementById('annReasons');
       if (chipBox) {
@@ -1008,7 +2215,7 @@ function annMark(d) {
   }
   ANN.decisions[k] = { ...prev, d, ts: Date.now(), source: ANN.source, tag: s.tag, kind: s.kind || '',
                        time: annDate(candlesFor('raw')[s.i].time),
-                       features: annFeatures(s.i), ...(s.evidence ? { signalEvidence: s.evidence } : {}), ...(annCoverActive() ? { algorithm: annCoverMeta(s.i) } : {}) };
+                       features: annFeatures(s.i), ...(s.evidence ? { signalEvidence: s.evidence } : {}), ...(annCoverActive() ? { algorithm: annCoverMeta(s.i) } : annV3Active()?{algorithm:ma20StructureMeta(s.i)}:annAIActive()?{algorithm:ma20AIMeta(s.i,d)}:{}) };
   annSave();
   annRender();
 }
@@ -1089,9 +2296,260 @@ function annRender() {
   const signalCard = !evidence ? '' : `<section class="ann-card"><div class="ann-sec">信号判定依据</div>
     <p class="ann-line">${evidence.definition}</p>
     ${evidence.type === 'ma_body_combo_v1' ? `<div class="ann-grid">${evidence.periods.map((p,k)=>`<span>SMA${p}</span><b>${fmt(evidence.maValues[k])}</b>`).join('')}<span>开盘 → 收盘</span><b>${fmt(evidence.open)} → ${fmt(evidence.close)}</b></div>`
+      : evidence.type === 'macd_low_divergence_v1' ? `<div class="ann-grid"><span>参照低点</span><b>${annDate(evidence.referenceTime)} · ${fmt(evidence.referenceLow)} · 柱 ${evidence.referenceHist.toPrecision(4)}</b><span>本次低点</span><b>${annDate(evidence.lowTime)} · ${fmt(evidence.lowPrice)} · 柱 ${evidence.currentHist.toPrecision(4)}</b><span>价格新低</span><b>${((evidence.lowPrice / evidence.referenceLow - 1) * 100).toFixed(2)}%</b><span>动能减弱</span><b>${(evidence.strength*100).toFixed(0)}%（${evidence.tier}）</b><span>段长 / 面积</span><b>本段 ${evidence.segmentBars} 根 · 参照 ${evidence.referenceBars} 根 · 面积比 ${evidence.areaRatio==null?'—':evidence.areaRatio.toFixed(2)}</b><span>确认</span><b>${annDate(evidence.confirmTime)}（低点后首次缩柱）</b></div><p class="ann-line">绿带=本次负柱段、红带=参照段，图上虚线两端就是这两个最低价的 K 线。低点要等缩柱才可见，确认日之后才会亮起。</p>`
+      : evidence.type === 'macd_peak_divergence_v1' ? `<div class="ann-grid"><span>参照段</span><b>${annDate(evidence.referenceStartTime)} ~ ${annDate(evidence.referenceEndTime)} · 最深 ${evidence.referenceHist.toPrecision(4)}（${annDate(evidence.referenceTime)}）</b><span>本次段</span><b>${annDate(evidence.segmentStartTime)} ~ ${annDate(evidence.alertTime)} · 最深 ${evidence.peakHist.toPrecision(4)}（${annDate(evidence.peakTime)}）</b><span>段长 / 面积</span><b>本次 ${evidence.segmentBars} 根 · 参照 ${evidence.referenceBars} 根 · 面积比 ${evidence.areaRatio==null?'—':evidence.areaRatio.toFixed(2)}</b><span>负柱缩短</span><b>连续 ${evidence.shrinkBars} 根（极值后第 ${evidence.shrinkBars} 根报信号）</b><span>动能减弱</span><b>${(evidence.strength*100).toFixed(0)}%（${evidence.tier}）</b><span>确认</span><b>${annDate(evidence.confirmTime)}（信号+3根）</b></div><p class="ann-line">图上红/绿底纹就是这两段：绿=本次负柱段，红=参照段。信号只在负柱已经开始缩短后出现，不看未来K线。</p>`
       : `<div class="ann-grid"><span>参照低点</span><b>${annDate(evidence.referenceTime)} · ${fmt(evidence.referenceLow)}</b><span>当前新低</span><b>${fmt(evidence.currentLow)}</b><span>间隔</span><b>${s.i-evidence.referenceIndex} 根</b><span>${evidence.metric==='dif'?'DIF':'MACD柱'}：前低 → 当前</span><b>${evidence.referenceValue.toPrecision(5)} → ${evidence.currentValue.toPrecision(5)}</b></div><p class="ann-line">候选信号可继续下跌；不使用未来K线确认底部。</p>`}
   </section>`;
-  body.innerHTML = thin + annCoverCard(s.i) + (annCoverActive()?`<details class="ann-optional-assessment"><summary>复核补充描述（可选）</summary>${annAssessmentCard(d)}</details>`:'') + signalCard + `
+  const mybuyCdCard = ['mybuy', 'mybuy_cd', 'mybuy_meta', 'mybuy_cd_drop'].includes(ANN.source) ? (() => {
+    const ev = annMyBuyCdEval();
+    const st = ev.stats;
+    const fmtR = v => (v >= 0 ? '+' : '') + v.toFixed(2) + 'R';
+    const recTxt = (r) => st.manualTotal ? `${r}/${st.manualTotal} (${(r / st.manualTotal * 100).toFixed(1)}%)` : '—';
+    const curState = s.kept
+      ? (s.exemptReason
+          ? `<span style="color:#22d3ee;font-weight:600">⚡ 豁免保留</span> · ${s.exemptReason}（距前笔保留信号 ${s.gap} 根）`
+          : `<span style="color:#3fb950;font-weight:600">✓ 独立波段保留</span>${s.gap != null ? ` · 距上一笔保留信号 ${s.gap} 根` : ' · 首笔信号'}`)
+      : `<span style="color:#a78bfa;font-weight:600">○ 冷却去重压制</span> · ${s.dropReason}${s.suppressedBy ? `（前置保留：<a href="javascript:void(0)" data-cd-jump="${s.suppressedBy.i}" data-cd-src="mybuy_cd" style="color:#58a6ff">${s.suppressedBy.date}</a>）` : ''}`;
+    const supHtml = (s.suppressedList && s.suppressedList.length)
+      ? `<div class="ann-line" style="margin-top:4px;color:#a78bfa">本波段已压制后续 ${s.suppressedList.length} 个重复信号：${s.suppressedList.map(x => `<a href="javascript:void(0)" data-cd-jump="${x.i}" data-cd-src="mybuy_cd_drop" style="color:#a78bfa;text-decoration:underline">${x.date}(+${x.gap}根)</a>`).join('、')}</div>`
+      : '';
+    return `<section class="ann-card" style="border-color:#38bdf844">
+      <div class="ann-sec" style="display:flex;justify-content:space-between;align-items:center">
+        <span>同波段冷却去重 · 引入前后对比</span>
+        <span style="font-size:11px;color:var(--muted)">图上 ▲=保留 ○=去重压制</span>
+      </div>
+      <div class="ann-line" style="margin-bottom:6px">${curState}</div>
+      ${supHtml}
+      <table style="width:100%;border-collapse:collapse;font-size:11.5px;margin:6px 0;font-variant-numeric:tabular-nums">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);color:var(--muted)">
+            <th style="text-align:left;padding:3px 4px">方案对照</th>
+            <th style="text-align:right;padding:3px 4px">信号</th>
+            <th style="text-align:right;padding:3px 4px">±2根召回</th>
+            <th style="text-align:right;padding:3px 4px">单笔均R</th>
+            <th style="text-align:right;padding:3px 4px">合计R</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #ffffff0f${ANN.source==='mybuy'?';background:#ffffff0a':''}">
+            <td style="padding:3px 4px">引入前 · 原始v4</td>
+            <td style="text-align:right;padding:3px 4px">${st.allN}</td>
+            <td style="text-align:right;padding:3px 4px">${recTxt(st.allRecall)}</td>
+            <td style="text-align:right;padding:3px 4px">${fmtR(st.allMeanR)}</td>
+            <td style="text-align:right;padding:3px 4px">${st.allSumR >= 0 ? '+' : ''}${st.allSumR.toFixed(0)}R</td>
+          </tr>
+          <tr style="border-bottom:1px solid #ffffff0f${ANN.source==='mybuy_cd'?';background:#22c55e18;font-weight:600':''}">
+            <td style="padding:3px 4px;color:#3fb950">引入后 · 状态机冷却</td>
+            <td style="text-align:right;padding:3px 4px;color:#3fb950">${st.keptN} <small style="opacity:.75">(-${((1 - st.keptN / Math.max(1, st.allN)) * 100).toFixed(0)}%)</small></td>
+            <td style="text-align:right;padding:3px 4px">${recTxt(st.keptRecall)}</td>
+            <td style="text-align:right;padding:3px 4px;color:#3fb950">${fmtR(st.keptMeanR)}</td>
+            <td style="text-align:right;padding:3px 4px;color:#3fb950">${st.keptSumR >= 0 ? '+' : ''}${st.keptSumR.toFixed(0)}R</td>
+          </tr>
+          <tr style="border-bottom:1px solid #ffffff0f;opacity:.75">
+            <td style="padding:3px 4px">对照 · 硬冷却${ev.cd}根(无豁免)</td>
+            <td style="text-align:right;padding:3px 4px">${st.hardN}</td>
+            <td style="text-align:right;padding:3px 4px">${recTxt(st.hardRecall)}</td>
+            <td style="text-align:right;padding:3px 4px">${fmtR(st.hardMeanR)}</td>
+            <td style="text-align:right;padding:3px 4px">${st.hardSumR >= 0 ? '+' : ''}${st.hardSumR.toFixed(0)}R</td>
+          </tr>
+          <tr style="${ANN.source==='mybuy_cd_drop'?';background:#a78bfa22;font-weight:600':';opacity:.8'}">
+            <td style="padding:3px 4px;color:#a78bfa">被压制的重复信号</td>
+            <td style="text-align:right;padding:3px 4px;color:#a78bfa">${st.droppedN}</td>
+            <td style="text-align:right;padding:3px 4px;color:var(--muted)">连报${st.sameCrossDropN}·重穿${st.cdDropN}</td>
+            <td style="text-align:right;padding:3px 4px">${fmtR(st.droppedMeanR)}</td>
+            <td style="text-align:right;padding:3px 4px">${st.droppedSumR >= 0 ? '+' : ''}${st.droppedSumR.toFixed(0)}R</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_meta'?'active':''}" data-cd-mode="mybuy_meta">AI-MA20交易算法 (${ev.metaActive.length}买/${st.keptN}池)</button>
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_cd'?'active':''}" data-cd-mode="mybuy_cd">保留信号 (${st.keptN})</button>
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_cd_drop'?'active':''}" data-cd-mode="mybuy_cd_drop">被压制 (${st.droppedN})</button>
+        <button type="button" class="lab-btn ${ANN.source==='mybuy'?'active':''}" data-cd-mode="mybuy">原始 (${st.allN})</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:11.5px">
+        <span style="color:var(--muted)">冷却窗口:</span>
+        ${[5, 8, 10].map(k => `<button type="button" class="lab-btn ${ev.cd===k?'active':''}" data-cd-bars="${k}" style="padding:1px 6px">${k}根</button>`).join('')}
+        <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="同波段内首次站上MA60允许作为双均线升级信号保留">
+          <input type="checkbox" id="cdToggleMa60" ${ev.allowMa60 ? 'checked' : ''}>破MA60升级
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="前序信号若已跌破当根最低价止损，立即重置冷却期">
+          <input type="checkbox" id="cdToggleStop" ${ev.allowStop ? 'checked' : ''}>止损重置
+        </label>
+      </div>
+    </section>`;
+  })() : '';
+  const mybuyMetaCard = ['mybuy_meta', 'mybuy_cd', 'mybuy'].includes(ANN.source) && s.metaP != null ? (() => {
+    const ev = annMyBuyCdEval();
+    const ms = ev.metaStats;
+    const ts = ev.tierOrderStats;
+    const fmtR = v => (v >= 0 ? '+' : '') + v.toFixed(2) + 'R';
+    const fmtPct = v => (v * 100).toFixed(1) + '%';
+    const pPct = (s.tradScore != null ? s.tradScore : Math.round(s.metaP * 100)) + '分';
+    const tierCol = s.metaTier === 'heavy' ? '#10b981' : s.metaTier === 'std' ? '#38bdf8' : '#f87171';
+    const tierBadge = s.metaTier === 'heavy'
+      ? `<span style="color:#10b981;font-weight:700">★ A档强推买点 · 2.0x 重仓</span> (${pPct} ≥ 75分)`
+      : s.metaTier === 'std'
+        ? `<span style="color:#38bdf8;font-weight:700">● B档合格买点 · 1.0x 标准</span> (${pPct} ∈ 55~74分)`
+        : `<span style="color:#f87171;font-weight:700">× C/D档否决 · 0x 不买</span> (${pPct} &lt; 55分)`;
+    const reasonsHtml = (s.metaReasons || []).map(r => {
+      const col = r.impact >= 0 ? '#3fb950' : '#f87171';
+      return `<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:#ffffff0a;border:1px solid ${col}44;color:${col};font-size:11px;margin:2px 4px 2px 0">${r.text}</span>`;
+    }).join('');
+    const mf = ANN_MYBUY.metaFilter || 'active';
+    const stStopTxt = s.structStop != null
+      ? ` · 执行止损 <b>${Math.round(s.stop).toLocaleString()}</b> (${((s.riskPct || 0) * 100).toFixed(2)}%${s.narrowStopProtected ? '·窄损托底' : ''}) · 3根结构损 <b>${Math.round(s.structStop).toLocaleString()}</b>`
+      : '';
+    return `<section class="ann-card" style="border-color:${tierCol}66">
+      <div class="ann-sec" style="display:flex;justify-content:space-between;align-items:center;gap:4px;flex-wrap:wrap">
+        <span>📐 MA20查表置信度算法 <small style="color:#10b981;font-weight:600">[v2.1·四维风控增强]</small></span>
+        <span style="display:inline-flex;gap:8px">
+          <a href="docs/ai-ma20-v1-frozen.html" target="_blank" style="font-size:11px;color:#10b981;text-decoration:none">📄 盲测与查表规则 ↗</a>
+          <a href="analysis/mybuy.html#metaSection" target="_blank" style="font-size:11px;color:#58a6ff;text-decoration:none">📊 完整报告 ↗</a>
+        </span>
+      </div>
+      <div class="ann-line" style="margin-bottom:4px">当前信号判定：${tierBadge}${stStopTxt}</div>
+      <div class="ann-line" style="margin-bottom:4px;font-size:11px;color:#94a3b8">💡 v2.1 规则：4加5扣查表 + 熊市禁2x + MA60乖离&gt;3.2ATR扣分 + &lt;0.75ATR窄损托底 + 冲2.5R保本/4R锁1.2R。</div>
+      <div style="margin-bottom:6px">${reasonsHtml}</div>
+      <div style="font-size:11px;font-weight:600;color:#cbd5e1;margin:6px 0 3px">不同查表分档 · 历史止损率与盈亏统计（全样本）：</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin:4px 0 8px;font-variant-numeric:tabular-nums">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);color:var(--muted)">
+            <th style="text-align:left;padding:3px 3px">查表置信分档</th>
+            <th style="text-align:right;padding:3px 3px">笔数</th>
+            <th style="text-align:right;padding:3px 3px" title="买入后5根K线内触及初始执行止损">≤5根损</th>
+            <th style="text-align:right;padding:3px 3px" title="买入后10根K线内触及初始执行止损">≤10根损</th>
+            <th style="text-align:right;padding:3px 3px" title="120根观察期内触及初始执行止损比例">总止损率</th>
+            <th style="text-align:right;padding:3px 3px" title="60根内最大运行浮盈≥3R比例">≥3R率</th>
+            <th style="text-align:right;padding:3px 3px" title="v2.1实盘规则：破MA20离场+2.5R保本/4R锁1.2R单笔均R">MA20均R</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #ffffff0f;${s.metaTier==='heavy'?'background:#10b98122;font-weight:700':''}">
+            <td style="padding:3px 3px;color:#10b981">★ A档强推 2x (≥75分)</td>
+            <td style="text-align:right;padding:3px 3px">${ts.heavy.n}</td>
+            <td style="text-align:right;padding:3px 3px;color:#10b981">${fmtPct(ts.heavy.stopLe5Rate)}</td>
+            <td style="text-align:right;padding:3px 3px;color:#10b981">${fmtPct(ts.heavy.stopLe10Rate)}</td>
+            <td style="text-align:right;padding:3px 3px">${fmtPct(ts.heavy.stop120Rate)}</td>
+            <td style="text-align:right;padding:3px 3px;color:#10b981">${fmtPct(ts.heavy.ge3RRate)}</td>
+            <td style="text-align:right;padding:3px 3px;color:#10b981">${fmtR(ts.heavy.meanRB)}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #ffffff0f;${s.metaTier==='std'?'background:#38bdf822;font-weight:700':''}">
+            <td style="padding:3px 3px;color:#38bdf8">● B档合格 1x (55~74分)</td>
+            <td style="text-align:right;padding:3px 3px">${ts.std.n}</td>
+            <td style="text-align:right;padding:3px 3px;color:#38bdf8">${fmtPct(ts.std.stopLe5Rate)}</td>
+            <td style="text-align:right;padding:3px 3px;color:#38bdf8">${fmtPct(ts.std.stopLe10Rate)}</td>
+            <td style="text-align:right;padding:3px 3px">${fmtPct(ts.std.stop120Rate)}</td>
+            <td style="text-align:right;padding:3px 3px;color:#38bdf8">${fmtPct(ts.std.ge3RRate)}</td>
+            <td style="text-align:right;padding:3px 3px;color:#38bdf8">${fmtR(ts.std.meanRB)}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #ffffff0f;background:#ffffff06">
+            <td style="padding:3px 3px;color:#e2e8f0">✓ 买入合集 (≥55分)</td>
+            <td style="text-align:right;padding:3px 3px">${ts.active.n}</td>
+            <td style="text-align:right;padding:3px 3px">${fmtPct(ts.active.stopLe5Rate)}</td>
+            <td style="text-align:right;padding:3px 3px">${fmtPct(ts.active.stopLe10Rate)}</td>
+            <td style="text-align:right;padding:3px 3px">${fmtPct(ts.active.stop120Rate)}</td>
+            <td style="text-align:right;padding:3px 3px">${fmtPct(ts.active.ge3RRate)}</td>
+            <td style="text-align:right;padding:3px 3px;color:#10b981">${fmtR(ts.active.meanRB)}</td>
+          </tr>
+          <tr style="opacity:0.75;${s.metaTier==='skip'?'background:#f8717122;font-weight:600;opacity:1':''}">
+            <td style="padding:3px 3px;color:#f87171">× C/D档否决 (&lt;55分不买)</td>
+            <td style="text-align:right;padding:3px 3px">${ts.skip.n}</td>
+            <td style="text-align:right;padding:3px 3px;color:#f87171">${fmtPct(ts.skip.stopLe5Rate)}</td>
+            <td style="text-align:right;padding:3px 3px;color:#f87171">${fmtPct(ts.skip.stopLe10Rate)}</td>
+            <td style="text-align:right;padding:3px 3px;color:#f87171">${fmtPct(ts.skip.stop120Rate)}</td>
+            <td style="text-align:right;padding:3px 3px">${fmtPct(ts.skip.ge3RRate)}</td>
+            <td style="text-align:right;padding:3px 3px">${fmtR(ts.skip.meanRB)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_meta'&&mf==='active'?'active':''}" data-meta-filter="active">✓ 全部买入 (${ev.metaActive.length})</button>
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_meta'&&mf==='heavy'?'active':''}" data-meta-filter="heavy">★ A档2x (${ev.metaHeavy.length})</button>
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_meta'&&mf==='std'?'active':''}" data-meta-filter="std">● B档1x (${ev.metaStd.length})</button>
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_meta'&&mf==='skip'?'active':''}" data-meta-filter="skip">× C/D档不买 (${ev.metaSkipped.length})</button>
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_meta'&&mf==='all'?'active':''}" data-meta-filter="all">候选池 (${ev.kept.length})</button>
+      </div>
+    </section>`;
+  })() : '';
+  const mybuyV5Card = ['mybuy_v5', 'mybuy_v5_meta'].includes(ANN.source) ? (() => {
+    const ev = annMyBuyAdaptiveEval();
+    const cmp = ev.compare;
+    const fmtR = v => (v >= 0 ? '+' : '') + v.toFixed(2) + 'R';
+    const pPct = ((s.metaP || 0) * 100).toFixed(1) + '%';
+    const tierCol = s.metaTier === 'heavy' ? '#10b981' : s.metaTier === 'std' ? '#38bdf8' : '#f87171';
+    const tierBadge = s.metaTier === 'heavy'
+      ? `<span style="color:#10b981;font-weight:700">★ 2.0x 重仓</span> (P=${pPct})`
+      : s.metaTier === 'std'
+        ? `<span style="color:#38bdf8;font-weight:700">● 1.0x 标准</span> (P=${pPct})`
+        : `<span style="color:#f87171;font-weight:700">× 0x 放弃</span> (P=${pPct})`;
+    const reasonsHtml = (s.metaReasons || []).map(r => {
+      const col = r.impact >= 0 ? '#3fb950' : '#f87171';
+      return `<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:#ffffff0a;border:1px solid ${col}44;color:${col};font-size:11px;margin:2px 4px 2px 0">${r.text}</span>`;
+    }).join('');
+    const mf = ANN_MYBUY_V5.metaFilter || 'all';
+    return `<section class="ann-card" style="border-color:#22d3ee66">
+      <div class="ann-sec" style="display:flex;justify-content:space-between;align-items:center">
+        <span>自适应跨品种/4H (v5) · ${currentSym} ${activeTF}</span>
+        <a href="analysis/mybuy.html#v5Section" target="_blank" style="font-size:11px;color:#58a6ff;text-decoration:none">📊 17市场评测 ↗</a>
+      </div>
+      <div class="ann-line" style="margin-bottom:4px">
+        品种中位 ATR: <b>${(ev.medAtr * 100).toFixed(2)}%</b> · 当根偏离 <b>${(s.d20Atr || 0).toFixed(2)} ATR</b> · 实体 <b>${(s.bodyAtr || 0).toFixed(2)} ATR</b>
+      </div>
+      <div class="ann-line" style="margin-bottom:4px">无量纲 AI 判定：${tierBadge} · 止损宽 <b>${((s.riskPct || 0) * 100).toFixed(2)}%</b>${ev.stopBufAtr > 0 ? ' (含0.25ATR防插针)' : ''}</div>
+      <div style="margin-bottom:6px">${reasonsHtml}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11.5px;margin:6px 0;font-variant-numeric:tabular-nums">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);color:var(--muted)">
+            <th style="text-align:left;padding:3px 4px">当前品种/周期版本对比</th>
+            <th style="text-align:right;padding:3px 4px">出击</th>
+            <th style="text-align:right;padding:3px 4px">胜率</th>
+            <th style="text-align:right;padding:3px 4px">均R/风险</th>
+            <th style="text-align:right;padding:3px 4px">合计R</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #ffffff0f;opacity:.8">
+            <td style="padding:3px 4px">① 原版 v4 (固定百分比+冷却)</td>
+            <td style="text-align:right;padding:3px 4px">${cmp.v4.n}</td>
+            <td style="text-align:right;padding:3px 4px">${(cmp.v4.winRate * 100).toFixed(0)}%</td>
+            <td style="text-align:right;padding:3px 4px">${fmtR(cmp.v4.meanR)}</td>
+            <td style="text-align:right;padding:3px 4px">${cmp.v4.totalR >= 0 ? '+' : ''}${cmp.v4.totalR.toFixed(0)}R</td>
+          </tr>
+          <tr style="border-bottom:1px solid #ffffff0f${ANN.source==='mybuy_v5'?';background:#22d3ee18;font-weight:600':''}">
+            <td style="padding:3px 4px;color:#22d3ee">② 自适应 v5 (ATR${ev.useMtf?'+MA120共振':''})</td>
+            <td style="text-align:right;padding:3px 4px;color:#22d3ee">${cmp.v5Rule.activeN}</td>
+            <td style="text-align:right;padding:3px 4px">${(cmp.v5Rule.winRate * 100).toFixed(0)}%</td>
+            <td style="text-align:right;padding:3px 4px;color:#22d3ee">${fmtR(cmp.v5Rule.meanRRisk)}</td>
+            <td style="text-align:right;padding:3px 4px">${cmp.v5Rule.totalR >= 0 ? '+' : ''}${cmp.v5Rule.totalR.toFixed(0)}R</td>
+          </tr>
+          <tr style="border-bottom:1px solid #ffffff0f${ANN.source==='mybuy_v5_meta'?';background:#10b9811a;font-weight:600':''}">
+            <td style="padding:3px 4px;color:#10b981">③ v5 + 无量纲 AI (0x/1x/2x)</td>
+            <td style="text-align:right;padding:3px 4px;color:#10b981">${cmp.v5Ai012.activeN}</td>
+            <td style="text-align:right;padding:3px 4px;color:#10b981">${(cmp.v5Ai012.winRate * 100).toFixed(0)}%</td>
+            <td style="text-align:right;padding:3px 4px;color:#10b981">${fmtR(cmp.v5Ai012.meanRRisk)}</td>
+            <td style="text-align:right;padding:3px 4px;color:#10b981">${cmp.v5Ai012.totalR >= 0 ? '+' : ''}${cmp.v5Ai012.totalR.toFixed(0)}R</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_v5'?'active':''}" data-v5-src="mybuy_v5">v5规则 (${ev.kept.length})</button>
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_v5_meta'&&mf==='all'?'active':''}" data-v5-filter="all">v5+AI全池 (${ev.kept.length})</button>
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_v5_meta'&&mf==='active'?'active':''}" data-v5-filter="active">AI出击1x+2x (${ev.metaActive.length})</button>
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_v5_meta'&&mf==='heavy'?'active':''}" data-v5-filter="heavy">仅2x重仓 (${ev.metaHeavy.length})</button>
+        <button type="button" class="lab-btn ${ANN.source==='mybuy_v5_meta'&&mf==='skip'?'active':''}" data-v5-filter="skip">0x放弃 (${ev.metaSkipped.length})</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:11.5px">
+        <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="要求收盘>MA120(对应4H下的日线MA20)且MA120近5根不下跌，过滤逆大周期主跌浪的假突破">
+          <input type="checkbox" id="v5ToggleMtf" ${ev.useMtf ? 'checked' : ''}>大周期MA120共振过滤
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="止损设在当根最低点下方 0.25×ATR14，防止4H日内插针扫损">
+          <input type="checkbox" id="v5ToggleBuf" ${ev.stopBufAtr > 0 ? 'checked' : ''}>0.25ATR防插针止损
+        </label>
+      </div>
+    </section>`;
+  })() : '';
+  body.innerHTML = thin + mybuyV5Card + mybuyMetaCard + mybuyCdCard + annCoverCard(s.i) + (annV3Active()?ma20StructureCard(s.i):'') + (annAIActive()?ma20AICard(s.i):'') + (annAssessmentActive()?`<details class="ann-optional-assessment"><summary>复核补充描述（可选）</summary>${annAssessmentCard(d)}</details>`:'') + signalCard + `
     <div class="ann-date"><b>${annDate(snap.time)}</b><span class="ann-tag">${s.tag}</span>
       <span style="flex:1"></span><span style="color:var(--muted)">收</span><b>${snap.close.toLocaleString()}</b></div>
 
@@ -1102,7 +2560,7 @@ function annRender() {
         <span>实体</span><b class="ann-v ${bodyCls}">${(snap.body * 100).toFixed(2)}%</b>
         <span>振幅</span><b>${(snap.rng * 100).toFixed(2)}%</b>
         <span>收盘位置</span><b>${snap.pos.toFixed(2)}</b>
-        ${annCoverActive() ? '' : `<span>量比 20</span><b>${snap.vr == null ? '—' : snap.vr.toFixed(2)}</b><span title="前5日均量 ÷ 前20日均量，<1 表示缩量">缩量比</span><b>${snap.vsh == null ? '—' : snap.vsh.toFixed(2)}</b>`}
+        ${annAssessmentActive() ? '' : `<span>量比 20</span><b>${snap.vr == null ? '—' : snap.vr.toFixed(2)}</b><span title="前5日均量 ÷ 前20日均量，<1 表示缩量">缩量比</span><b>${snap.vsh == null ? '—' : snap.vsh.toFixed(2)}</b>`}
         <span title="收盘距最近 20 根最高点的回撤">距20日高</span><b>${snap.pub20 == null ? '—' : annPct(snap.pub20)}</b>
         <span title="ATR%(14) = 过去 14 根 K 线的平均真实波幅 ÷ 收盘价">ATR%(14)</span><b>${snap.atrPct == null ? '—' : (snap.atrPct * 100).toFixed(2) + '%'}</b>
       </div>
@@ -1116,7 +2574,7 @@ function annRender() {
         ${maRow(20)}${maRow(60)}${maRow(120)}
       </div>
       <div class="ann-line" style="margin-top:6px">${arrTxt} · 站上 ${snap.above}/3 · 连站 MA60 ${snap.streak60} 根 · 双线差 ${annPct(snap.gap)}</div>
-      <div class="ann-line">距上一个信号 <b>${prevGap == null ? '—' : prevGap + ' 根'}</b> · 距下一个 ${(annCoverActive() || s.evidence) && ANN.hideFuture ? '已遮住' : nextGap == null ? '—' : nextGap + ' 根'}</div>
+      <div class="ann-line">距上一个信号 <b>${prevGap == null ? '—' : prevGap + ' 根'}</b> · 距下一个 ${(annAssessmentActive() || s.evidence) && ANN.hideFuture ? '已遮住' : nextGap == null ? '—' : nextGap + ' 根'}</div>
     </div>
 
     <div class="ann-card">
@@ -1126,13 +2584,14 @@ function annRender() {
         <span>距 60 日低</span><b>${annPct(snap.distLow60)}</b>
         <span>DIF / DEA</span><b>${snap.dif == null ? '—' : snap.dif.toFixed(0) + ' / ' + snap.dea.toFixed(0)}</b>
         <span>MACD 柱</span>${V(snap.hist, snap.hist == null ? '—' : snap.hist.toFixed(0))}
-        ${annCoverActive() || s.evidence ? '' : `<span>最近笔</span>${V(snap.strokeDir, strokeTxt)}<span>买点</span><b>${snap.chanBuys.length ? snap.chanBuys.join('、') : '—'}</b>`}
+        ${annAssessmentActive() || s.evidence ? '' : `<span>最近笔</span>${V(snap.strokeDir, strokeTxt)}<span>买点</span><b>${snap.chanBuys.length ? snap.chanBuys.join('、') : '—'}</b>`}
       </div>
-      <div class="ann-line" style="margin-top:5px">${annCoverActive() || s.evidence ? '本信号仅使用当时价格与指标，不使用事后笔/中枢。' : pivotTxt}</div>
+      <div class="ann-line" style="margin-top:5px">${annAssessmentActive() || s.evidence ? '本信号仅使用当时价格与指标，不使用事后笔/中枢。' : pivotTxt}</div>
     </div>
 
     <details class="ann-fwd ann-card">
       <summary>未来 5 / 20 / 60 日（先判断，再展开）</summary>
+      <p class="ann-line">以下为价格路径，未按止损截断，不代表这笔交易收益。止损前浮盈见 MA20 复盘报告。</p>
       <div class="ann-grid" style="margin-top:6px">
         <span>+5 日</span>${P(snap.fwd5)}
         <span>+20 日</span>${P(snap.fwd20)}
@@ -1156,6 +2615,93 @@ function annRender() {
     const next = ANN.sigs.findIndex(x => x.i >= i);
     if (ANN.sigs.length) annGo(next < 0 ? ANN.sigs.length - 1 : next); else annRender();
   });
+  body.querySelectorAll('[data-cd-mode]').forEach(b => b.addEventListener('click', () => {
+    const curBarIdx = s.i;
+    ANN.source = b.dataset.cdMode;
+    ANN._counts = {};
+    annBuildSigs(); annSourceMenuRender();
+    const next = ANN.sigs.findIndex(x => x.i >= curBarIdx);
+    if (ANN.sigs.length) annGo(next < 0 ? ANN.sigs.length - 1 : next); else annRender();
+  }));
+  body.querySelectorAll('[data-meta-filter]').forEach(b => b.addEventListener('click', () => {
+    const curBarIdx = s.i;
+    ANN_MYBUY.metaFilter = b.dataset.metaFilter || 'all';
+    ANN.source = 'mybuy_meta';
+    ANN._counts = {};
+    annBuildSigs(); annSourceMenuRender();
+    const next = ANN.sigs.findIndex(x => x.i >= curBarIdx);
+    if (ANN.sigs.length) annGo(next < 0 ? ANN.sigs.length - 1 : next); else annRender();
+  }));
+  body.querySelectorAll('[data-v5-src]').forEach(b => b.addEventListener('click', () => {
+    const curBarIdx = s.i;
+    ANN.source = b.dataset.v5Src || 'mybuy_v5';
+    ANN._counts = {};
+    annBuildSigs(); annSourceMenuRender();
+    const next = ANN.sigs.findIndex(x => x.i >= curBarIdx);
+    if (ANN.sigs.length) annGo(next < 0 ? ANN.sigs.length - 1 : next); else annRender();
+  }));
+  body.querySelectorAll('[data-v5-filter]').forEach(b => b.addEventListener('click', () => {
+    const curBarIdx = s.i;
+    ANN_MYBUY_V5.metaFilter = b.dataset.v5Filter || 'all';
+    ANN.source = 'mybuy_v5_meta';
+    ANN._counts = {};
+    annBuildSigs(); annSourceMenuRender();
+    const next = ANN.sigs.findIndex(x => x.i >= curBarIdx);
+    if (ANN.sigs.length) annGo(next < 0 ? ANN.sigs.length - 1 : next); else annRender();
+  }));
+  const v5Mtf = document.getElementById('v5ToggleMtf');
+  if (v5Mtf) v5Mtf.addEventListener('change', e => {
+    const curBarIdx = s.i;
+    ANN_MYBUY_V5.mtfFilterMode = e.target.checked ? 'on' : 'off';
+    ANN._counts = {};
+    annBuildSigs(); annSourceMenuRender();
+    const next = ANN.sigs.findIndex(x => x.i >= curBarIdx);
+    if (ANN.sigs.length) annGo(next < 0 ? ANN.sigs.length - 1 : next); else annRender();
+  });
+  const v5Buf = document.getElementById('v5ToggleBuf');
+  if (v5Buf) v5Buf.addEventListener('change', e => {
+    const curBarIdx = s.i;
+    ANN_MYBUY_V5.stopBufMode = e.target.checked ? 'on' : 'off';
+    ANN._counts = {};
+    annBuildSigs(); annSourceMenuRender();
+    const next = ANN.sigs.findIndex(x => x.i >= curBarIdx);
+    if (ANN.sigs.length) annGo(next < 0 ? ANN.sigs.length - 1 : next); else annRender();
+  });
+  body.querySelectorAll('[data-cd-bars]').forEach(b => b.addEventListener('click', () => {
+    const curBarIdx = s.i;
+    ANN_MYBUY.cooldownBars = Number(b.dataset.cdBars) || 8;
+    ANN._counts = {};
+    annBuildSigs(); annSourceMenuRender();
+    const next = ANN.sigs.findIndex(x => x.i >= curBarIdx);
+    if (ANN.sigs.length) annGo(next < 0 ? ANN.sigs.length - 1 : next); else annRender();
+  }));
+  const cdMa60 = document.getElementById('cdToggleMa60');
+  if (cdMa60) cdMa60.addEventListener('change', e => {
+    const curBarIdx = s.i;
+    ANN_MYBUY.allowMa60Upgrade = e.target.checked;
+    ANN._counts = {};
+    annBuildSigs(); annSourceMenuRender();
+    const next = ANN.sigs.findIndex(x => x.i >= curBarIdx);
+    if (ANN.sigs.length) annGo(next < 0 ? ANN.sigs.length - 1 : next); else annRender();
+  });
+  const cdStop = document.getElementById('cdToggleStop');
+  if (cdStop) cdStop.addEventListener('change', e => {
+    const curBarIdx = s.i;
+    ANN_MYBUY.allowStopReset = e.target.checked;
+    ANN._counts = {};
+    annBuildSigs(); annSourceMenuRender();
+    const next = ANN.sigs.findIndex(x => x.i >= curBarIdx);
+    if (ANN.sigs.length) annGo(next < 0 ? ANN.sigs.length - 1 : next); else annRender();
+  });
+  body.querySelectorAll('[data-cd-jump]').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault();
+    const targetBarIdx = Number(a.dataset.cdJump);
+    const targetSrc = a.dataset.cdSrc || ANN.source;
+    ANN.source = targetSrc;
+    annBuildSigs(); annSourceMenuRender();
+    const next = ANN.sigs.findIndex(x => x.i === targetBarIdx);
+    if (next >= 0) annGo(next);
+  }));
   // 已判定 → 对应按钮持续高亮(随时能看到这笔之前怎么判的)
   document.querySelectorAll('.ann-btn').forEach(b => {
     b.classList.toggle('on', !!(d && d.d === b.dataset.d));
@@ -1194,7 +2740,7 @@ function annImportData(txt) {
   for (const c of cs) byTime.set(c.time, c);
   const byDate = new Map();
   for (const c of cs) byDate.set(String(c.time), c);
-  let n = 0, miss = 0;
+  let n = 0, miss = 0, manualN = 0;
   for (const it of items) {
     const t = (it.features && it.features.time) || null;
     let bar = t != null ? byTime.get(t) : null;
@@ -1202,22 +2748,39 @@ function annImportData(txt) {
       for (const c of cs) if (fmtTime(c.time) === it.time) { bar = c; break; }
     }
     if (!bar) { miss++; continue; }
-    const k = [currentSym, activeTF, it.source || 'ma20', bar.time].join('|');
+    // 老文件没有 source：带 entry/stop 的是手选买点，其余按 ma20 评估
+    const importedSource = it.source || ((it.entry != null && it.stop != null) ? MANUAL_SOURCE : 'ma20');
+    const src=typeof ma20StructureDecisionSource==='function'?ma20StructureDecisionSource(importedSource):importedSource;
+    const k = [currentSym, activeTF, src, bar.time].join('|');
+    // 买点必须有 manual 对象，否则 manualBuild() 会把这条静默丢弃（只带 time/entry 的文件就是这样丢的）
+    const looksManual = (it.decision === 'yes' && !src.startsWith('ma20_structure_v3') && !src.startsWith('ma20_ai_')) || src === MANUAL_SOURCE || (it.entry != null && it.stop != null);
+    const manual = it.manual || (looksManual ? {
+      schema: ManualEvidence.VERSION, reason: it.reason || '', pattern: 'free',
+      rangeStart: '', rangeEnd: '', collectionMode: 'historical_review',
+      selectedAt: new Date().toISOString(),
+      execution: { basis: 'selected_bar_close', price: (it.entry != null ? it.entry : bar.close) },
+      archived: false,
+    } : null);
     ANN.decisions[k] = {
-      d: it.decision || null, reasons: it.reasons || [], note: it.note || '',
-      ts: Date.now(), source: it.source || 'ma20', tag: it.tag || '', kind: it.kind || '',
+      // 老文件没有 decision：有理由的买点视为已确认，没理由的留作草稿
+      // decision 缺失才推断；显式 null 是「草稿」, 必须原样保留
+      d: it.decision !== undefined ? it.decision
+        : (manual && (manual.reason || '').trim() ? 'yes' : null),
+      reasons: it.reasons || [], note: it.note || '',
+      ts: Date.now(), source: src, tag: it.tag || '', kind: it.kind || '',
       ...(it.algorithm ? { algorithm: it.algorithm } : {}),
       ...(it.assessment ? { assessment: it.assessment } : {}),
       ...(it.assessmentEvidence ? { assessmentEvidence: it.assessmentEvidence } : {}),
       ...(it.signalEvidence ? { signalEvidence: it.signalEvidence } : {}),
-      ...(it.manual ? { manual: it.manual } : {}),
+      ...(manual ? { manual } : {}),
       ...(it.manualEvidence ? { manualEvidence: it.manualEvidence } : {}),
-      ...(it.features ? { features: it.features } : {}),
+      ...(it.features ? { features: it.features } : { features: { time: bar.time } }),
     };
+    if (src === MANUAL_SOURCE) manualN++;
     n++;
   }
   annSave(); annBuildSigs(); annRender(); annSumRender();
-  annTip(`✓ 导入 ${n} 条${miss ? ' · ' + miss + ' 条对不上K线' : ''}`, false);
+  annTip(`✓ 导入 ${n} 条${manualN ? ' · 买点 ' + manualN : ''}${miss ? ' · ' + miss + ' 条对不上K线' : ''}`, false);
 }
 
 function annTip(msg, warn) {

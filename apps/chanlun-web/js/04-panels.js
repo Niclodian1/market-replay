@@ -61,6 +61,9 @@ function buildMarkers(v){
   // 注: 回测交易不在 setMarkers 中画点 —— TradeOverlay 已在入场价处画 ●,
   //     避免同一位置双重圆点; 悬停提示走 markerMap(见 buildMaps)。
   if (typeof cover67IndicatorMarkers === 'function') out.push(...cover67IndicatorMarkers(v));
+  if (typeof ma20StructureMarkers === 'function') out.push(...ma20StructureMarkers(v));
+  if (typeof ma20AIMarkers === 'function') out.push(...ma20AIMarkers(v));
+  if (typeof macd3segMarkers === 'function') out.push(...macd3segMarkers(v));
   out.sort((a,b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
   return out;
 }
@@ -80,9 +83,10 @@ function buildMacdData(v){
   };
 }
 
-function buildMaps(v){
+function buildMaps(v, append = false){
   const cs = candlesFor(v);
-  idxMap = {}; cs.forEach((c,i) => idxMap[c.time] = i);
+  if(append)idxMap[cs.at(-1).time]=cs.length-1;
+  else {idxMap = {}; cs.forEach((c,i) => idxMap[c.time] = i);}
   markerMap = {};
   topMarks(v).forEach(x => { if (layers.fractals) markerMap[x.time] = { kind:'top',    price:x.price, color:t().top }; });
   botMarks(v).forEach(x => { if (layers.fractals) markerMap[x.time] = { kind:'bottom', price:x.price, color:t().bottom }; });
@@ -174,16 +178,41 @@ function buildMaps(v){
   });
 }
 
-function applySeries(){
-  candleSeries.setData(candlesFor(activeView));
-  candleSeries.setMarkers(buildMarkers(activeView));
-  volumeSeries.setData(buildVolData(activeView));
-  const md = buildMacdData(activeView);
-  macdHistSeries.setData(md.hist);
-  macdLineSeries.setData(md.diff);
-  macdSignalSeries.setData(md.dea);
-  buildMaps(activeView);
-  rebuildMA();
+let _applySeriesRaf = 0, _renderedCandleFrame = null;
+function applySeries(opts = {}){
+  _applyingSeries = true;
+  if (_applySeriesRaf) cancelAnimationFrame(_applySeriesRaf);
+  try {
+    const v=activeView, cs=candlesFor(v), bar=cs.at(-1), previous=_renderedCandleFrame;
+    const append=!!(opts.step&&trLocked()&&previous?.view===v&&previous.theme===themeKey()&&
+      cs.length===previous.length+1&&cs[0]===previous.first&&cs.at(-2)===previous.last);
+    if(append){
+      const T=t(), i=cs.length-1, m=macdFor(v);
+      candleSeries.update(bar);
+      volumeSeries.update({time:bar.time,value:volArrFor(v)[i],color:(bar.close>=bar.open?T.up:T.down)+'99'});
+      macdHistSeries.update({time:bar.time,value:m.hist[i],color:m.hist[i]>=0?T.up:T.down});
+      macdLineSeries.update({time:bar.time,value:m.diff[i]});
+      macdSignalSeries.update({time:bar.time,value:m.dea[i]});
+    }else{
+      candleSeries.setData(cs);
+      volumeSeries.setData(buildVolData(v));
+      const md = buildMacdData(v);
+      macdHistSeries.setData(md.hist);
+      macdLineSeries.setData(md.diff);
+      macdSignalSeries.setData(md.dea);
+    }
+    candleSeries.setMarkers(buildMarkers(v));
+    buildMaps(v,append);
+    rebuildMA(append);
+    if (typeof aiMa20AlgoRefresh === 'function') aiMa20AlgoRefresh();
+    if (typeof macd3segRefresh === 'function') macd3segRefresh();
+    _renderedCandleFrame={view:v,theme:themeKey(),first:cs[0],last:bar,length:cs.length};
+  } finally {
+    _applySeriesRaf = requestAnimationFrame(() => {
+      _applySeriesRaf = 0;
+      _applyingSeries = false;
+    });
+  }
 }
 
 function refreshPanels(){
@@ -194,7 +223,7 @@ function refreshPanels(){
 let _panelRaf = null;
 // refreshAll 分级: light=true 时(步进/回放)面板走 rAF 合并刷新, 图表立即更新
 function refreshAll(opts = {}){
-  applySeries();
+  applySeries(opts);
   updateLivePnl();   // 复盘持仓浮动盈亏随K线实时刷新(只改文本, 不重建表单)
   if (opts.light){
     if (_panelRaf == null){
@@ -236,14 +265,16 @@ function setStd(s){
 
 async function setTF(tf){
   const switching = tf !== activeTF;
-  const needChunkLoad = chunkedActive() && !(ChunkStore.win && ChunkStore.win.key === `${currentSym}/${TF_DIR[tf]}`);
+  const needChunkLoad = CHUNK_TFS.includes(tf) && !(ChunkStore.win && ChunkStore.win.key === `${currentSym}/${TF_DIR[tf]}`);
   if (!switching && !needChunkLoad) return;
+  _activeSubPane = null;
   activeTF = tf;
   document.querySelectorAll('#tfToggle button').forEach(b => b.classList.toggle('active', b.dataset.tf === tf));
   document.getElementById('symbolBadge').textContent = `${DATA.meta.symbol} · ${tf}`;
   chart.applyOptions(chartOptions());
-  volumeChart.applyOptions({ ...chartOptions(), grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
-  macdChart.applyOptions({ ...chartOptions(), grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
+  // 副图必须保持 autoSize: false，由 alignPanes() 统一管理尺寸，避免开启内部 ResizeObserver 与主图抢占尺寸导致抖动
+  volumeChart.applyOptions({ ...chartOptions(), autoSize: false, grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
+  macdChart.applyOptions({ ...chartOptions(), autoSize: false, grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
   // 分片周期: 复盘日期输入升级到分钟精度; 结构类工具置灰
   document.getElementById('replayDate').type = chunkedActive() ? 'datetime-local' : 'date';
   document.body.classList.toggle('tf-chunked', chunkedActive());
@@ -262,7 +293,14 @@ async function setTF(tf){
     ChunkStore.win = null;   // 离开分钟级释放窗口内存
   }
   refreshAll();
-  chart.timeScale().fitContent();
+  if (chunkedActive() && ChunkStore.win && ChunkStore.win.candles.length > 60) {
+    // 分钟级分片周期默认锚定右侧最新窗口 (预留左缘 > 30 根，避免切入瞬间触发左缘 <30 的自动前插分片死循环)
+    const n = ChunkStore.win.candles.length;
+    chart.timeScale().setVisibleLogicalRange({ from: Math.max(35, n - 240), to: n + 5 });
+  } else {
+    chart.timeScale().fitContent();
+  }
+  requestAnimationFrame(alignPanes);
 }
 
 // ---- 分钟级分片窗口装载 ----
@@ -307,7 +345,7 @@ function setReplayT(ts){
     `${fmtTime(replayT)} · ${pos + 1}/${times.length}`;
   checkStopAndLiquidate();   // 新K线: 检查止损/爆仓
   checkAccountBlowup();      // 账户级爆仓: 净值≤0 强平并结束本局
-  refreshAll({ light: true });   // 步进轻量刷新: 图表立即更新, 侧栏面板 rAF 合并
+  refreshAll({ light: true, step: true });   // 步进轻量刷新: 图表立即更新, 侧栏面板 rAF 合并
 }
 // 模式徽标与重点色: 复盘=蓝 / 练习=橙; body class 统一由这里维护
 function updateModeBadge(){

@@ -1,5 +1,5 @@
 // 副图布局：隐藏时保留非零画布，恢复/拖动/窗口变化时统一同步尺寸与时间范围。
-const PANE_DEFAULTS = { volume: 140, macd: 180 };
+const PANE_DEFAULTS = { volume: 110, macd: 150 };
 const PANE_MIN_HEIGHT = 64;
 const PANE_HEIGHT_KEY = 'chanlun.pane.heights.v1';
 const paneHeights = { ...PANE_DEFAULTS };
@@ -43,27 +43,32 @@ function alignPanes(){
   const width = chart.timeScale().width();
   if (!Number.isFinite(width) || width < 100) return;
   const range = chart.timeScale().getVisibleLogicalRange();
-  const wasSyncing = _syncingRange;
-  _syncingRange = true; // resize 的中间范围不能反写到主图。
+  if (typeof holdSyncLock === 'function') holdSyncLock();
+  else _syncingRange = true; // resize 的中间范围不能反写到主图。
   try {
     for (const [id, sub] of subPanes()){
       if (!paneReady(id)) continue;
       const el = document.getElementById(id);
-      const target = Math.max(100, Math.round(width + sub.priceScale('right').width()));
-      el.style.width = target + 'px';
-      const height = el.clientHeight;
+      const rawTarget = Math.max(100, Math.round(width + sub.priceScale('right').width()));
+      // LightweightCharts 内部将画布宽高向下取偶 (w - w%2)，取偶对齐可避免 1px 奇偶反复触发 resize
+      const target = rawTarget - (rawTarget % 2);
+      if (el.style.width !== target + 'px') el.style.width = target + 'px';
+      const rawH = el.clientHeight;
+      const height = rawH - (rawH % 2);
       const options = sub.options();
-      if (options.autoSize || options.width !== target || options.height !== height){
+      if (options.autoSize || Math.abs((options.width || 0) - target) >= 2 || Math.abs((options.height || 0) - height) >= 2){
         sub.applyOptions({ autoSize: false, width: target, height });
       }
       if (range && Number.isFinite(range.from) && Number.isFinite(range.to) && range.to > range.from){
         const current = sub.timeScale().getVisibleLogicalRange();
-        if (!current || Math.abs(current.from - range.from) > 1e-6 || Math.abs(current.to - range.to) > 1e-6){
+        if (!current || Math.abs(current.from - range.from) > 1e-4 || Math.abs(current.to - range.to) > 1e-4){
           sub.timeScale().setVisibleLogicalRange(range);
         }
       }
     }
-  } finally { _syncingRange = wasSyncing; }
+  } finally {
+    if (typeof holdSyncLock !== 'function') _syncingRange = false;
+  }
 }
 
 function setSubPaneVisible(id, visible){
@@ -147,7 +152,8 @@ function setupPaneLayout(){
     });
   }
   const observer = new ResizeObserver(schedulePaneLayout);
-  for (const selector of ['.chart-box', '#chart', '#volume', '#macd']) observer.observe(document.querySelector(selector));
+  // 仅监听外层容器与主图；#volume 和 #macd 的宽高由 fitPaneHeights/alignPanes 主动写入，监听自身会导致 ResizeObserver 循环
+  for (const selector of ['.chart-box', '#chart']) observer.observe(document.querySelector(selector));
   fitPaneHeights();
   schedulePaneLayout();
 }
