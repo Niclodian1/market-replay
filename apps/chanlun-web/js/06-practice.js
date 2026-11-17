@@ -73,7 +73,7 @@ function prAddDecision(choice, data, bar, side, entry, stop){
   const d={id,opportunityId:last?.opportunityId||id,previousDecisionId:last?.id??null,
     choice,side,barTime:bar.time,recordedAt:Date.now(),step:TR.step,
     reason:data.reason,reasonTag:data.reasonTag||null,note:data.note||null,kind:data.kind||null,condition:data.condition||null,invalid:data.invalid||null,
-    confidence:data.confidence||null, anchors:data.anchors||{},
+    confidence:data.confidence||null, anchors:data.anchors||{}, quick:data.quick||null,
     tags:{market:ltSelected('market'),entry:ltSelected('entry'),pattern:ltSelected('pattern')},
     visible:{through:bar.time,from:r.visibleFrom,revealed:false,...prVisibleContext()},
     rule:r.rule,features:PracticeCore.features(snapshot,i,data.anchors),
@@ -190,13 +190,23 @@ function prSubmitDecision(event){
   }
   prCloseDecision();updateTrainerUI();
 }
+// 买入时在弹窗内直接选入场信号/形态(与快速下单条共用同一组标签; 旧右侧表单已隐藏)
+function prRenderSignals(){
+  const box=prEl('prSignals'); if(!box)return;
+  const buy=prEl('prChoice').value==='buy';
+  box.hidden=!buy; if(!buy)return;
+  const row=(cat,label)=>`<div class="pr-sig-row"><span>${label}</span>`+[...document.querySelectorAll(`#jLogicTags .logic-tag[data-cat="${cat}"]`)]
+    .map(b=>`<button type="button" class="qo-chip${b.classList.contains('active')?' on':''}" data-pr-sig="${prEscape(b.dataset.val)}" data-cat="${cat}">${prEscape(b.dataset.val)}</button>`).join('')+'</div>';
+  box.innerHTML=row('entry','入场信号 ≥1')+row('pattern','形态');
+}
 function prDecisionFields(){
   const choice=prEl('prChoice').value, side=prEl('prSide').value, buy=choice==='buy';
+  prRenderSignals();
   prEl('prSubmit').textContent=buy?'保存并开仓':'锁定判断';
   prEl('prCondition').required=choice==='wait';
   const b=curBar();
   prEl('prDecisionHint').textContent=buy&&b ? '按原始 K 线收盘 '+prNumber(b.close,4)+' 入场 · 初始止损 '+
-    prNumber(prDefaultStop(b,side),4)+' · 使用右侧开仓表单的保证金和杠杆。'
+    prNumber(prDefaultStop(b,side),4)+' · 保证金/杠杆沿用快速下单设置；在下方选入场信号（至少 1 个）。'
     : '保存后保留当时判断，揭示答案后再计算假设结果。';
 }
 function prPathText(p){
@@ -357,6 +367,12 @@ function setupPracticeResearch(){
     prRenderAnchors();prDecisionFields();
   });
   prEl('practiceDecisionForm').addEventListener('submit',prSubmitDecision);
+  prEl('prSignals')?.addEventListener('click',e=>{
+    const c=e.target.closest('[data-pr-sig]'); if(!c)return;
+    const b=document.querySelector(`#jLogicTags .logic-tag[data-cat="${c.dataset.cat}"][data-val="${c.dataset.prSig}"]`);
+    if(b){b.classList.toggle('active'); if(typeof updateLtCounts==='function')updateLtCounts();}
+    prRenderSignals();
+  });
   document.querySelectorAll('[data-pr-pick]').forEach(el=>el.addEventListener('click',()=>prStartPick(el.dataset.prPick)));
   prEl('prClearAnchors').addEventListener('click',()=>{
     if(!prDraft)return;prDraft.anchors={};prPick=null;prEl('prDecisionError').textContent='';prRenderAnchors();

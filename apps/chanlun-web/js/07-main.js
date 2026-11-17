@@ -492,6 +492,7 @@ setupReplay();
 setupTrainer();
 setupSnapshot();
 setupJournal();
+if (typeof setupQuickOrder === 'function') setupQuickOrder();
 setupMeasure();
 setupFullscreen();
 // MA 周期输入: 回车/失焦时重建(applySeries 已含 rebuildMA)

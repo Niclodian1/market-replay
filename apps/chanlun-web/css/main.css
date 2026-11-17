@@ -1071,3 +1071,116 @@ body.trainer-blind .pr-import, body.trainer-blind #practiceBatch, body.trainer-b
   border-radius:5px; padding:6px 9px; font-size:12px;
 }
 .pr-pick-hint[hidden] { display:none; }
+
+/* ---- 练习: 快速下单条(js/06-quick-order.js) ---- */
+kbd {
+  display: inline-block; min-width: 14px; padding: 0 4px; margin-left: 2px;
+  border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px;
+  font: 600 10px/14px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted);
+  background: var(--plane); text-align: center; vertical-align: 1px;
+}
+.qo {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 38;
+  width: min(980px, calc(100% - 24px)); max-height: calc(100% - 90px); overflow: auto;
+  display: flex; flex-direction: column; gap: 7px; padding: 10px 12px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  border: 1px solid var(--border); border-top: 2px solid #ff9800; border-radius: 10px;
+  box-shadow: var(--shadow); backdrop-filter: blur(6px); font-size: 12px;
+}
+.qo[hidden] { display: none; }
+.qo-row { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 6px; }
+.qo-top { gap: 6px 8px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+.qo-k { color: var(--muted); font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.qo-lbl { width: 46px; flex: 0 0 46px; }
+.qo-req { font-size: 9px; font-weight: 600; color: var(--down); border: 1px solid var(--down); border-radius: 3px; padding: 0 3px; }
+.qo-num { font-variant-numeric: tabular-nums; font-size: 13px; }
+.qo-dim { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.qo-hint { margin-left: auto; }
+.qo-sep { width: 1px; height: 18px; background: var(--border); }
+.qo-gap { width: 10px; }
+.qo-inp {
+  background: var(--plane); color: var(--ink); border: 1px solid var(--border); border-radius: 6px;
+  padding: 3px 7px; font: inherit; font-size: 12px; height: 26px; font-variant-numeric: tabular-nums;
+}
+.qo-inp:focus { border-color: var(--accent); outline: none; }
+.qo-stop { width: 104px; } .qo-margin { width: 90px; } .qo-lev { width: 54px; }
+.qo-note { flex: 1 1 240px; min-width: 160px; }
+.qo-risk { font-size: 11.5px; color: var(--ink-2); white-space: nowrap; }
+.qo-neg { color: var(--down); } .qo-warn { color: var(--top); font-weight: 600; }
+.qo-side button.active.long { background: rgba(8,153,129,.2); color: #19d3b0; }
+.qo-side button.active.short { background: rgba(242,54,69,.18); color: #ff6b76; }
+.qo-stopm button { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; font-size: 11.5px; }
+.qo-stopm-min button { padding: 1px 5px; gap: 3px; font-size: 11px; }
+.qo-sdot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;
+  border: 1.5px dashed var(--stop-col); opacity: .85;
+}
+.qo-stopm button.active {
+  color: var(--stop-col); background: color-mix(in srgb, var(--stop-col) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stop-col) 65%, transparent);
+}
+.qo-stopm button.active .qo-sdot {
+  border-style: solid; background: var(--stop-col); opacity: 1;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--stop-col) 70%, transparent);
+}
+.qo-stopm button:disabled { opacity: .35; cursor: not-allowed; }
+#chart.qo-line-hover, #chart.qo-line-hover canvas { cursor: pointer !important; }
+.qo-x { margin-left: auto; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; }
+.qo-x:hover { background: var(--hover); color: var(--ink); }
+.qo-chip {
+  padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; cursor: pointer;
+  background: transparent; color: var(--ink-2); font: inherit; font-size: 11.5px; line-height: 1.4;
+}
+.qo-chip:hover { background: var(--hover); color: var(--ink); }
+.qo-chip.auto { border-style: dashed; border-color: rgba(255,152,0,.7); }
+.qo-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.qo-chip.on.auto { box-shadow: 0 0 0 2px rgba(255,152,0,.45); }
+.qo-tpl { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.qo-tpl button { border: none; background: transparent; color: var(--ink-2); font: inherit; font-size: 11.5px; padding: 3px 8px; cursor: pointer; }
+.qo-tpl button:hover { background: var(--hover); color: var(--ink); }
+.qo-tpl.on { border-color: var(--accent); }
+.qo-tpl .qo-tpl-del { padding: 3px 6px; color: var(--muted); border-left: 1px solid var(--border); }
+.qo-addtpl { border: 1px dashed var(--border); background: transparent; color: var(--muted); border-radius: 6px; padding: 3px 8px; font: inherit; font-size: 11.5px; cursor: pointer; }
+.qo-addtpl:hover { color: var(--ink); border-color: var(--muted); }
+.qo-bottom { padding-top: 2px; }
+.qo-btn { border-color: var(--border); }
+.qo-go { font-weight: 700; padding: 5px 16px; color: #fff; }
+.qo-go.long { background: #089981; border-color: #089981; }
+.qo-go.short { background: #f23645; border-color: #f23645; }
+.qo-go:hover { filter: brightness(1.1); color: #fff; }
+.qo-go kbd { background: rgba(0,0,0,.18); color: #fff; border-color: rgba(255,255,255,.35); }
+.qo-err { color: var(--top); font-size: 11.5px; min-height: 0; }
+.qo-err:empty { display: none; }
+.lt-cat .lt-req.lt-auto { color: var(--top); border-color: var(--top); }
+/* 平仓原因 / 比例快捷 chip */
+.exit-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.exit-chips .exit-ratio { display: inline-flex; gap: 4px; margin-left: auto; }
+/* 盲测中隐藏三段背离品种卡(卡片标题含品种名, 会泄露盲测品种) */
+body.trainer-blind #macd3segSymCard { display: none !important; }
+/* 快速下单条: 收起成一行(H), 靠左下, 不挡最新K线 */
+.qo.qo-min {
+  left: 12px; transform: none; width: auto; max-width: calc(100% - 90px);
+  padding: 6px 10px; gap: 4px; bottom: 10px;
+}
+.qo.qo-min .qo-row { flex-wrap: nowrap; }
+.qo-sig { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.qo-badge { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; }
+.qo-badge.long { color: #19d3b0; background: rgba(8,153,129,.18); }
+.qo-badge.short { color: #ff6b76; background: rgba(242,54,69,.16); }
+.qo-minbtn { margin-left: auto; font-size: 11.5px; }
+.qo-minbtn + .qo-x { margin-left: 0; }
+.qo-entry { width: 116px; }
+/* 右侧: 旧版开仓表单默认隐藏, 改为两个快速下单入口 */
+#journalForm { display: none; }
+body.legacy-form #journalForm { display: flex; margin-top: 10px; }
+.jquick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.qo-open { flex: 1 1 0; justify-content: center; font-weight: 700; padding: 7px 10px; border: 1px solid; }
+.qo-open.long { color: #19d3b0; border-color: rgba(8,153,129,.6); background: rgba(8,153,129,.12); }
+.qo-open.short { color: #ff6b76; border-color: rgba(242,54,69,.55); background: rgba(242,54,69,.1); }
+.qo-open:hover:not(:disabled) { filter: brightness(1.15); }
+.qo-open:disabled { opacity: .4; cursor: not-allowed; }
+.jquick-hint { flex: 1 0 100%; font-size: 11px; color: var(--muted); }
+.pr-signals { display: grid; gap: 6px; }
+.pr-signals[hidden] { display: none; }
+.pr-sig-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.pr-sig-row > span { font-size: 11px; color: var(--muted); width: 100%; }

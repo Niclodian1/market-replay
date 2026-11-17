@@ -83,10 +83,15 @@ assert.deepEqual(
 assert.ok(await ev(`!!document.querySelector('#jLogicTags .lt-panel[data-panel="entry"] .logic-tag[data-val="MACD背离"]')`), '动能应在入场信号内');
 assert.ok(await ev(`!!document.querySelector('#jLogicTags .lt-panel[data-panel="entry"] .logic-tag[data-val="假突破"]')`), '裸K应在入场信号内');
 
-// 必填拦截: 全空 → 缺 MA120方向
+// 必填拦截: 全空 → 先要求入场信号(市场环境可自动判定)
 await ev(`document.getElementById('jOpen').click()`);
-assert.ok(String(await ev('window.__alert')).includes('MA120方向'), '缺市场环境应拦截: ' + await ev('window.__alert'));
+assert.ok(String(await ev('window.__alert')).includes('入场信号'), '缺入场信号应拦截: ' + await ev('window.__alert'));
 assert.equal(await ev('positions.length'), 0, '拦截后未开仓');
+// 第 50 根不足 120 根, 市场环境无法自动判定 → 只选信号仍要求手选环境; 失败后信号保持原样
+await ev(`(() => { window.__alert = null; document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="Pinbar"]').click(); document.getElementById('jOpen').click(); })()`);
+assert.ok(String(await ev('window.__alert')).includes('MA120方向'), '数据不足时缺市场环境应拦截: ' + await ev('window.__alert'));
+assert.equal(await ev('positions.length'), 0);
+await ev(`document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="Pinbar"]').click()`);
 
 // 只选市场环境 → 仍缺入场信号
 await ev(`(() => {
@@ -165,6 +170,6 @@ await ev(`(() => {
   positions.length = 0;
 })()`);
 assert.deepEqual(errors, []);
-console.log('PASS logic tags: 两级标签(市场环境必填 + 入场信号必填: MA突破/MA回踩/动能/裸K 任选其一, 形态选填), 一级展开二级, 结构化记录, 止损预估');
+console.log('PASS logic tags: 两级标签(市场环境可自动判定/数据不足时必填 + 入场信号≥1: MA突破/MA回踩/动能/裸K 任选其一, 形态选填), 一级展开二级, 结构化记录, 止损预估');
 ws.close();
 process.exit(0);

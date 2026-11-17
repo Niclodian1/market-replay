@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>缠论多级别联动 · BTC/USD · 1D/4H/1H · 全周期买卖点</title>
-  <link rel="stylesheet" href="css/main.css?v=20261111ui2">
+  <link rel="stylesheet" href="css/main.css?v=20261117qo3">
 </head>
 <body>
 <div id="app">
@@ -224,6 +224,7 @@
         <button class="btn" id="trainerNext" title="快捷键 → 或空格">▶ 下一根</button>
         <button class="btn" id="trainerSignal" title="把当前K线标记为信号K线(重点观察); 再点一次取消">⚡ 信号K</button>
         <button class="btn" id="trainerWatch" title="信号出现但不符合入场条件 → 标记为观察; 再点一次取消">👁 观察</button>
+        <button class="btn" id="trainerQuick" title="快速下单: B 做多 / S 做空, Enter 开仓, W 等待, X 放弃">⚡ 快速下单 <kbd>B</kbd>/<kbd>S</kbd></button>
         <button class="btn" id="trainerDecision">记录判断</button>
         <button class="btn" id="trainerReveal">揭示答案</button>
         <button class="btn" id="trainerQuit">放弃</button>
@@ -274,6 +275,7 @@
               <label>主要理由<select id="prReason"><option value="">填写下方补充说明</option><option>整理充分</option><option>趋势恢复</option><option>K线力度够</option><option>突破关键位置</option><option>K线力度不够</option><option>调整不充分</option><option>高位震荡</option><option>尚未突破关键位置</option><option>下跌动能未消化</option><option>量能不足</option><option>止损距离过宽</option></select></label>
               <label>把握（可选）<select id="prConfidence"><option value="">未填</option><option>低</option><option>中</option><option>高</option></select></label>
             </div>
+            <div class="pr-signals" id="prSignals"></div>
             <label>补充说明<textarea id="prNote" maxlength="400" rows="2" placeholder="例：站上 MA20，但还没收在箱体上沿之上"></textarea></label>
             <label>还在等待什么<input id="prCondition" maxlength="200" placeholder="等待时填写，例如收盘站上箱体上沿"></label>
             <label>什么情况失效<input id="prInvalid" maxlength="200" placeholder="开仓时填写，例如跌破当前 K 线低点"></label>
@@ -348,6 +350,11 @@
       <section class="card card-journal">
         <h3 class="h3-row"><span>复盘交易 <span class="h3-sub" id="journalMode"></span></span>
           <button class="card-collapse" id="sideHideBtn" title="收起右侧面板，只保留主图与副图（图表占满全宽）">⇥</button></h3>
+        <div class="jquick">
+          <button class="btn qo-open long" id="quickOpenLong" title="弹出快速下单条（做多）">做多 <kbd>B</kbd></button>
+          <button class="btn qo-open short" id="quickOpenShort" title="弹出快速下单条（做空）">做空 <kbd>S</kbd></button>
+          <span class="jquick-hint">弹出快速下单条 · <kbd>H</kbd> 收起 · <kbd>Esc</kbd> 关闭</span>
+        </div>
         <div id="journalForm" class="jform">
           <div class="jf-row jf-3">
             <label class="field">保证金 U<input type="number" id="jCapital" value="100000" min="1" title="从账户本金中划扣, 平仓时释放并结算盈亏; 账户初始 100,000U"></label>
@@ -361,8 +368,8 @@
           <div id="jStopLoss" class="jf-hint">输入止损价可预估亏损金额</div>
           <div class="logic-tags2" id="jLogicTags">
             <div class="lt-cats">
-              <button type="button" class="lt-cat" data-cat="market">市场环境<b class="lt-req">必填</b><span class="lt-count" data-count="market">0</span></button>
-              <button type="button" class="lt-cat" data-cat="entry">入场信号<b class="lt-req">必填</b><span class="lt-count" data-count="entry">0</span></button>
+              <button type="button" class="lt-cat" data-cat="market" title="不选则按当根数据自动判定">市场环境<b class="lt-req lt-auto">自动</b><span class="lt-count" data-count="market">0</span></button>
+              <button type="button" class="lt-cat" data-cat="entry">入场信号<b class="lt-req">≥1</b><span class="lt-count" data-count="entry">0</span></button>
               <button type="button" class="lt-cat" data-cat="pattern">形态<span class="lt-count" data-count="pattern">0</span></button>
             </div>
             <div class="lt-panel" data-panel="market" style="display:none;">
@@ -407,18 +414,19 @@
               </div>
             </div>
           </div>
-          <label class="field">开单逻辑补充<span class="field-hint">（市场环境 / 入场信号必选，文字可选）</span><textarea id="jLogic" rows="2" placeholder="例：回抽不破前低, 次级别共振"></textarea></label>
+          <label class="field">开单逻辑补充<span class="field-hint">（入场信号至少 1 个；市场环境不选会自动判定；文字可选）</span><textarea id="jLogic" rows="2" placeholder="例：回抽不破前低, 次级别共振"></textarea></label>
           <button class="btn" id="jOpen">开单（按当前K线）</button>
         </div>
         <div id="jPositions"></div>
         <div class="card-actions">
           <button class="btn btn-ghost" id="jExport">导出 CSV</button>
           <button class="btn btn-ghost" id="jClear">清空</button>
+          <button class="btn btn-ghost" id="jLegacyToggle" title="旧版开仓表单与快速下单条功能重复, 默认隐藏">旧版开仓表单</button>
           <span id="jSummary" class="card-summary"></span>
         </div>
         <details class="help-details">
           <summary>账户与开单规则说明</summary>
-          <p class="note">仅在<b>复盘模式</b>下可用。账户制：每模式独立本金 <b>100,000U</b>（localStorage 持久化），开仓占用保证金、平仓结算盈亏；<b>可同时持有多笔</b>不同方向的仓位，各自独立止损/加仓/平仓。<b>平仓支持比例%</b>（部分落袋）。单笔亏损≥其保证金自动离场；<b>账户净值≤0 即爆仓</b>——练习强制结束、复盘重置本金。盈利加仓只能用本笔浮盈；练习模式加仓理由可留空（自动记为「浮盈加仓」），并可用 <b>⚡ 一键加满</b> 把该笔全部浮盈一次加为保证金。逻辑必填——沉淀你自己的开仓/加仓/离场规则→结果数据集。开单前先点开「市场环境」（MA120方向 + 价格位置）与「入场信号」二级标签（MA突破/MA回踩/动能/裸K 任选其一即可），形态可选，并可补充文字说明。</p>
+          <p class="note">开仓：复盘或练习中按 <b>B / S</b>（或点上方按钮）弹出快速下单条，<b>Enter</b> 开仓，<b>H</b> 收起成一行，<b>Esc</b> 关闭；入场信号至少 1 个，市场环境自动判定。仅在<b>复盘模式</b>下可用。账户制：每模式独立本金 <b>100,000U</b>（localStorage 持久化），开仓占用保证金、平仓结算盈亏；<b>可同时持有多笔</b>不同方向的仓位，各自独立止损/加仓/平仓。<b>平仓支持比例%</b>（部分落袋）。单笔亏损≥其保证金自动离场；<b>账户净值≤0 即爆仓</b>——练习强制结束、复盘重置本金。盈利加仓只能用本笔浮盈；练习模式加仓理由可留空（自动记为「浮盈加仓」），并可用 <b>⚡ 一键加满</b> 把该笔全部浮盈一次加为保证金。逻辑必填——沉淀你自己的开仓/加仓/离场规则→结果数据集。开单前先点开「市场环境」（MA120方向 + 价格位置）与「入场信号」二级标签（MA突破/MA回踩/动能/裸K 任选其一即可），形态可选，并可补充文字说明。</p>
         </details>
       </section>
 
@@ -514,13 +522,15 @@
 <script src="js/02-data.js?v=practice-perf1"></script>
 <script src="js/03-charts.js?v=practice-perf2"></script>
 <script src="js/03-pane-layout.js?v=20261111ui2"></script>
-<script src="js/04-panels.js?v=practice-perf2"></script>
+<script src="js/04-panels.js?v=20261117nomk"></script>
 <script src="js/06-practice-core.js?v=2"></script>
 <script src="js/06-practice-store.js?v=2"></script>
-<script src="js/06-practice.js?v=2"></script>
-<script src="js/05-journal.js?v=20261109ui"></script>
-<script src="js/06-trainer.js?v=20261109ui"></script>
-<script src="js/07-main.js?v=20261109ui"></script>
+<script src="js/06-practice.js?v=20261117qo2"></script>
+<script src="js/06-quick-core.js?v=20261117qo3"></script>
+<script src="js/06-quick-order.js?v=20261117qo4"></script>
+<script src="js/05-journal.js?v=20261117qo4"></script>
+<script src="js/06-trainer.js?v=20261117qo"></script>
+<script src="js/07-main.js?v=20261117qo"></script>
 <script src="js/08-draw.js"></script>
 <script src="js/09-lab-engine.js"></script>
 <script src="js/09-params-lab.js"></script>

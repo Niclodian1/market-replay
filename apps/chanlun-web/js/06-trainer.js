@@ -555,7 +555,7 @@ function quitTrainer(){
   if (!TR.active) return;
   if (TR.revealed){ endTrainer(); return; }
   if (!confirm('放弃本次练习? 未平仓仓位退还保证金; 本局将标记为「放弃」存档')) return;
-  for (const p of positions) acctAdj(posCapital(p));   // 弃局退还未平仓保证金(不计盈亏)
+  for (const p of positions) acctAdj(posMargin(p));   // 弃局退还未平仓保证金(不计盈亏; 浮盈加仓部分本就不是余额划出)
   positions = [];
   TR.endCapital = acctBal();   // 已平仓单盈亏已结算进余额
   finishSessionMeta();

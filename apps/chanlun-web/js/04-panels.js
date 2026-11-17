@@ -38,18 +38,6 @@ function buildMarkers(v){
   if (layers.panbei) panbeiFor(v, pivotMode).forEach(p => {
     out.push({ time:p.t, position:'belowBar', color:kindColor(p.k), shape:'triangle', text:p.k, size:1 });
   });
-  // 练习标记: 每笔开仓/加仓(▲多 belowBar / ▼空 aboveBar, 颜色=持仓色) + 已平仓的出场■(盈亏染色)
-  practiceEntries().forEach(e => {
-    const long = e.side === '多';
-    if (e.isExit){
-      out.push({ time: e.time, position: long ? 'aboveBar' : 'belowBar',
-        color: e.color, shape: 'square', text: `#${e.pid} ${e.price}`, size: 0.5 });
-    } else {
-      out.push({ time: e.time, position: long ? 'belowBar' : 'aboveBar',
-        color: e.color, shape: long ? 'arrowUp' : 'arrowDown',
-        text: `#${e.pid}${e.isAdd ? '+' : ''}`, size: 0.5 });
-    }
-  });
   // 练习: 信号K(⚡ aboveBar 橙) 与 观察(观 belowBar 灰) —— 揭示后保留供复盘
   if (typeof TR !== 'undefined' && (TR.marks || []).length){
     for (const m of TR.marks){
@@ -109,11 +97,6 @@ function buildMaps(v, append = false){
       kind:`回测·${tr.type}`, price:tr.entry, color:kindColor(tr.type), trade:tr,
     };
   });
-  // 练习标记: 开仓/加仓(悬停显示持仓信息; 出场■在 practiceEntries 中带盈亏)
-  practiceEntries().forEach(e => {
-    const kind = e.isExit ? `#${e.pid} 平仓` : `#${e.pid} ${e.isAdd ? '加仓' : '开仓'}`;
-    if (!markerMap[e.time]) markerMap[e.time] = { kind, price: e.price, color: e.color };
-  });
   // ---- 悬停详情索引: bar时间 → 该bar上所有信号的完整生成依据 ----
   detailMap = {};
   const lvTag = pivotMode === 'seg' ? '线段级' : '笔级';
@@ -158,23 +141,6 @@ function buildMaps(v, append = false){
       ['出场', fmt(tr.exit)],
       ['收益', fmtRet(tr.ret)], ['原因', tr.reason],
     ], null);
-  });
-  // 练习开仓/加仓的悬停详情(方向/价格/杠杆/逻辑; 平仓后含盈亏与原因)
-  practiceEntries().forEach(e => {
-    if (e.isExit){
-      const r = TR.session.find(x => x.pid === e.pid && x.exit_ts === e.time);
-      if (r) pushD(e.time, `${e.pid} 平仓`, e.color,
-        [['方向', r.side], ['入场→出场', `${r.entry} → ${r.exit_price}`],
-         ['盈亏', `${r.pnl_u >= 0 ? '+' : ''}${r.pnl_u.toFixed(1)}U`], ['原因', r.exit_reason || '']], null);
-    } else {
-      const pos = posById(e.pid);
-      if (pos){
-        const en = pos.entries.find(x => x.t === e.time);
-        pushD(e.time, `#${e.pid} ${e.isAdd ? '加仓' : '开仓'}`, posColor(pos),
-          [['方向', pos.side], ['价格', fmt(e.price)], ['杠杆', `${(en && en.leverage) || '?'}x`],
-           ['逻辑', (en && en.logic) || '']], (en && en.logic) || null);
-      }
-    }
   });
 }
 
