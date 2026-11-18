@@ -62,19 +62,30 @@ function normalizeSymKey(raw){
 }
 
 // 品种切换: 动态加载 data_<sym>.js 并整体刷新
+let _switchSymSeq = 0;
 async function switchSymbol(sym, force){
   sym = normalizeSymKey(sym);
-  if (!force && currentSym === sym) return;
+  if (!force && currentSym === sym){
+    const sel0 = document.getElementById('symSelect');
+    if (sel0 && sel0.value !== currentSym) sel0.value = currentSym;
+    return;
+  }
+  const reqId = ++_switchSymSeq;
   stopPlay();
+  const src = sym === 'BTC' ? 'data-view/data.js' : 'data-view/data_' + sym.toLowerCase() + '.js';
   try {
     await new Promise((res, rej) => {
       const s = document.createElement('script');
       // BTC 主数据固定为 data.js(与默认加载同一份), 其余品种为 data_<sym>.js
-      s.src = sym === 'BTC' ? 'data-view/data.js' : 'data-view/data_' + sym.toLowerCase() + '.js';
+      s.src = src;
       s.onload = () => { s.remove(); res(); };
-      s.onerror = () => { s.remove(); rej(new Error('加载 ' + s.src + ' 失败')); };
+      s.onerror = () => { s.remove(); rej(new Error('加载品种数据失败 (' + src + ')，请确认本地已生成或线上已部署 data-view 数据文件')); };
       document.head.appendChild(s);
     });
+    if (reqId !== _switchSymSeq) return;
+    if (!window['MARKET_DATA'] || !window['MARKET_DATA'].levels){
+      throw new Error('品种数据格式异常 (' + src + ')');
+    }
     DATA = window['MARKET_DATA'];
     currentSym = sym;
     ChunkStore.win = null;                          // 切品种释放分钟级窗口
@@ -82,11 +93,32 @@ async function switchSymbol(sym, force){
     document.getElementById('replayDate').type = 'date';
     window.TRADES_DATA = sym === 'BTC' ? window._BTC_TRADES : null;
     const sel = document.getElementById('symSelect');
-    if (sel.value !== sym) sel.value = sym;
+    if (sel && sel.value !== sym) sel.value = sym;
     replayT = null;
     document.getElementById('replayCtl').style.display = 'none';
+    const rInfo = document.getElementById('replayInfo');
+    if (rInfo) rInfo.textContent = '';
     document.getElementById('replayBtn').textContent = '进入复盘';
     document.getElementById('replayBtn').classList.remove('active');
+    if (typeof QO !== 'undefined' && QO.open && typeof qoClose === 'function') qoClose();
+    if (typeof updateModeBadge === 'function') updateModeBadge();
+    if (typeof selectTrade === 'function') selectTrade(null);
+    const td = document.getElementById('tradeDetail');
+    if (td) td.style.display = 'none';
+    window._measure = null;
+    if (typeof syncT !== 'undefined') syncT = null;
+    if (typeof pointCardEl !== 'undefined' && pointCardEl) pointCardEl.style.display = 'none';
+    if (typeof aiMa20HideHoverCard === 'function') aiMa20HideHoverCard(true);
+    for (const id of ['markerTip', 'distTag']){
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    }
+    const lDate = document.getElementById('legendDate');
+    const lOhlc = document.getElementById('legendOhlc');
+    const lChg = document.getElementById('legendChg');
+    if (lDate) lDate.textContent = '—';
+    if (lOhlc) lOhlc.textContent = '—';
+    if (lChg) lChg.textContent = '';
     syncTfTabs();
     chart.applyOptions(chartOptions());
     volumeChart.applyOptions({ ...chartOptions(), autoSize: false, grid: { vertLines: { visible: false }, horzLines: { color: t().grid } }, timeScale: { ...chartOptions().timeScale, visible: false } });
@@ -110,6 +142,10 @@ async function switchSymbol(sym, force){
     renderJournal();   // 切品种重建持仓卡与图表侧持仓线
     if (positions.length) flashBtn('snapshotBtn', '⚠ 有持仓, 结算需切回原品种/周期');
     refreshChunkTabs();   // 异步探测并追加分片周期按钮(15F)
-  } catch (e) { alert(e.message); }
+  } catch (e) {
+    const sel = document.getElementById('symSelect');
+    if (sel && sel.value !== currentSym) sel.value = currentSym;
+    alert(e.message);
+  }
 }
 document.getElementById('symSelect').addEventListener('change', e => switchSymbol(e.target.value));

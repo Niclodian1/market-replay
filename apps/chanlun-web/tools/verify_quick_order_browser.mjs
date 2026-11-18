@@ -217,6 +217,7 @@ assert.ok(customLines.filter(l => l.key !== 'chart').every(l => l.lineStyle === 
 await key('h');   // 展开恢复
 await key('l');
 // B4: 选信号 + 存模板 + 应用模板 + Enter 开仓
+await ev(`QO.sel.entry.clear(); QO.sel.pattern.clear(); qoRender();`);
 await ev(`document.querySelector('.qo-chip[data-qo-cat="entry"][data-qo-val="回踩MA20"]').click()`);
 await ev(`document.querySelector('[data-qo-act="save-tpl"]').click()`);
 assert.equal(await ev('qoTemplates().length'), 1);

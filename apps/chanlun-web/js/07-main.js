@@ -44,6 +44,10 @@ function applyTheme(){
   computeStats();
   renderTradePanel();
   refreshTrades();
+  if (typeof refreshChanOverlay === 'function') refreshChanOverlay();
+  if (typeof refreshPositionLines === 'function') refreshPositionLines();
+  if (typeof macd3segRefresh === 'function') macd3segRefresh();
+  if (typeof aiMa20AlgoRefresh === 'function') aiMa20AlgoRefresh();
 }
 
 // ---- 三面板十字光标同步 + 时间刻度对齐 ----
@@ -248,8 +252,15 @@ function computeStats(){
 function renderTradeList(){
   const buys = buysFor(activeView, pivotMode);
   const sells = sellsFor(activeView, pivotMode);
+  const fastCnt = layers.fast ? (alertsFor(activeView).length + fastFor(activeView, pivotMode).length) : 0;
+  const sigBadge = document.getElementById('sideTabSigBadge');
+  if (sigBadge){
+    const nSig = buys.length + sells.length + fastCnt;
+    sigBadge.textContent = nSig ? String(nSig) : '';
+    sigBadge.classList.toggle('on', nSig > 0);
+  }
   const grid = document.getElementById('tradeList');
-  if (!buys.length && !sells.length && !(layers.fast && (alertsFor(activeView).length || fastFor(activeView, pivotMode).length))){
+  if (!buys.length && !sells.length && !fastCnt){
     grid.innerHTML = '<div class="note">当前模式/视图下无买卖点。</div>';
     return;
   }
@@ -438,6 +449,9 @@ document.getElementById('layerToggle').addEventListener('click', e => {
   const key = b.dataset.layer;
   layers[key] = !layers[key];
   b.classList.toggle('active', layers[key]);
+  if (layers[key] && ['buys', 'sells', 'trades', 'fast'].includes(key) && activeSideTab === 'overview'){
+    setSideTab('signals');
+  }
   refreshAll();
 });
 document.getElementById('fitBtn').addEventListener('click', () => { if (!trLocked()) chart.timeScale().fitContent(); });
@@ -448,6 +462,26 @@ document.getElementById('themeBtn').addEventListener('click', () => {
   document.getElementById('themeBtn').textContent = next === 'dark' ? '☀️ 浅色' : '🌙 深色';
   applyTheme();
 });
+// 右侧面板 4-Tab 分页(交易 / 战绩 / 信号 / 概览): 按当前场景自动聚焦, 避免长滚动
+const SIDE_TABS = new Set(['trade', 'practice', 'signals', 'overview']);
+let activeSideTab = 'overview';
+function setSideTab(tab){
+  if (!SIDE_TABS.has(tab)) tab = 'overview';
+  activeSideTab = tab;
+  document.querySelectorAll('#sideTabs .side-tab').forEach(b => {
+    const on = b.dataset.sideTab === tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', String(on));
+  });
+  document.querySelectorAll('.side [data-tab-pane]').forEach(p => {
+    p.classList.toggle('side-pane-hidden', p.dataset.tabPane !== tab);
+  });
+}
+document.getElementById('sideTabs')?.addEventListener('click', e => {
+  const b = e.target.closest('[data-side-tab]');
+  if (b) setSideTab(b.dataset.sideTab);
+});
+
 // 侧栏折叠/展开: 收起后只保留主图+副图(量/MACD), 图表占满全宽
 // 三个入口共用同一状态: 工具栏「⇱ 侧栏」、复盘交易卡右上「⇥」、收起后的浮动「« 复盘交易」
 const SIDE_KEY = 'chanlun.side.collapsed';
@@ -571,6 +605,8 @@ if (QP.get('detail')){
     }
   }
 }
+if (QP.get('detail') || layers.buys || layers.sells || layers.trades || layers.fast) setSideTab('signals');
+else setSideTab('overview');
   window.__INIT_OK = true;
 } catch (e){
   globalThis.__ERRS = globalThis.__ERRS || [];

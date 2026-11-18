@@ -38,8 +38,8 @@ function buildMarkers(v){
   if (layers.panbei) panbeiFor(v, pivotMode).forEach(p => {
     out.push({ time:p.t, position:'belowBar', color:kindColor(p.k), shape:'triangle', text:p.k, size:1 });
   });
-  // 练习: 信号K(⚡ aboveBar 橙) 与 观察(观 belowBar 灰) —— 揭示后保留供复盘
-  if (typeof TR !== 'undefined' && (TR.marks || []).length){
+  // 练习: 信号K(⚡ aboveBar 橙) 与 观察(观 belowBar 灰) —— 揭示后保留供复盘(仅限本局对应品种与周期)
+  if (typeof TR !== 'undefined' && (TR.marks || []).length && (!TR.sym || (currentSym === TR.sym && activeTF === TR.tf))){
     for (const m of TR.marks){
       out.push(m.kind === 'signal'
         ? { time: m.t, position: 'aboveBar', color: T.top, shape: 'circle', text: '⚡', size: 0.5 }
@@ -152,6 +152,7 @@ function applySeries(opts = {}){
     const v=activeView, cs=candlesFor(v), bar=cs.at(-1), previous=_renderedCandleFrame;
     const append=!!(opts.step&&trLocked()&&previous?.view===v&&previous.theme===themeKey()&&
       cs.length===previous.length+1&&cs[0]===previous.first&&cs.at(-2)===previous.last);
+    let md = null;
     if(append){
       const T=t(), i=cs.length-1, m=macdFor(v);
       candleSeries.update(bar);
@@ -162,7 +163,7 @@ function applySeries(opts = {}){
     }else{
       candleSeries.setData(cs);
       volumeSeries.setData(buildVolData(v));
-      const md = buildMacdData(v);
+      md = buildMacdData(v);
       macdHistSeries.setData(md.hist);
       macdLineSeries.setData(md.diff);
       macdSignalSeries.setData(md.dea);
@@ -170,6 +171,7 @@ function applySeries(opts = {}){
     candleSeries.setMarkers(buildMarkers(v));
     buildMaps(v,append);
     rebuildMA(append);
+    if (!append && typeof applyPriceFormats === 'function') applyPriceFormats(cs, md);
     if (typeof aiMa20AlgoRefresh === 'function') aiMa20AlgoRefresh();
     if (typeof macd3segRefresh === 'function') macd3segRefresh();
     _renderedCandleFrame={view:v,theme:themeKey(),first:cs[0],last:bar,length:cs.length};
@@ -345,6 +347,7 @@ function enterReplay(ts){
   }
   renderJournal();   // 刷新复盘模式显示与按钮可用态
   refreshAll();
+  if (typeof setSideTab === 'function') setSideTab('trade');
 }
 function exitReplay(){
   stopPlay();
@@ -356,6 +359,7 @@ function exitReplay(){
   updateModeBadge();
   renderJournal();   // 退出复盘: 刷新模式显示与按钮可用态
   refreshAll();
+  if (!TR.active && typeof setSideTab === 'function') setSideTab('overview');
   chart.timeScale().fitContent();
 }
 function stopPlay(){

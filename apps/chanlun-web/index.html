@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>缠论多级别联动 · BTC/USD · 1D/4H/1H · 全周期买卖点</title>
-  <link rel="stylesheet" href="css/main.css?v=20261117qo3">
+  <link rel="stylesheet" href="css/main.css?v=20261118ui2">
 </head>
 <body>
 <div id="app">
@@ -200,7 +200,7 @@
         <span class="controls-label cl-ma">MA</span>
         <input id="maPeriods" class="tb-input" value="20,60,120" title="均线周期, 逗号分隔(最多6条), 留空隐藏。例: 5,10,20,60">
       </span>
-      <span class="tb-sep"></span>
+      <span class="tb-sep tb-sub-ann-sep"></span>
       <span class="tb-group">
         <button class="btn btn-outline" id="manualAddToolbar" title="在任意K线上标记你会买的位置，按当根收盘价记录">＋ 我的买点</button>
         <button class="btn" id="annBtn" title="查看我的买点，或切换到已有算法复核">🏷 标注</button>
@@ -347,9 +347,18 @@
     </section>
 
     <aside class="side">
-      <section class="card card-journal">
-        <h3 class="h3-row"><span>复盘交易 <span class="h3-sub" id="journalMode"></span></span>
-          <button class="card-collapse" id="sideHideBtn" title="收起右侧面板，只保留主图与副图（图表占满全宽）">⇥</button></h3>
+      <div class="side-header">
+        <div class="side-tabs" id="sideTabs" role="tablist" aria-label="右侧功能区">
+          <button type="button" class="side-tab" role="tab" aria-selected="false" data-side-tab="trade">交易<span class="side-tab-badge" id="sideTabPosBadge"></span></button>
+          <button type="button" class="side-tab" role="tab" aria-selected="false" data-side-tab="practice">战绩<span class="side-tab-badge" id="sideTabPracBadge"></span></button>
+          <button type="button" class="side-tab" role="tab" aria-selected="false" data-side-tab="signals">信号<span class="side-tab-badge" id="sideTabSigBadge"></span></button>
+          <button type="button" class="side-tab active" role="tab" aria-selected="true" data-side-tab="overview">概览</button>
+        </div>
+        <button class="card-collapse" id="sideHideBtn" title="收起右侧面板，只保留主图与副图（图表占满全宽）">⇥</button>
+      </div>
+
+      <section class="card card-journal side-pane-hidden" data-tab-pane="trade">
+        <h3>复盘交易 <span class="h3-sub" id="journalMode"></span></h3>
         <div class="jquick">
           <button class="btn qo-open long" id="quickOpenLong" title="弹出快速下单条（做多）">做多 <kbd>B</kbd></button>
           <button class="btn qo-open short" id="quickOpenShort" title="弹出快速下单条（做空）">做空 <kbd>S</kbd></button>
@@ -430,12 +439,12 @@
         </details>
       </section>
 
-      <section class="card" id="statsCard">
+      <section class="card side-pane-hidden" id="statsCard" data-tab-pane="overview">
         <h3>统计</h3>
         <div class="stat-grid" id="statsGrid"></div>
       </section>
 
-      <section class="card">
+      <section class="card side-pane-hidden" data-tab-pane="practice">
         <h3>练习战绩 <span class="h3-sub" id="trStatMode"></span></h3>
         <div class="trade-stats" id="trStatsGrid"></div>
         <div id="trPerSym" class="tr-per-sym"></div>
@@ -466,13 +475,13 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card side-pane-hidden" data-tab-pane="signals">
         <h3>买卖点 <span class="h3-sub" id="tradeListMode"></span></h3>
         <div class="buy-list" id="tradeList"></div>
         <div class="buy-detail" id="tradeDetail" style="display:none"></div>
       </section>
 
-      <section class="card">
+      <section class="card side-pane-hidden" data-tab-pane="signals">
         <h3>回测交易 <span class="h3-sub" id="tradePanelMode"></span></h3>
         <div class="trade-stats" id="tradeStats"></div>
         <div class="trade-list" id="backtestTradeList"></div>
@@ -483,7 +492,12 @@
         </details>
       </section>
 
-      <section class="card algo-card">
+      <div class="blind-overview-mask" data-tab-pane="overview">
+        <b>盲测练习进行中</b>
+        <p>为防止剧透品种与时间周期，市场统计与数据口径在练习期间已隐藏，揭示答案后自动展开。</p>
+      </div>
+
+      <section class="card algo-card" data-tab-pane="overview">
         <details class="card-details">
           <summary><h3>缠论实现要点</h3></summary>
         <ol>
@@ -501,7 +515,7 @@
         </details>
       </section>
 
-      <section class="card">
+      <section class="card" data-tab-pane="overview">
         <details class="card-details" open>
           <summary><h3>数据口径</h3></summary>
           <p class="note" id="dataNote" style="margin-top:0"></p>
@@ -517,20 +531,20 @@
 <script src="data-view/trades_data.js"></script>
 <script src="data-view/fng_data.js?v=20261109fng"></script>
 <script src="data-view/macd3seg_data.js?v=20261105ndx"></script>
-<script src="js/00-app-core.js?v=20261105ndx"></script>
-<script src="js/01-config.js?v=20261105ndx"></script>
+<script src="js/00-app-core.js?v=20261118ui2"></script>
+<script src="js/01-config.js?v=20261118ui2"></script>
 <script src="js/02-data.js?v=practice-perf1"></script>
-<script src="js/03-charts.js?v=practice-perf2"></script>
+<script src="js/03-charts.js?v=20261118ui2"></script>
 <script src="js/03-pane-layout.js?v=20261111ui2"></script>
-<script src="js/04-panels.js?v=20261117nomk"></script>
+<script src="js/04-panels.js?v=20261118ui2"></script>
 <script src="js/06-practice-core.js?v=2"></script>
 <script src="js/06-practice-store.js?v=2"></script>
 <script src="js/06-practice.js?v=20261117qo2"></script>
 <script src="js/06-quick-core.js?v=20261117qo3"></script>
-<script src="js/06-quick-order.js?v=20261117qo4"></script>
-<script src="js/05-journal.js?v=20261117qo4"></script>
-<script src="js/06-trainer.js?v=20261117qo"></script>
-<script src="js/07-main.js?v=20261117qo"></script>
+<script src="js/06-quick-order.js?v=20261118ui2"></script>
+<script src="js/05-journal.js?v=20261118ui2"></script>
+<script src="js/06-trainer.js?v=20261118ui2"></script>
+<script src="js/07-main.js?v=20261118ui2"></script>
 <script src="js/08-draw.js"></script>
 <script src="js/09-lab-engine.js"></script>
 <script src="js/09-params-lab.js"></script>
@@ -551,8 +565,8 @@
 <script src="js/14-cover67-indicator.js?v=20261030pick2"></script>
 <script src="js/15-ma20-structure.js?v=practice-perf2"></script>
 <script src="js/16-ma20-ai.js?v=20261104ai2"></script>
-<script src="js/17-ai-ma20-algo.js?v=20261111v21"></script>
-<script src="js/18-macd-3seg.js?v=20261111ui2"></script>
+<script src="js/17-ai-ma20-algo.js?v=20261118ui"></script>
+<script src="js/18-macd-3seg.js?v=20261118ui"></script>
 <script src="js/19-toolbar-ui.js?v=20261111ui2"></script>
 </body>
 </html>

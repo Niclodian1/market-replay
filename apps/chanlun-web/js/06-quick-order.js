@@ -234,6 +234,8 @@ function qoRender(){
   const stopPct = QO.stop != null ? ((QO.stop / entry - 1) * 100).toFixed(2) + '%' : '—';
   const stopDesc = QO.stopPicked ? (QO_STOP_LABEL[QO.stopMethod] || '') : '默认本根 · 点虚线选';
   QO.el.classList.toggle('qo-min', QO.min);
+  QO.el.classList.toggle('qo-is-long', QO.side !== '空');
+  QO.el.classList.toggle('qo-is-short', QO.side === '空');
   if (QO.min){
     const sig = [...QO.sel.entry, ...QO.sel.pattern];
     QO.el.innerHTML = `

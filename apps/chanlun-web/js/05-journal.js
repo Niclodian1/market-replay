@@ -84,18 +84,18 @@ const fmtR = r => (r >= 0 ? '+' : '') + r.toFixed(2) + 'R';
 // 还可加 = 当前浮动盈亏 − 已投用的加仓本金(首笔开仓本金不计入消耗);
 // 浮盈回吐时余额随之收缩, 保底为 0(浮亏状态禁止加仓)。
 function addBudget(pos){
-  if (!pos) return { u:0, used:0, avail:0 };
+  if (!pos || !posLayoutOk(pos)) return { u:0, used:0, avail:0 };
   const bar = curBar();
   const u = bar ? pnlOf(pos, bar.close) : 0;
   const used = pos.entries.slice(1).reduce((a,e) => a + e.capital, 0);
   return { u, used, avail: Math.max(0, u - used) };
 }
-// 账户净值 = 可用余额 + 占用保证金 + 当前布局持仓浮动盈亏
-// (保证金只是被锁定并未消失; 旧版漏加占用 → 满仓开仓后任何浮亏都会被误判为爆仓)
+// 账户净值 = 可用余额 + 全部在仓占用保证金 + 当前布局持仓浮动盈亏
+// (跨品种持仓的保证金同样已从可用余额扣除, 切换品种时不能漏加否则净值虚减甚至误判爆仓)
 const acctEquity = () => {
   const bar = curBar();
   const cur = positions.filter(p => posLayoutOk(p));
-  const used = cur.reduce((a,p) => a + posMargin(p), 0);
+  const used = positions.reduce((a,p) => a + posMargin(p), 0);
   const floatPnl = bar ? cur.reduce((a,p) => a + pnlOf(p, bar.close), 0) : 0;
   return acctBal() + used + floatPnl;
 };
@@ -150,6 +150,11 @@ function biasRowInner(pos, b){
   return `乖离 MA20 <b>${sgn(b.b20)}%</b> (${pTxt}) · MA60 ${sgn(b.b60)}% · ${st}${trend}${side}`;
 }
 function renderJournal(){
+  const posBadge = document.getElementById('sideTabPosBadge');
+  if (posBadge){
+    posBadge.textContent = positions.length ? String(positions.length) : '';
+    posBadge.classList.toggle('on', positions.length > 0);
+  }
   const box = document.getElementById('jPositions');
   if (!box) return;
   document.getElementById('journalMode').textContent =
@@ -159,25 +164,38 @@ function renderJournal(){
   // 练习(盲测)模式下加仓理由可留空, 自动记为「浮盈加仓」; 复盘模式仍要求填写
   const addLogicLabel = trLocked() ? '加仓逻辑 / 依据 (留空=浮盈加仓)' : '加仓逻辑 / 依据 (必填)';
   let html = '';
-  // 账户行: 本金/占用/浮动/净值
+  if (!inReplay()){
+    html += `<div class="journal-idle-tip">
+      <span>进入<b>复盘</b>或<b>练习</b>后即可使用快速下单 <kbd>B</kbd>/<kbd>S</kbd> 与持仓管理。</span>
+      <div class="jit-btns">
+        <button type="button" class="btn btn-outline" data-idle-act="replay">进入复盘</button>
+        <button type="button" class="btn btn-outline" data-idle-act="trainer">开始练习</button>
+      </div>
+    </div>`;
+  }
+  // 账户行: 净值 / 浮动 / 本金 / 占用 / 持仓杠杆
   const floatSum = bar ? positions.filter(p => posLayoutOk(p)).reduce((a,p) => a + pnlOf(p, bar.close), 0) : 0;
-  const used = positions.filter(p => posLayoutOk(p)).reduce((a,p) => a + posMargin(p), 0);
-  const eq = acctBal() + used + floatSum;   // 净值含占用保证金
+  const used = positions.reduce((a,p) => a + posMargin(p), 0);
+  const eq = acctBal() + used + floatSum;   // 净值含全部在仓占用保证金
   const notional = bar ? positions.filter(p => posLayoutOk(p)).reduce((a,p) => a + posValue(p, bar.close), 0) : 0;
   const levTotal = eq > 0 ? notional / eq : 0;
   const eqBase = (TR.active && TR.capital0) ? TR.capital0 : INIT_CAPITAL;   // 练习局按本局本金配色
-  const eqCol = eq > eqBase ? 'var(--up)' : (eq < eqBase ? 'var(--down)' : 'var(--ink-2)');
-  html += `<div data-acct style="border:1px dashed var(--border); border-radius:6px; padding:5px 8px; margin-top:8px; font-size:12px;">
-    本金 <b data-abal>${acctBal().toFixed(2)}U</b> · 占用 <span data-aused>${used.toFixed(0)}</span>U ·
-    浮动 <span data-fsum style="font-weight:700;color:${floatSum >= 0 ? 'var(--up)' : 'var(--down)'}">${floatSum >= 0 ? '+' : ''}${floatSum.toFixed(2)}U</span> ·
-    净值 <b data-aeq style="color:${eqCol}">${eq.toFixed(2)}U</b> ·
-    持仓杠杆 <b data-alev title="全部持仓名义价值 ÷ 账户净值">${notional > 0 ? levTotal.toFixed(2) + 'x' : '—'}</b>
-    <button class="btn" id="jResetAcct" title="清零盈亏, 恢复初始本金(需先平掉全部持仓)" style="margin-left:6px;">重置本金</button>
+  const eqCol = eq > eqBase ? 'var(--up)' : (eq < eqBase ? 'var(--down)' : 'var(--ink)');
+  html += `<div class="acct-card" data-acct>
+    <div class="acct-main">
+      <div class="acct-kpi"><span class="acct-k">账户净值</span><b class="acct-eq tnum" data-aeq style="color:${eqCol}">${eq.toFixed(2)}U</b></div>
+      <div class="acct-kpi"><span class="acct-k">浮动盈亏</span><span class="acct-flt tnum" data-fsum style="color:${floatSum >= 0 ? 'var(--up)' : 'var(--down)'}">${floatSum >= 0 ? '+' : ''}${floatSum.toFixed(2)}U</span></div>
+      <button class="btn btn-ghost acct-reset" id="jResetAcct" title="清零盈亏, 恢复初始本金(需先平掉全部持仓)">重置本金</button>
+    </div>
+    <div class="acct-sub tnum">
+      <span>可用本金 <b data-abal>${acctBal().toFixed(2)}U</b></span>
+      <span>占用 <b data-aused>${used.toFixed(0)}</b>U</span>
+      <span>持仓杠杆 <b data-alev title="全部持仓名义价值 ÷ 账户净值">${notional > 0 ? levTotal.toFixed(2) + 'x' : '—'}</b></span>
+    </div>
   </div>`;
   // 一键全平: 放在单子(持仓卡)上方, 大按钮; 无持仓时隐藏
   if (positions.length){
-    html += `<button class="btn" id="jCloseAll" title="平掉当前品种/周期下的全部持仓(按当前收盘价, 离场依据统一记录为「一键全部平仓」)"
-      style="width:100%; margin-top:8px; padding:9px 0; font-size:14px; font-weight:700; letter-spacing:.5px; background:rgba(242,54,69,.12); border:1px solid var(--down); color:var(--down); border-radius:6px; cursor:pointer;">⚡ 一键全平（${positions.length} 笔）</button>`;
+    html += `<button class="btn btn-close-all" id="jCloseAll" title="平掉当前品种/周期下的全部持仓(按当前收盘价, 离场依据统一记录为「一键全部平仓」)">⚡ 一键全平（${positions.length} 笔）</button>`;
   }
   const biasSnap = positions.length ? biasSnapshot() : null;
   for (const pos of positions){
@@ -192,59 +210,68 @@ function renderJournal(){
     const rv = ok && bar ? rNow(pos, bar.close) : null;
     if (rv != null) pos.maxR = Math.max(pos.maxR ?? rv, rv);
     const rRow = pos.stop != null
-      ? `<span data-r="${pos.id}" style="font-weight:600; font-size:12px;">${rv != null ? `R ${fmtR(rv)} · 最大收盘 ${fmtR(pos.maxR)}` : 'R —'}</span><br>`
-      : '<span style="opacity:.55; font-size:11px;">未设止损 · 无 R 基准</span><br>';
+      ? `<span data-r="${pos.id}" class="pos-r tnum">${rv != null ? `R ${fmtR(rv)} · 最大收盘 ${fmtR(pos.maxR)}` : 'R —'}</span>`
+      : '<span class="pos-r pos-r-empty">未设止损 · 无 R 基准</span>';
     // 乖离档位: 仅匹配当前布局的持仓卡显示(异布局行情的乖离对该持仓无意义)
     const biasRow = ok
-      ? `<span data-bias="${pos.id}" title="${BIAS_TIP}" style="font-size:11px; display:block; margin-top:2px; color:var(--ink-2);">${biasRowInner(pos, biasSnap)}</span>`
+      ? `<span data-bias="${pos.id}" title="${BIAS_TIP}" class="pos-bias">${biasRowInner(pos, biasSnap)}</span>`
       : '';
-    html += `<div class="pos-card" data-pid="${pos.id}" style="border:1px solid var(--border); border-radius:6px; padding:6px 8px; margin-top:8px;">
-      <b>#${pos.id} ${pos.side}</b> · ${pos.entries.length}笔 · 加权开仓 ${fmt(posAvgEntry(pos))} · 止损 ${pos.stop ?? '—'}${ok ? '' : ` <span style="color:var(--down); font-weight:600;">⚠ 绑定 ${pos.sym} ${pos.tf}, 请切回后结算</span>`}<br>
-      <span style="opacity:.85">持仓金额 ${pv.toFixed(1)} U · 对净值 <b data-plev="${pos.id}">${ok && eq > 0 ? (pv/eq).toFixed(2) + 'x' : '—'}</b></span><br>
-      <span data-float="${pos.id}" style="font-size:15px;font-weight:700;color:${col}">浮动盈亏 ${u >= 0 ? '+' : ''}${u.toFixed(1)} U (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)</span><br>
-      ${rRow}
+    const isShort = pos.side === '空';
+    html += `<div class="pos-card ${isShort ? 'pos-short' : 'pos-long'}" data-pid="${pos.id}">
+      <div class="pos-head">
+        <span class="pos-title"><b class="pos-id">#${pos.id}</b> <span class="pos-side-tag ${isShort ? 'short' : 'long'}">${pos.side}</span> · <span class="tnum">${pos.entries.length}笔</span></span>
+        <span class="pos-meta tnum">均价 <b>${fmt(posAvgEntry(pos))}</b> · 损 <b>${pos.stop ?? '—'}</b></span>
+      </div>
+      ${ok ? '' : `<div class="pos-warn">⚠ 绑定 ${pos.sym} ${pos.tf}, 请切回后结算</div>`}
+      <div class="pos-pnl-row">
+        <span data-float="${pos.id}" class="pos-float tnum" style="color:${col}">浮动盈亏 ${u >= 0 ? '+' : ''}${u.toFixed(1)} U (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)</span>
+      </div>
+      <div class="pos-metrics tnum">
+        <span>持仓 <b class="tnum">${pv.toFixed(1)}U</b> · 对净值 <b data-plev="${pos.id}">${ok && eq > 0 ? (pv/eq).toFixed(2) + 'x' : '—'}</b></span>
+        ${rRow}
+      </div>
       ${biasRow}
-      ${pos.entries.map((e,i) =>
-        `<span style="opacity:.72" title="${e.logic.replace(/"/g,'&quot;')}">${i+1}) ${e.price} · ${e.leverage}x · ${e.capital}U · ${fmtLogic(e.logic)}</span>`
-      ).join('<br>')}
-      <div style="display:flex; gap:6px; margin-top:5px;">
-        <button class="btn" data-act="add-toggle" data-pid="${pos.id}">加仓</button>
-        <button class="btn" data-act="close-toggle" data-pid="${pos.id}">平仓</button>
+      <div class="pos-legs">${pos.entries.map((e,i) =>
+        `<div class="pos-leg tnum" title="${e.logic.replace(/"/g,'&quot;')}">${i+1}) ${e.price} · ${e.leverage}x · ${e.capital}U · ${fmtLogic(e.logic)}</div>`
+      ).join('')}</div>
+      <div class="pos-btns">
+        <button class="btn btn-outline" data-act="add-toggle" data-pid="${pos.id}">＋ 加仓</button>
+        <button class="btn btn-outline" data-act="close-toggle" data-pid="${pos.id}">平仓结算</button>
       </div>
-      <div class="sec-add" style="display:none; flex-direction:column; gap:5px; margin-top:6px; border-top:1px dashed var(--border); padding-top:6px;">
-        <div data-budget="${pos.id}" style="font-size:11px; opacity:.8;"></div>
-        <div style="display:flex; gap:4px;">
-          <label style="flex:1">本金U(≤浮盈)<input type="number" class="inp-add-cap" min="0" step="0.01" placeholder="≤还可加" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"></label>
-          <label style="flex:1">杠杆<input type="number" class="inp-add-lev" value="${lastLev}" min="1" max="125" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"></label>
-          <label style="flex:1">加仓价<input type="number" class="inp-add-price" placeholder="当前收盘" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"></label>
+      <div class="sec-add pos-subform" style="display:none;">
+        <div data-budget="${pos.id}" class="pos-budget"></div>
+        <div class="pos-form-grid3">
+          <label class="field">本金U(≤浮盈)<input type="number" class="inp-add-cap" min="0" step="0.01" placeholder="≤还可加"></label>
+          <label class="field">杠杆<input type="number" class="inp-add-lev" value="${lastLev}" min="1" max="125"></label>
+          <label class="field">加仓价<input type="number" class="inp-add-price" placeholder="当前收盘"></label>
         </div>
-        <label>止损价(留空=维持 ${pos.stop ?? '无'})<input type="number" class="inp-add-stop" placeholder="留空不变" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"></label>
-        <label>${addLogicLabel}<textarea class="inp-add-logic" rows="2" placeholder="例: 盈利加仓: 次级别二买确认, 突破前高回踩不破 (练习模式留空=浮盈加仓)" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font:inherit;"></textarea></label>
-        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-          <button class="btn" data-act="add-ok" data-pid="${pos.id}">确认加仓(按当前K线)</button>
-          <button class="btn" data-act="add-full" data-pid="${pos.id}" title="把该笔订单当前全部可加浮盈一次性加为保证金(按当前收盘价, 沿用上次杠杆; 练习模式理由留空自动记为「浮盈加仓」)">⚡ 一键加满 <span data-full="${pos.id}">${bdInit.avail > 0 ? bdInit.avail.toFixed(2) + 'U' : ''}</span></button>
+        <label class="field">止损价(留空=维持 ${pos.stop ?? '无'})<input type="number" class="inp-add-stop" placeholder="留空不变"></label>
+        <label class="field">${addLogicLabel}<textarea class="inp-add-logic" rows="2" placeholder="例: 盈利加仓: 次级别二买确认, 突破前高回踩不破 (练习模式留空=浮盈加仓)"></textarea></label>
+        <div class="pos-sub-actions">
+          <button class="btn btn-primary" data-act="add-ok" data-pid="${pos.id}">确认加仓</button>
+          <button class="btn btn-outline" data-act="add-full" data-pid="${pos.id}" title="把该笔订单当前全部可加浮盈一次性加为保证金(按当前收盘价, 沿用上次杠杆; 练习模式理由留空自动记为「浮盈加仓」)">⚡ 一键加满 <span data-full="${pos.id}">${bdInit.avail > 0 ? bdInit.avail.toFixed(2) + 'U' : ''}</span></button>
         </div>
       </div>
-      <div class="sec-exit" style="display:none; flex-direction:column; gap:5px; margin-top:6px; border-top:1px dashed var(--border); padding-top:6px;">
-        <div style="display:flex; gap:4px; align-items:center;">
-          <label style="flex:1">平仓比例%<input type="number" class="inp-exit-ratio" value="100" min="1" max="100" step="1" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;"></label>
-          <span style="opacity:.7; flex:1">按当前收盘价</span>
+      <div class="sec-exit pos-subform" style="display:none;">
+        <div class="pos-exit-top">
+          <label class="field">平仓比例%<input type="number" class="inp-exit-ratio" value="100" min="1" max="100" step="1"></label>
+          <span class="pos-exit-hint">按当前收盘价成交</span>
         </div>
         <div class="exit-chips">${['止盈目标','移动止盈','背驰','破位','时间到','看错了'].map(x =>
           `<button type="button" class="logic-tag" data-act="exit-chip" data-val="${x}">${x}</button>`).join('')}
           <span class="exit-ratio">${[25,50,100].map(x => `<button type="button" class="logic-tag" data-act="ratio-chip" data-val="${x}">${x}%</button>`).join('')}</span></div>
-        <label>平仓逻辑 / 离场依据 (必填, 点上方原因即可)<textarea class="inp-exit-logic" rows="2" placeholder="例: 段顶+次级别顶背驰, 减半落袋 / 破位清仓" style="width:100%;background:var(--plane);color:inherit;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font:inherit;"></textarea></label>
-        <button class="btn" data-act="close-ok" data-pid="${pos.id}" style="align-self:flex-start;">确认平仓(当前收盘)</button>
+        <label class="field">平仓逻辑 / 离场依据 (必填, 点上方原因即可)<textarea class="inp-exit-logic" rows="2" placeholder="例: 段顶+次级别顶背驰, 减半落袋 / 破位清仓"></textarea></label>
+        <button class="btn btn-primary" data-act="close-ok" data-pid="${pos.id}">确认平仓(当前收盘)</button>
       </div>
     </div>`;
   }
   if (!positions.length){
-    html += `<p class="note" style="margin-top:8px;">暂无持仓。可同时开多笔不同方向的仓位, 各自独立止损。</p>`;
+    html += `<p class="note pos-empty-note">暂无持仓。可同时开多笔不同方向的仓位, 各自独立止损。</p>`;
   }
   const hist = jLoad().slice(-8).reverse();
   if (hist.length){
-    html += `<table style="width:100%; font-size:11px; margin-top:8px; border-collapse:collapse;">
-      <tr style="opacity:.6"><td>时间</td><td>方向</td><td>入场→出场</td><td>盈亏U</td></tr>` +
+    html += `<div class="j-hist-title">最近平仓</div>
+      <table class="j-table"><thead><tr><th>时间</th><th>方向</th><th>入场→出场</th><th class="num">盈亏U</th></tr></thead><tbody>` +
       hist.map(t => {
         const col = t.pnl_u >= 0 ? 'var(--up)' : 'var(--down)';
         const tip = `${t.exit_reason || ''}${t.exit_logic ? ' · ' + t.exit_logic : ''}`.replace(/"/g,'&quot;');
@@ -253,9 +280,9 @@ function renderJournal(){
         const tLbl = (trLocked() && t.exit_ts != null && wFirst != null &&
                       t.exit_ts >= wFirst && t.exit_ts <= (replayT ?? Infinity))
           ? trLabel(t.exit_ts) : t.exit_time;
-        return `<tr title="${tip}"><td>${tLbl}</td><td>${t.side}${t.adds > 0 ? '+'+t.adds : ''}</td><td>${t.entry}→${t.exit_price}</td>
-          <td style="color:${col};text-align:right">${t.pnl_u >= 0 ? '+' : ''}${(+t.pnl_u).toFixed(1)}</td></tr>`;
-      }).join('') + '</table>';
+        return `<tr title="${tip}"><td>${tLbl}</td><td>${t.side}${t.adds > 0 ? '+'+t.adds : ''}</td><td class="tnum">${t.entry}→${t.exit_price}</td>
+          <td class="num tnum" style="color:${col}">${t.pnl_u >= 0 ? '+' : ''}${(+t.pnl_u).toFixed(1)}</td></tr>`;
+      }).join('') + '</tbody></table>';
   }
   box.innerHTML = html;
   const closed = jLoad();
@@ -278,8 +305,8 @@ function updateLivePnl(){
   if (balEl){
     const mine = positions.filter(p => posLayoutOk(p));
     const floatSum = mine.reduce((a,p) => a + pnlOf(p, bar.close), 0);
-    const used = mine.reduce((a,p) => a + posMargin(p), 0);
-    const eq = acctBal() + used + floatSum;   // 净值含占用保证金
+    const used = positions.reduce((a,p) => a + posMargin(p), 0);
+    const eq = acctBal() + used + floatSum;   // 净值含全部在仓占用保证金
     const fsEl = document.querySelector('[data-fsum]');
     const eqEl = document.querySelector('[data-aeq]');
     const usEl = document.querySelector('[data-aused]');
@@ -296,7 +323,7 @@ function updateLivePnl(){
   }
   // 各持仓卡: 浮盈 + R 倍数 + 对净值杠杆 + 加仓预算
   const mineNow = positions.filter(p => posLayoutOk(p));
-  const eqNow = acctBal() + mineNow.reduce((a,p) => a + posMargin(p), 0) + mineNow.reduce((a,p) => a + pnlOf(p, bar.close), 0);
+  const eqNow = acctBal() + positions.reduce((a,p) => a + posMargin(p), 0) + mineNow.reduce((a,p) => a + pnlOf(p, bar.close), 0);
   const biasSnap = positions.length ? biasSnapshot() : null;   // 每步只算一次, 多持仓复用
   for (const pos of positions){
     if (!posLayoutOk(pos)){   // 异布局持仓: 切回后才显示浮盈/乖离
@@ -663,8 +690,13 @@ function setupJournal(){
     el.addEventListener('change', updateStopLossEstimate);
   });
   document.getElementById('jOpen').addEventListener('click', () => openJournalPosition());
-  // 持仓卡事件委托: 加仓/平仓表单切换 + 确认动作 + 重置本金
+  // 持仓卡事件委托: 加仓/平仓表单切换 + 确认动作 + 重置本金 + 空闲快捷入口
   document.getElementById('jPositions').addEventListener('click', e => {
+    const idleBtn = e.target.closest('[data-idle-act]');
+    if (idleBtn){
+      document.getElementById(idleBtn.dataset.idleAct === 'trainer' ? 'trainerBtn' : 'replayBtn')?.click();
+      return;
+    }
     if (e.target.id === 'jResetAcct'){
       if (positions.length){ alert('有未平仓位, 请先平仓再重置本金'); return; }
       const m = curModeKey() === 'trainer' ? '练习' : '复盘';
@@ -858,6 +890,7 @@ posPopupEl.addEventListener('click', e => {
   switch (b.dataset.pp){
     case 'add': {
       closePosPopup();
+      if (typeof setSideTab === 'function') setSideTab('trade');
       const card = document.querySelector(`.pos-card[data-pid="${pos.id}"]`);
       if (!card){ alert('未找到该持仓卡片, 请在右侧面板操作'); return; }
       card.scrollIntoView({ behavior: 'smooth', block: 'center' });

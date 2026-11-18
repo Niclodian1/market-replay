@@ -5,7 +5,7 @@
 'use strict';
 
 const MACD3SEG = {
-  on: true,
+  on: false,               // 默认保持主图干净, 需要时可在「指标」菜单开启 三段背离
   open: false,
   cardMin: false,
   panelTab: 'cards',      // 'cards' (全品种统计卡片墙) | 'entries' (当前品种信号列表)
@@ -18,13 +18,13 @@ const MACD3SEG = {
   _lastSymTf: null,
 };
 try {
-  const saved = localStorage.getItem('chanlun.macd3seg.v2');
-  if (saved === 'off') MACD3SEG.on = false;
+  const saved = localStorage.getItem('chanlun.macd3seg.v3');
+  if (saved === 'on') MACD3SEG.on = true;
   // 品种统计卡默认折叠(只留一行标题), 避免遮挡主图; 用户展开过则记住
   MACD3SEG.cardMin = localStorage.getItem('chanlun.macd3seg.cardMin') !== '0';
 } catch (_) {}
 
-const M3S_COL = { buy: '#22c55e', sell: '#ef4444', stop: '#f59e0b', seg: '#a78bfa' };
+const M3S_COL = { buy: '#0d9f86', sell: '#ef4452', stop: '#f59e0b', seg: '#8b5cf6' };
 
 function m3sFmtDate(ts) {
   const d = new Date(ts * 1000);
@@ -544,25 +544,25 @@ function macd3segPopup(tradeId, point, pin = false) {
 
   el.innerHTML = `<div class="c67-panel-head">
       <div><b style="color:${long ? M3S_COL.buy : M3S_COL.sell}">${e.label}${e.attempt > 1 ? ' · 二次入场' : ''}</b>
-      <small style="color:#94a3b8;margin-left:6px">${symTitle} · ${activeTF}</small></div>
+      <small style="color:var(--muted);margin-left:6px">${symTitle} · ${activeTF}</small></div>
       <button class="btn" data-m3s-close>×</button>
     </div>
     <div class="ann-grid">
       <span>确认收盘</span><b>${e.date}</b>
       <span>入场价 (收盘)</span><b>${fmt(e.price)}</b>
       <span>硬止损 ${long ? 'L3' : 'P3'}</span><b style="color:${M3S_COL.stop}">${fmt(e.stop_price)} (${m3sPct(initRisk, 2)})</b>
-      <span>本单最大浮盈</span><b style="color:#34d399">${e.mfe50 != null ? `+${m3sPct(e.mfe50, 2)} (${m3sR(e.r_mult50)})` : '—'}</b>
+      <span>本单最大浮盈</span><b style="color:var(--up)">${e.mfe50 != null ? `+${m3sPct(e.mfe50, 2)} (${m3sR(e.r_mult50)})` : '—'}</b>
       <span>离场结果</span><b>${ex ? `${ex.date} ${ex.label} @${fmt(ex.price)} (${(ret * 100).toFixed(1)}%)` : '持有中 / 未到截止'}</b>
     </div>
     ${dirSt && dirSt.n ? `
     <div class="m3s-card-sec">${symTitle} · <span style="color:${long ? M3S_COL.buy : M3S_COL.sell}">${e.label}</span> 历史统计 (共 ${dirSt.n} 笔 / 全部背离 ${allSt.n} 笔)</div>
     <div class="m3s-stat-grid">
-      <div class="m3s-stat-cell"><span>次日(T+1)止损率</span><b style="color:${dirSt.next_stop_rate <= 0.30 ? '#34d399' : '#fb923c'}">${m3sPct(dirSt.next_stop_rate)}</b><small>全部 ${m3sPct(allSt.next_stop_rate)}</small></div>
-      <div class="m3s-stat-cell"><span>真实止损率(未达1R)</span><b style="color:${dirSt.true_stop_rate <= 0.52 ? '#34d399' : '#fb923c'}">${m3sPct(dirSt.true_stop_rate)}</b><small>全部 ${m3sPct(allSt.true_stop_rate)}</small></div>
-      <div class="m3s-stat-cell"><span>全样本均最大盈利</span><b style="color:#38bdf8">+${m3sPct(dirSt.mfe50_mean, 2)}</b><small>全部 +${m3sPct(allSt.mfe50_mean, 2)}</small></div>
-      <div class="m3s-stat-cell"><span>有效单15/30根MFE</span><b style="color:#34d399">+${m3sPct(dirSt.valid_mfe15_mean, 1)} / +${m3sPct(dirSt.valid_mfe30_mean, 1)}</b><small>剔除次日止损(${dirSt.valid_n}笔)</small></div>
-      <div class="m3s-stat-cell"><span>有效单50根均最大盈利</span><b style="color:#10b981">+${m3sPct(dirSt.valid_mfe50_mean, 2)}</b><small>中位 +${m3sPct(dirSt.valid_mfe50_med, 2)}</small></div>
-      <div class="m3s-stat-cell"><span>有效单最大盈亏比</span><b style="color:#fbbf24">${m3sR(dirSt.valid_r_mean)}</b><small>≥2R率 ${m3sPct(dirSt.ge2r_rate)}</small></div>
+      <div class="m3s-stat-cell"><span>次日(T+1)止损率</span><b style="color:${dirSt.next_stop_rate <= 0.30 ? 'var(--up)' : 'var(--warn)'}">${m3sPct(dirSt.next_stop_rate)}</b><small>全部 ${m3sPct(allSt.next_stop_rate)}</small></div>
+      <div class="m3s-stat-cell"><span>真实止损率(未达1R)</span><b style="color:${dirSt.true_stop_rate <= 0.52 ? 'var(--up)' : 'var(--warn)'}">${m3sPct(dirSt.true_stop_rate)}</b><small>全部 ${m3sPct(allSt.true_stop_rate)}</small></div>
+      <div class="m3s-stat-cell"><span>全样本均最大盈利</span><b style="color:var(--accent)">+${m3sPct(dirSt.mfe50_mean, 2)}</b><small>全部 +${m3sPct(allSt.mfe50_mean, 2)}</small></div>
+      <div class="m3s-stat-cell"><span>有效单15/30根MFE</span><b style="color:var(--up)">+${m3sPct(dirSt.valid_mfe15_mean, 1)} / +${m3sPct(dirSt.valid_mfe30_mean, 1)}</b><small>剔除次日止损(${dirSt.valid_n}笔)</small></div>
+      <div class="m3s-stat-cell"><span>有效单50根均最大盈利</span><b style="color:var(--up)">+${m3sPct(dirSt.valid_mfe50_mean, 2)}</b><small>中位 +${m3sPct(dirSt.valid_mfe50_med, 2)}</small></div>
+      <div class="m3s-stat-cell"><span>有效单最大盈亏比</span><b style="color:var(--warn)">${m3sR(dirSt.valid_r_mean)}</b><small>≥2R率 ${m3sPct(dirSt.ge2r_rate)}</small></div>
     </div>` : ''}
     <table class="m3s-tbl"><thead><tr><th>段</th><th>区间</th><th>${long ? '低点' : '高点'}</th><th>柱峰值</th></tr></thead><tbody>${(e.segments || []).map(row).join('')}</tbody></table>`;
   el.hidden = false;
@@ -586,7 +586,7 @@ function macd3segRenderSymCard() {
   const a = sum.all, l = sum.long, s = sum.short;
   if (MACD3SEG.cardMin) {
     el.innerHTML = `<div class="m3s-sc-head" style="margin:0;border:none;padding:0">
-      <span><b style="color:#a78bfa">三段背离</b> · ${symTitle} (${a.n}笔 · 有效MFE <b>+${m3sPct(a.valid_mfe50_mean, 1)}</b>)</span>
+      <span><b style="color:${M3S_COL.seg}">三段背离</b> · ${symTitle} (${a.n}笔 · 有效MFE <b style="color:var(--up)">+${m3sPct(a.valid_mfe50_mean, 1)}</b>)</span>
       <div style="display:flex;gap:4px">
         <button class="m3s-mini-btn" data-m3s-wall>全品种卡片墙</button>
         <button class="m3s-mini-btn" data-m3s-min title="展开品种背离统计卡片">展开 ▾</button>
@@ -597,14 +597,14 @@ function macd3segRenderSymCard() {
       <tr>
         <td style="color:${col};font-weight:700">${label} (${st.n})</td>
         <td>${m3sPct(st.init_risk_mean, 2)}</td>
-        <td style="color:${st.next_stop_rate <= 0.30 ? '#34d399' : '#fb923c'}">${m3sPct(st.next_stop_rate)}</td>
-        <td style="color:${st.true_stop_rate <= 0.52 ? '#34d399' : '#fb923c'}">${m3sPct(st.true_stop_rate)}</td>
-        <td style="color:#38bdf8">+${m3sPct(st.mfe50_mean, 2)}</td>
-        <td style="color:#10b981;font-weight:700">+${m3sPct(st.valid_mfe15_mean, 1)} / +${m3sPct(st.valid_mfe30_mean, 1)} / +${m3sPct(st.valid_mfe50_mean, 1)}</td>
-        <td style="color:#fbbf24;font-weight:700">${m3sR(st.valid_r_mean)}</td>
+        <td style="color:${st.next_stop_rate <= 0.30 ? 'var(--up)' : 'var(--warn)'}">${m3sPct(st.next_stop_rate)}</td>
+        <td style="color:${st.true_stop_rate <= 0.52 ? 'var(--up)' : 'var(--warn)'}">${m3sPct(st.true_stop_rate)}</td>
+        <td style="color:var(--accent)">+${m3sPct(st.mfe50_mean, 2)}</td>
+        <td style="color:var(--up);font-weight:700">+${m3sPct(st.valid_mfe15_mean, 1)} / +${m3sPct(st.valid_mfe30_mean, 1)} / +${m3sPct(st.valid_mfe50_mean, 1)}</td>
+        <td style="color:var(--warn);font-weight:700">${m3sR(st.valid_r_mean)}</td>
       </tr>`;
     el.innerHTML = `<div class="m3s-sc-head">
-        <div><b style="color:#c4b5fd">MACD三段背离 · 品种表现卡</b> <span style="color:#94a3b8">${symTitle} (${activeTF})</span></div>
+        <div><b style="color:${M3S_COL.seg}">MACD三段背离 · 品种表现卡</b> <span style="color:var(--muted)">${symTitle} (${activeTF})</span></div>
         <div style="display:flex;gap:4px">
           <button class="m3s-mini-btn active" data-m3s-wall title="查看美股/黄金/A股/加密全部品种止损率与最大盈利率卡片墙">全品种卡片墙 ⊞</button>
           <button class="m3s-mini-btn" data-m3s-min title="折叠卡片">收起 ▴</button>
@@ -623,9 +623,9 @@ function macd3segRenderSymCard() {
           </tr>
         </thead>
         <tbody>
-          ${colRow('全部背离', '#e2e8f0', a)}
-          ${colRow('3底买(多)', M3S_COL.buy, l)}
-          ${colRow('3顶卖(空)', M3S_COL.sell, s)}
+          ${colRow('全部背离', 'var(--ink)', a)}
+          ${colRow('3底买(多)', 'var(--up)', l)}
+          ${colRow('3顶卖(空)', 'var(--down)', s)}
         </tbody>
       </table>`;
   }
@@ -672,19 +672,19 @@ function macd3segBuildCardWallHtml() {
     return `<div class="m3s-sym-card-item ${isCur ? 'current' : ''}" data-m3s-goto="${sym}" title="点击切换到 ${name} 图表并查看所有三段背离买卖点">
       <div class="m3s-sci-head">
         <div><b>${name}</b> <span class="m3s-mkt-tag">${mkt}</span></div>
-        <span class="m3s-sci-cnt">共 <b>${a.n || 0}</b> 笔 <small>(<span style="color:#22c55e">买${l.n || 0}</span>/<span style="color:#ef4444">卖${s.n || 0}</span>)</small></span>
+        <span class="m3s-sci-cnt">共 <b>${a.n || 0}</b> 笔 <small>(<span style="color:var(--up)">买${l.n || 0}</span>/<span style="color:var(--down)">卖${s.n || 0}</span>)</small></span>
       </div>
       <div class="m3s-sci-grid">
-        <div><span>次日(T+1)止损率</span><b style="color:${(a.next_stop_rate || 0) <= 0.30 ? '#34d399' : '#fb923c'}">${m3sPct(a.next_stop_rate)}</b></div>
-        <div><span>真实止损率(未达1R)</span><b style="color:${(a.true_stop_rate || 0) <= 0.53 ? '#34d399' : '#fb923c'}">${m3sPct(a.true_stop_rate)}</b></div>
+        <div><span>次日(T+1)止损率</span><b style="color:${(a.next_stop_rate || 0) <= 0.30 ? 'var(--up)' : 'var(--warn)'}">${m3sPct(a.next_stop_rate)}</b></div>
+        <div><span>真实止损率(未达1R)</span><b style="color:${(a.true_stop_rate || 0) <= 0.53 ? 'var(--up)' : 'var(--warn)'}">${m3sPct(a.true_stop_rate)}</b></div>
         <div><span>均初始止损(1R)</span><b>${m3sPct(a.init_risk_mean, 2)}</b></div>
-        <div><span>全样本均最大盈利</span><b style="color:#38bdf8">+${m3sPct(a.mfe50_mean, 2)}</b></div>
-        <div><span>有效单均最大盈利</span><b style="color:#10b981">+${m3sPct(a.valid_mfe50_mean, 2)}</b></div>
-        <div><span>有效单最大盈亏比</span><b style="color:#fbbf24">${m3sR(a.valid_r_mean)}</b></div>
+        <div><span>全样本均最大盈利</span><b style="color:var(--accent)">+${m3sPct(a.mfe50_mean, 2)}</b></div>
+        <div><span>有效单均最大盈利</span><b style="color:var(--up)">+${m3sPct(a.valid_mfe50_mean, 2)}</b></div>
+        <div><span>有效单最大盈亏比</span><b style="color:var(--warn)">${m3sR(a.valid_r_mean)}</b></div>
       </div>
       <div class="m3s-sci-foot">
-        <span><b style="color:#22c55e">3底买(${l.n || 0}笔)</b>：真实损 <b>${m3sPct(l.true_stop_rate)}</b> · 有效MFE <b style="color:#34d399">+${m3sPct(l.valid_mfe50_mean, 2)}</b> (${m3sR(l.valid_r_mean)})</span>
-        <span><b style="color:#ef4444">3顶卖(${s.n || 0}笔)</b>：真实损 <b>${m3sPct(s.true_stop_rate)}</b> · 有效MFE <b style="color:#f87171">+${m3sPct(s.valid_mfe50_mean, 2)}</b> (${m3sR(s.valid_r_mean)})</span>
+        <span><b style="color:var(--up)">3底买(${l.n || 0}笔)</b>：真实损 <b>${m3sPct(l.true_stop_rate)}</b> · 有效MFE <b style="color:var(--up)">+${m3sPct(l.valid_mfe50_mean, 2)}</b> (${m3sR(l.valid_r_mean)})</span>
+        <span><b style="color:var(--down)">3顶卖(${s.n || 0}笔)</b>：真实损 <b>${m3sPct(s.true_stop_rate)}</b> · 有效MFE <b style="color:var(--down)">+${m3sPct(s.valid_mfe50_mean, 2)}</b> (${m3sR(s.valid_r_mean)})</span>
       </div>
     </div>`;
   }).join('');
@@ -758,7 +758,7 @@ function macd3segSelect(tradeId) {
 function macd3segEnable(on) {
   MACD3SEG.on = !!on;
   if (!on) { MACD3SEG.open = false; MACD3SEG.sel = null; MACD3SEG.pinned = false; if (MACD3SEG.popup) MACD3SEG.popup.hidden = true; }
-  try { localStorage.setItem('chanlun.macd3seg.v2', on ? 'on' : 'off'); } catch (_) {}
+  try { localStorage.setItem('chanlun.macd3seg.v3', on ? 'on' : 'off'); } catch (_) {}
   candleSeries.setMarkers(buildMarkers(activeView));
   macd3segRefresh();
 }
@@ -807,37 +807,37 @@ function macd3segEnable(on) {
   const st = document.createElement('style');
   st.textContent = `
     .m3s-tbl{width:100%;border-collapse:collapse;font-size:11px;margin:6px 0;font-variant-numeric:tabular-nums}
-    .m3s-tbl th,.m3s-tbl td{padding:2px 4px;border-bottom:1px solid var(--border);text-align:left}.m3s-tbl small{color:var(--muted)}
+    .m3s-tbl th,.m3s-tbl td{padding:3px 5px;border-bottom:1px solid var(--border);text-align:left}.m3s-tbl small{color:var(--muted)}
     .m3s-popup{max-width:440px;z-index:1250}
-    .m3s-card-sec{font-size:11px;font-weight:700;color:#cbd5e1;margin:8px 0 4px;padding-top:6px;border-top:1px solid rgba(148,163,184,0.18)}
+    .m3s-card-sec{font-size:11px;font-weight:700;color:var(--ink-2);margin:8px 0 4px;padding-top:6px;border-top:1px solid var(--border)}
     .m3s-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px}
-    .m3s-stat-cell{background:rgba(30,41,59,0.75);border:1px solid rgba(148,163,184,0.16);border-radius:6px;padding:4px 6px;text-align:center}
-    .m3s-stat-cell span{display:block;font-size:10px;color:#94a3b8}
-    .m3s-stat-cell b{display:block;font-size:12px;font-variant-numeric:tabular-nums;margin:1px 0}
-    .m3s-stat-cell small{display:block;font-size:9.5px;color:#64748b}
-    .m3s-sym-float-card{position:absolute;top:36px;left:12px;z-index:18;background:rgba(15,23,42,0.92);border:1px solid rgba(167,139,250,0.45);border-radius:8px;padding:7px 10px;color:#e2e8f0;font-size:11px;backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,0.45);max-width:calc(100% - 90px);pointer-events:auto}
-    .m3s-sc-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:4px;margin-bottom:4px;border-bottom:1px solid rgba(148,163,184,0.16)}
+    .m3s-stat-cell{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:4px 6px;text-align:center}
+    .m3s-stat-cell span{display:block;font-size:10px;color:var(--muted)}
+    .m3s-stat-cell b{display:block;font-size:12px;font-variant-numeric:tabular-nums;margin:1px 0;color:var(--ink)}
+    .m3s-stat-cell small{display:block;font-size:9.5px;color:var(--muted)}
+    .m3s-sym-float-card{position:absolute;top:36px;left:12px;z-index:18;background:color-mix(in srgb,var(--surface) 92%,transparent);border:1px solid var(--border-strong);border-radius:8px;padding:7px 10px;color:var(--ink);font-size:11px;backdrop-filter:blur(8px);box-shadow:var(--shadow);max-width:calc(100% - 90px);pointer-events:auto}
+    .m3s-sc-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:5px;margin-bottom:5px;border-bottom:1px solid var(--border)}
     .m3s-sc-tbl{border-collapse:collapse;font-size:11px;font-variant-numeric:tabular-nums}
-    .m3s-sc-tbl th,.m3s-sc-tbl td{padding:2px 7px;text-align:right;border-bottom:1px solid rgba(148,163,184,0.1)}
+    .m3s-sc-tbl th,.m3s-sc-tbl td{padding:3px 7px;text-align:right;border-bottom:1px solid var(--border)}
     .m3s-sc-tbl th:first-child,.m3s-sc-tbl td:first-child{text-align:left;padding-left:2px}
-    .m3s-sc-tbl th{color:#94a3b8;font-weight:600;font-size:10px}
-    .m3s-mini-btn,.m3s-tab-btn{background:rgba(51,65,85,0.65);color:#cbd5e1;border:1px solid rgba(148,163,184,0.25);border-radius:5px;padding:2px 7px;font-size:11px;cursor:pointer}
-    .m3s-mini-btn:hover,.m3s-tab-btn:hover,.m3s-mini-btn.active,.m3s-tab-btn.active{background:rgba(139,92,246,0.28);color:#fff;border-color:rgba(167,139,250,0.65)}
+    .m3s-sc-tbl th{color:var(--muted);font-weight:600;font-size:10px}
+    .m3s-mini-btn,.m3s-tab-btn{background:var(--panel);color:var(--ink-2);border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:11px;cursor:pointer}
+    .m3s-mini-btn:hover,.m3s-tab-btn:hover,.m3s-mini-btn.active,.m3s-tab-btn.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-border)}
     .m3s-wide-panel{width:min(860px,calc(100vw - 24px)) !important;max-height:80vh !important;display:flex;flex-direction:column}
     .m3s-panel-body{overflow-y:auto;max-height:calc(80vh - 95px);padding-right:4px}
     .m3s-filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
     .m3s-card-wall-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:8px}
-    .m3s-sym-card-item{background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.22);border-radius:8px;padding:8px 10px;cursor:pointer;transition:border-color 0.15s,transform 0.12s}
-    .m3s-sym-card-item:hover{border-color:#a78bfa;transform:translateY(-1px)}
-    .m3s-sym-card-item.current{border-color:#22c55e;box-shadow:0 0 0 1px rgba(34,197,94,0.35)}
-    .m3s-sci-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(148,163,184,0.14);font-size:12px}
-    .m3s-mkt-tag{font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(148,163,184,0.15);color:#94a3b8;margin-left:4px}
-    .m3s-sci-cnt{font-size:11px;color:#cbd5e1}
+    .m3s-sym-card-item{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;transition:border-color 0.15s,transform 0.12s}
+    .m3s-sym-card-item:hover{border-color:var(--accent);transform:translateY(-1px)}
+    .m3s-sym-card-item.current{border-color:var(--up);box-shadow:0 0 0 1px var(--up-border)}
+    .m3s-sci-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border);font-size:12px}
+    .m3s-mkt-tag{font-size:10px;padding:1px 5px;border-radius:4px;background:var(--panel);color:var(--muted);margin-left:4px}
+    .m3s-sci-cnt{font-size:11px;color:var(--ink-2)}
     .m3s-sci-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:6px}
-    .m3s-sci-grid>div{background:rgba(30,41,59,0.65);border-radius:5px;padding:3px 5px;text-align:center}
-    .m3s-sci-grid span{display:block;font-size:9.5px;color:#94a3b8}
-    .m3s-sci-grid b{font-size:11.5px;font-variant-numeric:tabular-nums}
-    .m3s-sci-foot{display:flex;flex-direction:column;gap:2px;font-size:10.5px;color:#94a3b8;border-top:1px solid rgba(148,163,184,0.12);padding-top:4px}
+    .m3s-sci-grid>div{background:var(--plane);border:1px solid var(--border);border-radius:5px;padding:3px 5px;text-align:center}
+    .m3s-sci-grid span{display:block;font-size:9.5px;color:var(--muted)}
+    .m3s-sci-grid b{font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--ink)}
+    .m3s-sci-foot{display:flex;flex-direction:column;gap:2px;font-size:10.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:4px}
   `;
   document.head.appendChild(st);
 

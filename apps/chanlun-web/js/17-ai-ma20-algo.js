@@ -9,7 +9,7 @@
 'use strict';
 
 const AI_MA20_STATE = {
-  on: true,                 // 默认在主图开启 AI-MA20 三角形买点标记
+  on: false,                // 默认保持主图干净, 需要时可在「指标」菜单开启 AI-MA20
   tierFilter: 'active',     // 'active' (1x+2x 全部买入) | 'heavy' (仅2x) | 'std' (仅1x)
   hoverSig: null,           // 当前悬停或选中的信号对象
   hoverBarIdx: -1,          // 当前悬停信号的 K 线索引
@@ -24,8 +24,8 @@ const AI_MA20_STATE = {
 };
 
 try {
-  const saved = localStorage.getItem('chanlun.ai_ma20.indicator.v1');
-  if (saved === 'off') AI_MA20_STATE.on = false;
+  const qp = new URLSearchParams(location.search).get('aima20');
+  if (qp === '1' || localStorage.getItem('chanlun.ai_ma20.indicator.v2') === 'on') AI_MA20_STATE.on = true;
 } catch (_) {}
 
 // 带缓存获取 annMyBuyCdEval()，避免 mousemove 60fps 重复计算全量均线与树模型
@@ -189,6 +189,7 @@ window.AIMA20Algo = Object.freeze({
 
 // 获取当前主图上所有可见的买点三角形信号（合并 AI-MA20 主图买点与当前开启的标注抽屉三角形买点）
 function aiMa20VisibleSignals() {
+  if (!AI_MA20_STATE.on && !(typeof ANN !== 'undefined' && ANN.on) && !(typeof COVER67_INDICATOR !== 'undefined' && COVER67_INDICATOR.on)) return [];
   const ev = aiMa20GetEval();
   if (!ev || !ev.kept) return [];
   const cs = candlesFor('raw');
@@ -238,6 +239,7 @@ function aiMa20VisibleSignals() {
 class AIMA20TriangleRenderer {
   constructor(prim) { this._prim = prim; }
   draw(target) {
+    if (!AI_MA20_STATE.on && AI_MA20_STATE.hoverBarIdx < 0) return;
     const ev = aiMa20GetEval();
     if (!ev) return;
     const cs = candlesFor('raw');
@@ -395,7 +397,7 @@ function aiMa20AlgoRefresh() {
   if (AI_MA20_STATE.prim) AI_MA20_STATE.prim.requestUpdate();
 }
 
-// 注入精简版浮动小卡片样式
+// 注入主题自适应浮动小卡片样式
 function aiMa20InjectStyles() {
   if (document.getElementById('aiMa20HoverStyles')) return;
   const st = document.createElement('style');
@@ -404,48 +406,48 @@ function aiMa20InjectStyles() {
     .ai-ma20-hover-card {
       position: fixed;
       z-index: 1200;
-      width: 284px;
+      width: 292px;
       max-width: calc(100vw - 20px);
-      background: rgba(15, 23, 42, 0.96);
-      border: 1px solid rgba(56, 189, 248, 0.55);
+      background: color-mix(in srgb, var(--surface) 96%, transparent);
+      border: 1px solid var(--border-strong);
       border-radius: 10px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.07);
-      color: #e2e8f0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      box-shadow: var(--shadow);
+      color: var(--ink);
+      font-family: inherit;
       font-size: 12px;
-      line-height: 1.45;
-      padding: 10px 12px;
+      line-height: 1.48;
+      padding: 11px 13px;
       backdrop-filter: blur(10px);
       transition: opacity 0.12s ease;
       user-select: text;
     }
     .ai-ma20-hover-card[hidden] { display: none !important; }
-    .ai-ma20-hover-card.tier-heavy { border-color: rgba(16, 185, 129, 0.72); }
-    .ai-ma20-hover-card.tier-std { border-color: rgba(56, 189, 248, 0.72); }
+    .ai-ma20-hover-card.tier-heavy { border-color: color-mix(in srgb, var(--up) 55%, var(--border)); }
+    .ai-ma20-hover-card.tier-std { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
     .ai-ma20-hc-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 6px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-      margin-bottom: 7px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
     }
     .ai-ma20-hc-badge {
       display: inline-block;
       padding: 2px 8px;
       border-radius: 999px;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 700;
     }
-    .ai-ma20-hc-badge.heavy { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.45); }
-    .ai-ma20-hc-badge.std   { background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.45); }
-    .ai-ma20-hc-badge.skip  { background: rgba(248, 113, 113, 0.18); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.45); }
+    .ai-ma20-hc-badge.heavy { background: var(--up-soft); color: var(--up); border: 1px solid var(--up-border); }
+    .ai-ma20-hc-badge.std   { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border); }
+    .ai-ma20-hc-badge.skip  { background: var(--down-soft); color: var(--down); border: 1px solid var(--down-border); }
     .ai-ma20-hc-sec {
       font-size: 11px;
       font-weight: 600;
-      color: #94a3b8;
-      margin: 7px 0 4px;
+      color: var(--muted);
+      margin: 8px 0 5px;
     }
     .ai-ma20-hc-stat-grid {
       display: grid;
@@ -453,8 +455,8 @@ function aiMa20InjectStyles() {
       gap: 5px;
     }
     .ai-ma20-hc-cell {
-      background: rgba(30, 41, 59, 0.72);
-      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
       border-radius: 6px;
       padding: 5px 6px;
       text-align: center;
@@ -462,13 +464,13 @@ function aiMa20InjectStyles() {
     .ai-ma20-hc-cell span {
       display: block;
       font-size: 10px;
-      color: #94a3b8;
+      color: var(--muted);
       margin-bottom: 1px;
     }
     .ai-ma20-hc-cell b {
       font-size: 12.5px;
       font-variant-numeric: tabular-nums;
-      color: #f8fafc;
+      color: var(--ink);
     }
   `;
   document.head.appendChild(st);
@@ -506,7 +508,7 @@ function aiMa20RenderHoverCard(sg, anchorX, anchorY) {
   const isHeavy = sg.metaTier === 'heavy';
   const isStd = sg.metaTier === 'std';
   const tierCls = isHeavy ? 'heavy' : isStd ? 'std' : 'skip';
-  const tierColor = isHeavy ? '#34d399' : isStd ? '#38bdf8' : '#f87171';
+  const tierColor = isHeavy ? 'var(--up)' : isStd ? 'var(--accent)' : 'var(--down)';
   const scoreVal = sg.tradScore != null ? sg.tradScore : Math.round((sg.metaP || 0) * 100);
   const tierName = isHeavy ? '★ A档强推买点 · 2.0x重仓' : isStd ? '● B档合格买点 · 1.0x标准' : (scoreVal >= 35 ? '× C档观望 · 0x不买' : '× D档一票否决 · 0x不买');
   const tierRule = isHeavy ? '≥ 75分' : isStd ? '55 ~ 74分' : '< 55分';
@@ -522,8 +524,8 @@ function aiMa20RenderHoverCard(sg, anchorX, anchorY) {
          : v >= 1 ? v.toFixed(2) : v.toPrecision(4);
   };
   const reasonsHtml = (sg.metaReasons || []).slice(0, 4).map(r => {
-    const col = r.impact >= 0 ? '#34d399' : '#f87171';
-    return `<span style="display:inline-block;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,0.05);border:1px solid ${col}44;color:${col};font-size:10.5px;margin:1px 3px 1px 0">${r.text}</span>`;
+    const col = r.impact >= 0 ? 'var(--up)' : 'var(--down)';
+    return `<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:var(--surface-2);border:1px solid color-mix(in srgb, ${col} 35%, var(--border));color:${col};font-size:10.5px;margin:1px 3px 1px 0">${r.text}</span>`;
   }).join('');
   const stStop = sg.structStop != null ? sg.structStop : sg.stop;
   const stRisk = sg.structRiskPct != null ? sg.structRiskPct : sg.riskPct;
@@ -532,30 +534,30 @@ function aiMa20RenderHoverCard(sg, anchorX, anchorY) {
   card.innerHTML = `
     <div class="ai-ma20-hc-head">
       <span class="ai-ma20-hc-badge ${tierCls}">${tierName}</span>
-      <span style="font-size:11px;color:#94a3b8">${sg.dateStr || annDate(cs[sg.i].time)}${sg.fng != null ? ` · <b style="color:${sg.fng>=56&&sg.fng<=74?'#f87171':sg.fng>=26&&sg.fng<=55?'#34d399':'#cbd5e1'}">FGI=${sg.fng}</b>` : ''}</span>
+      <span style="font-size:11px;color:var(--muted)">${sg.dateStr || annDate(cs[sg.i].time)}${sg.fng != null ? ` · <b style="color:${sg.fng>=56&&sg.fng<=74?'var(--down)':sg.fng>=26&&sg.fng<=55?'var(--up)':'var(--ink-2)'}">FGI=${sg.fng}</b>` : ''}</span>
     </div>
 
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-      <span>查表置信分：<b style="color:${tierColor};font-size:14px">${scoreVal}分</b> <small style="color:#64748b">(${tierRule})</small></span>
-      <span style="font-size:11px;color:#cbd5e1">执行止损宽 <b style="color:#f87171">${fmtPct(sg.riskPct)}</b>${sg.narrowStopProtected ? ' <small style="color:#fbbf24">(窄损托底)</small>' : ''}</span>
+      <span>查表置信分：<b style="color:${tierColor};font-size:14px">${scoreVal}分</b> <small style="color:var(--muted)">(${tierRule})</small></span>
+      <span style="font-size:11px;color:var(--ink-2)">执行止损宽 <b style="color:var(--down)">${fmtPct(sg.riskPct)}</b>${sg.narrowStopProtected ? ' <small style="color:var(--warn)">(窄损托底)</small>' : ''}</span>
     </div>
-    <div style="font-size:11px;color:#94a3b8;padding-bottom:5px;border-bottom:1px solid rgba(148,163,184,0.14)">
-      买入 <b style="color:#e2e8f0">${fmtPrice(sg.entry)}</b> · 执行止损 <b style="color:#f87171">${fmtPrice(sg.stop)}</b> · 3根结构损 <b style="color:#fbbf24">${fmtPrice(stStop)}</b>
-      <div style="font-size:10.5px;color:#64748b;margin-top:2px">风控：冲2.5R移保本 · 冲4R锁+1.2R · ≥3根破MA20离场${!blind && sg.rB != null ? ` · 本笔 <b style="color:${sg.rB >= 0 ? '#34d399' : '#f87171'}">${fmtR(sg.rB)}</b> (${sg.exitReasonB || ''})` : ''}</div>
+    <div style="font-size:11px;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border)">
+      买入 <b style="color:var(--ink)">${fmtPrice(sg.entry)}</b> · 执行止损 <b style="color:var(--down)">${fmtPrice(sg.stop)}</b> · 3根结构损 <b style="color:var(--warn)">${fmtPrice(stStop)}</b>
+      <div style="font-size:10.5px;color:var(--muted);margin-top:2px">风控：冲2.5R移保本 · 冲4R锁+1.2R · ≥3根破MA20离场${!blind && sg.rB != null ? ` · 本笔 <b style="color:${sg.rB >= 0 ? 'var(--up)' : 'var(--down)'}">${fmtR(sg.rB)}</b> (${sg.exitReasonB || ''})` : ''}</div>
     </div>
     ${reasonsHtml ? `<div style="margin:5px 0 3px">${reasonsHtml}</div>` : ''}
 
     <div class="ai-ma20-hc-sec">
-      该分档历史表现（共 <b style="color:#e2e8f0">${st.n}</b> 笔${blind ? '·截至当根前' : ''}）
+      该分档历史表现（共 <b style="color:var(--ink)">${st.n}</b> 笔${blind ? '·截至当根前' : ''}）
     </div>
     <div class="ai-ma20-hc-stat-grid">
       <div class="ai-ma20-hc-cell">
         <span>≤5根快损率</span>
-        <b style="color:${st.stopLe5Rate <= 0.35 ? '#34d399' : '#fb923c'}">${fmtPct(st.stopLe5Rate)}</b>
+        <b style="color:${st.stopLe5Rate <= 0.35 ? 'var(--up)' : 'var(--warn)'}">${fmtPct(st.stopLe5Rate)}</b>
       </div>
       <div class="ai-ma20-hc-cell">
         <span>≤10根止损率</span>
-        <b style="color:${st.stopLe10Rate <= 0.40 ? '#34d399' : '#fb923c'}">${fmtPct(st.stopLe10Rate)}</b>
+        <b style="color:${st.stopLe10Rate <= 0.40 ? 'var(--up)' : 'var(--warn)'}">${fmtPct(st.stopLe10Rate)}</b>
       </div>
       <div class="ai-ma20-hc-cell">
         <span>从未触止损</span>
@@ -571,7 +573,7 @@ function aiMa20RenderHoverCard(sg, anchorX, anchorY) {
       </div>
       <div class="ai-ma20-hc-cell" title="v2.1规则：破MA20离场+阶梯保本锁盈单笔均R（120根持有均R：${fmtR(st.meanRA)}）">
         <span>MA20单笔均R</span>
-        <b style="color:${st.meanRB >= 0 ? '#34d399' : '#f87171'}">${fmtR(st.meanRB)}</b>
+        <b style="color:${st.meanRB >= 0 ? 'var(--up)' : 'var(--down)'}">${fmtR(st.meanRB)}</b>
       </div>
     </div>
   `;
@@ -729,7 +731,7 @@ function aiMa20HandleClick(mx, my, paramTime = null, targetEl = null) {
     btn.textContent = 'AI-MA20';
     btn.addEventListener('click', () => {
       AI_MA20_STATE.on = !AI_MA20_STATE.on;
-      try { localStorage.setItem('chanlun.ai_ma20.indicator.v1', AI_MA20_STATE.on ? 'on' : 'off'); } catch (_) {}
+      try { localStorage.setItem('chanlun.ai_ma20.indicator.v2', AI_MA20_STATE.on ? 'on' : 'off'); } catch (_) {}
       if (!AI_MA20_STATE.on) aiMa20HideHoverCard(true);
       aiMa20AlgoRefresh();
     });

@@ -1,26 +1,26 @@
 // js/01-config.js — 主题配色 / 页面状态 / 时间格式化 / 练习器状态
 
-// TradingView 官方暗色/亮色调色板: 图表 canvas(经 t()) 与 CSS 变量(见 main.css)同源。
+// 专业量化终端调色板: 图表 canvas(经 t()) 与 CSS 变量(见 css/main.css)严格同源。
 const THEMES = {
-  dark:  { surface:'#1e222d', plane:'#131722', panel:'#2a2e39', ink:'#d1d4dc', ink2:'#b2b5be', muted:'#787b86', grid:'#1e222d', border:'#2a2e39', up:'#089981', down:'#f23645', top:'#ff9800', bottom:'#2962ff', segUp:'#26a69a', segDown:'#ef5350' },
-  light: { surface:'#ffffff', plane:'#f0f3fa', panel:'#e0e3eb', ink:'#131722', ink2:'#434651', muted:'#787b86', grid:'#f0f3fa', border:'#e0e3eb', up:'#089981', down:'#f23645', top:'#ff9800', bottom:'#2962ff', segUp:'#26a69a', segDown:'#ef5350' },
+  dark:  { surface:'#111620', plane:'#0b0e14', panel:'#1c2331', ink:'#e6edf7', ink2:'#a9b4c7', muted:'#6b7689', grid:'#141923', border:'#1f2736', up:'#0d9f86', down:'#ef4452', top:'#f59e0b', bottom:'#3b82f6', segUp:'#26a69a', segDown:'#ef5350' },
+  light: { surface:'#ffffff', plane:'#f8fafc', panel:'#e8eef6', ink:'#0f172a', ink2:'#334155', muted:'#64748b', grid:'#edf1f7', border:'#e2e8f0', up:'#089981', down:'#e11d48', top:'#d97706', bottom:'#2563eb', segUp:'#0d9488', segDown:'#e11d48' },
 };
-// 买卖点色板: 保持原有语义(一买粉/二买绿/三买橙, 一卖青/二卖红/三卖紫), 换成 TradingView 色系
+// 买卖点色板: 保持原有语义(一买粉/二买绿/三买橙, 一卖青/二卖红/三卖紫)与像素校验兼容色。
 const BUY_COLORS = {
-  dark:  { b1:'#e91e63', b2:'#089981', b3:'#ff9800' },
-  light: { b1:'#e91e63', b2:'#089981', b3:'#ff9800' },
+  dark:  { b1:'#e91e63', b2:'#0d9f86', b3:'#f59e0b' },
+  light: { b1:'#db2777', b2:'#089981', b3:'#d97706' },
 };
 const SELL_COLORS = {
-  dark:  { s1:'#00bcd4', s2:'#f23645', s3:'#9c27b0' },
-  light: { s1:'#00bcd4', s2:'#f23645', s3:'#9c27b0' },
+  dark:  { s1:'#06b6d4', s2:'#ef4452', s3:'#9c27b0' },
+  light: { s1:'#0891b2', s2:'#e11d48', s3:'#9333ea' },
 };
 const FAST_COLORS = {
-  dark:  { alert:'#ffb74d', buy:'#26a69a', sell:'#ff5722' },
-  light: { alert:'#f57c00', buy:'#26a69a', sell:'#ff5722' },
+  dark:  { alert:'#fbbf24', buy:'#26a69a', sell:'#fb7185' },
+  light: { alert:'#d97706', buy:'#0d9488', sell:'#e11d48' },
 };
 const PANBEI_COLORS = {
-  dark:  { buy:'#7e57c2', sell:'#f06292' },
-  light: { buy:'#7e57c2', sell:'#ec407a' },
+  dark:  { buy:'#8b5cf6', sell:'#f472b6' },
+  light: { buy:'#7c3aed', sell:'#db2777' },
 };
 const FONT = '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, "Segoe UI", system-ui, "PingFang SC", sans-serif';
 const t = () => THEMES[document.documentElement.dataset.theme];
