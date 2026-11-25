@@ -130,13 +130,43 @@ function drillScore(cs, i, n, drill){
   }
   return 0;
 }
-// 在 [lo,hi] 选起点: 无专项=随机(优先避开最近区间); 有专项=取分数最高的若干窗口随机一个
+// K 线可绘性门控: 避开纯收盘一字平盘段(如 SPX 1962 前 / N225 1988 前 / A股长期停牌)与超长断档(如 XAGUSD 2002)
+function isDrawableWindow(cs, startIdx, lookback, steps){
+  const a = Math.max(0, startIdx - lookback), b = Math.min(cs.length - 1, startIdx + steps);
+  const total = b - a + 1;
+  if (total < 20) return false;
+  let flat = 0, run = 0;
+  for (let k = a; k <= b; k++){
+    const c = cs[k];
+    if (c.high <= c.low){
+      flat++;
+      if (++run >= 10) return false;
+    } else {
+      run = 0;
+    }
+    if (k > a && c.time - cs[k - 1].time > 86400 * 45) return false;
+  }
+  return flat / total <= 0.12;
+}
+function firstRealOhlcIdx(cs){
+  for (let i = 0; i < cs.length; i++){
+    if (cs[i].high > cs[i].low) return i;
+  }
+  return 0;
+}
+// 在 [lo,hi] 选起点: 无专项=随机(优先避开最近区间与退化一字平盘段); 有专项=取分数最高的若干窗口随机一个
 function pickStartByDrill(cs, lo, hi, n, drill, recent){
+  const real0 = firstRealOhlcIdx(cs);
+  if (real0 + TR.LOOKBACK <= hi) lo = Math.max(lo, real0 + TR.LOOKBACK);
   hi = Math.max(lo, hi);
   if (!drill){
+    for (let t = 0; t < 80; t++){
+      const i = lo + randInt(hi - lo + 1);
+      if (!recentHit(cs, i, recent) && isDrawableWindow(cs, i, TR.LOOKBACK, n)) return i;
+    }
     for (let t = 0; t < 40; t++){
       const i = lo + randInt(hi - lo + 1);
-      if (!recentHit(cs, i, recent)) return i;
+      if (isDrawableWindow(cs, i, TR.LOOKBACK, n)) return i;
     }
     return lo + randInt(hi - lo + 1);
   }
@@ -144,6 +174,7 @@ function pickStartByDrill(cs, lo, hi, n, drill, recent){
     const out = [];
     for (let i = lo; i <= hi; i++){
       if (useRecent && recentHit(cs, i, recent)) continue;
+      if (!isDrawableWindow(cs, i, TR.LOOKBACK, n)) continue;
       const s = drillScore(cs, i, n, drill);
       if (s > -Infinity) out.push([s, i]);
     }
@@ -271,12 +302,100 @@ function applyBlind(on){
   document.querySelector('.legend-symbol').textContent = on ? '???' : DATA.meta.symbol;
   document.getElementById('symbolBadge').textContent =
     on ? `盲测中 · ${activeTF}` : `${DATA.meta.symbol} · ${activeTF}`;
-  document.title = on ? '盘感练习 · 盲测中' : DATA.meta.symbol + ' · 缠论多级别联动';
+  document.title = on ? '盘感练习 · 盲测中' : DATA.meta.symbol + ' · 行情复盘与逻辑工坊';
   document.getElementById('replayCtl').style.display = 'none';   // 练习中禁用普通复盘控件(防跳步作弊)
+  if (typeof window.onBlindModeChange === 'function') window.onBlindModeChange(on);
+  else if (typeof window.renderLogicSidebar === 'function') window.renderLogicSidebar();
+  // 盲测态临时隐藏算法买点图层(不篡改 localStorage 偏好), 揭示/退出后恢复
+  let algoChanged = false;
+  if (on){
+    if (!TR._blindAlgoSnap){
+      TR._blindAlgoSnap = {
+        aiMa20: typeof AI_MA20_STATE !== 'undefined' && !!AI_MA20_STATE.on,
+        macd3seg: typeof MACD3SEG !== 'undefined' && !!MACD3SEG.on,
+        cover67: typeof COVER67_INDICATOR !== 'undefined' && !!COVER67_INDICATOR.on,
+        v3: typeof MA20_V3 !== 'undefined' && !!MA20_V3.on,
+        ai: typeof MA20_AI !== 'undefined' && !!MA20_AI.on,
+      };
+      if (TR._blindAlgoSnap.aiMa20 && typeof AI_MA20_STATE !== 'undefined'){
+        AI_MA20_STATE.on = false;
+        if (typeof aiMa20HideHoverCard === 'function') aiMa20HideHoverCard(true);
+        if (typeof aiMa20AlgoRefresh === 'function') aiMa20AlgoRefresh();
+        algoChanged = true;
+      }
+      if (TR._blindAlgoSnap.macd3seg && typeof MACD3SEG !== 'undefined'){
+        MACD3SEG.on = false; MACD3SEG.open = false; MACD3SEG.pinned = false;
+        if (MACD3SEG.popup) MACD3SEG.popup.hidden = true;
+        if (typeof macd3segRefresh === 'function') macd3segRefresh();
+        algoChanged = true;
+      }
+      if (TR._blindAlgoSnap.cover67 && typeof COVER67_INDICATOR !== 'undefined'){
+        COVER67_INDICATOR.on = false; COVER67_INDICATOR.open = false;
+        if (typeof cover67VolumeClose === 'function') cover67VolumeClose();
+        if (typeof cover67IndicatorRefresh === 'function') cover67IndicatorRefresh();
+        algoChanged = true;
+      }
+      if (TR._blindAlgoSnap.v3 && typeof MA20_V3 !== 'undefined'){
+        MA20_V3.on = false; MA20_V3.open = false;
+        if (typeof ma20StructureRefresh === 'function') ma20StructureRefresh();
+        algoChanged = true;
+      }
+      if (TR._blindAlgoSnap.ai && typeof MA20_AI !== 'undefined'){
+        MA20_AI.on = false; MA20_AI.open = false;
+        if (typeof ma20AIRefresh === 'function') ma20AIRefresh();
+        algoChanged = true;
+      }
+    }
+  } else if (TR._blindAlgoSnap){
+    const snap = TR._blindAlgoSnap; TR._blindAlgoSnap = null;
+    if (snap.aiMa20 && typeof AI_MA20_STATE !== 'undefined'){
+      AI_MA20_STATE.on = true;
+      if (typeof aiMa20AlgoRefresh === 'function') aiMa20AlgoRefresh();
+      algoChanged = true;
+    }
+    if (snap.macd3seg && typeof MACD3SEG !== 'undefined'){
+      MACD3SEG.on = true;
+      if (typeof macd3segRefresh === 'function') macd3segRefresh();
+      algoChanged = true;
+    }
+    if (snap.cover67 && typeof COVER67_INDICATOR !== 'undefined'){
+      COVER67_INDICATOR.on = true;
+      if (typeof cover67IndicatorRefresh === 'function') cover67IndicatorRefresh();
+      algoChanged = true;
+    }
+    if (snap.v3 && typeof MA20_V3 !== 'undefined'){
+      MA20_V3.on = true;
+      if (typeof ma20StructureRefresh === 'function') ma20StructureRefresh();
+      algoChanged = true;
+    }
+    if (snap.ai && typeof MA20_AI !== 'undefined'){
+      MA20_AI.on = true;
+      if (typeof ma20AIRefresh === 'function') ma20AIRefresh();
+      algoChanged = true;
+    }
+  }
+  if (algoChanged && typeof candleSeries !== 'undefined' && typeof buildMarkers === 'function'){
+    candleSeries.setMarkers(buildMarkers(activeView));
+  }
   updateModeBadge();
 }
 
-// 练习态锁定三面板滚动/缩放 + 主图时间轴刻度打码; 解锁时恢复库默认
+function defaultTimeTickFormatter(ts, tickMarkType){
+  const sec = typeof ts === 'number'
+    ? ts
+    : (ts && typeof ts === 'object' ? Date.UTC(ts.year, (ts.month || 1) - 1, ts.day || 1) / 1000 : null);
+  if (!Number.isFinite(sec)) return '';
+  const d = new Date(sec * 1000);
+  const p2 = n => String(n).padStart(2, '0');
+  const monNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  if (tickMarkType === 0) return String(d.getUTCFullYear());
+  if (tickMarkType === 1) return monNames[d.getUTCMonth()];
+  if (tickMarkType === 2) return String(d.getUTCDate());
+  if (tickMarkType === 3) return `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+  if (tickMarkType === 4) return `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}:${p2(d.getUTCSeconds())}`;
+  return `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}`;
+}
+// 练习态锁定三面板滚动/缩放 + 主图时间轴刻度打码; 解锁时显式恢复真实日期刻度
 function trainerChartLock(on){
   // 练习中完全锁定: 禁平移+禁缩放(2026-09 用户要求: 只展示练习窗口内的K线, 缩放会露出窗口外历史)
   const o = on ? { handleScroll: false, handleScale: false } : { handleScroll: true, handleScale: true };
@@ -284,7 +403,7 @@ function trainerChartLock(on){
   chart.timeScale().applyOptions({
     tickMarkFormatter: on
       ? (ts => trLabel(typeof ts === 'object' && ts != null ? (ts.time ?? ts) : ts))
-      : undefined,
+      : defaultTimeTickFormatter,
   });
 }
 
@@ -332,7 +451,8 @@ async function enterTrainer(opts = {}){
   const capInput = +document.getElementById('trCapitalInput')?.value || INIT_CAPITAL;
   const cap0 = rep ? (+rep.capital0 || INIT_CAPITAL) : Math.min(1e9, Math.max(1000, capInput));
   if (rep && rep.steps) TR.maxStep = Math.min(500, Math.max(20, +rep.steps || TR.maxStep));
-  if (positions.length){ alert('当前有未平仓持仓, 请先平仓再开始练习'); return; }
+  const notifyErr = msg => (typeof window.showToast === 'function' ? window.showToast('⚠ ' + msg, 'warn', 3200) : alert(msg));
+  if (positions.length){ notifyErr('当前有未平仓持仓，请先平仓再开始练习'); return; }
   if (inReplay()) exitReplay();
   stopPlay();
   const btn = document.getElementById('trainerBtn');
@@ -347,14 +467,17 @@ async function enterTrainer(opts = {}){
     const tfSel = rep ? rep.tf : (document.getElementById('trTfSel')?.value || '');
     // 清除上一局残留的定位状态(否则边界修正会用旧 startIdx 算出非法视口 → 库断言崩溃)
     TR.startIdx = 0; TR.startTs = null; TR.endReason = '';
-    // 品种指定优先(与市场互斥); 未指定品种时按市场过滤; 都不选=全市场随机
+    // 品种指定优先(与市场互斥); 未指定品种时按市场过滤; 都不选且勾「仅核心主池」= S+A 30 个高流动核心池
+    const coreOnly = !rep && !!document.getElementById('trCoreOnly')?.checked;
     let pool = symSel ? [symSel]
-      : (mktSel ? (MARKET_GROUPS[mktSel] || []).filter(s => syms.includes(s)) : syms);
+      : (mktSel ? (MARKET_GROUPS[mktSel] || []).filter(s => syms.includes(s))
+        : (coreOnly && window.MarketContext?.CORE_SYMBOLS?.length
+          ? syms.filter(s => window.MarketContext.isCore(s)) : syms));
     if (tfSel && tfSel !== '1D') pool = pool.filter(s => CHUNK_SYMBOLS.includes(s));
     if (!pool.length){
-      alert(symSel
-        ? `${symSel} 没有可用的${tfSel ? ' ' + tfSel + ' ' : ' '}练习数据——分钟级(15F)分片当前仅 BTC 已生成。`
-        : '该「市场 × 级别」组合暂无品种——分钟级(15F)目前仅加密可用');
+      notifyErr(symSel
+        ? `${symSel} 没有可用的${tfSel ? ' ' + tfSel + ' ' : ' '}练习数据`
+        : '该「市场 × 级别」组合暂无可用数据');
       updateTrainerUI();
       return;
     }
@@ -367,7 +490,7 @@ async function enterTrainer(opts = {}){
       }
       pool = have;
       if (!pool.length){
-        alert(`${tfSel} 分钟级分片尚未生成（目前仅 BTC 已下载）。\n可先用「级别·随机 / 1D」练习，或等其他品种数据铺开。`);
+        notifyErr(`${tfSel} 分钟级分片尚未生成，请切回 1D 日线练习`);
         updateTrainerUI();
         return;
       }
@@ -458,16 +581,23 @@ async function enterTrainer(opts = {}){
       startTrainerTimer();
       updateTrainerUI();
       lockViewport();
+      if (typeof setSideTab === 'function') setSideTab('trade');
+      try {
+        if (!localStorage.getItem('chanlun.trainer.hinted')) {
+          localStorage.setItem('chanlun.trainer.hinted', '1');
+          window.showToast?.('盲测已开启：品种与日期已隐藏 · 按 → / 空格步进，B / S 快速下单', 'info', 3600);
+        }
+      } catch {}
       return;
     }
-    alert(rep
-      ? '重练定位失败：该区间已不在当前数据范围内（数据更新后起点可能失效）。'
-      : `随机定位失败(已尝试 ${tries} 次)。若选了分钟级, 请在面板把「市场」改为「加密」重试——分钟级分片目前仅 BTC 已生成。`);
+    notifyErr(rep
+      ? '重练定位失败：该区间已不在当前数据范围内'
+      : '随机定位失败，请调整筛选范围后重试');
     TR.active = false;   // 失败路径恢复按钮态(避免卡在"练习中")
     updateTrainerUI();
   } catch (e){
     TR.active=false; applyBlind(false); trainerChartLock(false);
-    alert('练习器启动失败: ' + e.message + '\n' + (String(e.stack || '').split('\n')[1] || '').trim());
+    notifyErr('练习器启动失败：' + e.message);
     console.error(e);
     updateTrainerUI();
   }
@@ -535,6 +665,7 @@ function revealTrainer(auto, note){
   chart.timeScale().fitContent();
   showAnswerBanner();
   updateTrainerUI();
+  if (typeof setSideTab === 'function') setSideTab('practice');
 }
 
 function endTrainer(){
@@ -555,7 +686,7 @@ function quitTrainer(){
   if (!TR.active) return;
   if (TR.revealed){ endTrainer(); return; }
   if (!confirm('放弃本次练习? 未平仓仓位退还保证金; 本局将标记为「放弃」存档')) return;
-  for (const p of positions) acctAdj(posCapital(p));   // 弃局退还未平仓保证金(不计盈亏)
+  for (const p of positions) acctAdj(posMargin(p));   // 弃局退还未平仓保证金(不计盈亏; 浮盈加仓部分本就不是余额划出)
   positions = [];
   TR.endCapital = acctBal();   // 已平仓单盈亏已结算进余额
   finishSessionMeta();
@@ -576,34 +707,40 @@ function showAnswerBanner(extra){
   const sigN = (TR.marks || []).filter(m => m.kind === 'signal').length;
   const watN = (TR.marks || []).filter(m => m.kind === 'watch').length;
   el.innerHTML =
-    `<b>本局答案：${DATA.meta.symbol} · ${TR.tf}</b>` +
-    `<span>起点 <b>${fmtTimeReal(TR.startTs)}</b> · 走了 ${TR.step} 根</span>` +
-    `<span>结束: <b>${TR.endReason || '—'}</b></span>` +
-    (TR.desc ? `<span>题目: <b>${TR.desc}</b>${TR.transition ? ` · 趋势转换: <b>${TR.transition}</b>` : ' · 无趋势转换'}</span>` : '') +
-    `<span>用时 <b>${fmtDur(TR.durSec)}</b></span>` +
-    `<span>完整持仓 <b>${n}</b> · 净 <b style="color:${tot >= 0 ? 'var(--up)' : 'var(--down)'}">${tot >= 0 ? '+' : ''}${tot.toFixed(1)}U (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)</b></span>` +
+    `<b class="tb-title">本局答案：${DATA.meta.symbol} · ${TR.tf}</b>` +
+    `<span class="tb-item">起点 <b>${fmtTimeReal(TR.startTs)}</b> · 走了 ${TR.step} 根</span>` +
+    `<span class="tb-item">结束: <b>${TR.endReason || '—'}</b></span>` +
+    (TR.desc ? `<span class="tb-item">题目: <b>${TR.desc}</b>${TR.transition ? ` · 趋势转换: <b>${TR.transition}</b>` : ' · 无趋势转换'}</span>` : '') +
+    `<span class="tb-item">用时 <b>${fmtDur(TR.durSec)}</b></span>` +
+    `<span class="tb-item">完整持仓 <b>${n}</b> · 净 <b class="tnum" style="color:${tot >= 0 ? 'var(--up)' : 'var(--down)'}">${tot >= 0 ? '+' : ''}${tot.toFixed(1)}U (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)</b></span>` +
     (TR.drill ? `<span class="ts-badge" title="本局专项">专项: ${TR.drill}</span>` : '') +
-    ((sigN || watN) ? `<span>信号K <b>${sigN}</b> · 观察 <b>${watN}</b></span>` : '') +
-    `<span title="本局净值曲线(实线)">净值 ${equitySparkSvg(TR.curve, 168, 34, TR.capital0)}</span>` +
-    (TR.hadAdds ? `<span title="对照口径: 仅首仓、出场时点/比例与实际一致">加仓效果: 贡献 <b style="color:${(TR.addGain || 0) >= 0 ? 'var(--up)' : 'var(--down)'}">${(TR.addGain || 0) >= 0 ? '+' : ''}${(TR.addGain || 0).toFixed(1)}U</b> · 回撤 实际 ${(TR.ddActual || 0).toFixed(1)}% vs 不加仓 ${(TR.ddCf || 0).toFixed(1)}%</span>` : '') +
-    (TR.research ? `<span><button class="btn" id="trReviewBtn">本局复盘</button></span>` : '') +
-    `<span><button class="btn" id="trJumpBtn" title="跳回本局练习的K线区间">📍 定位起点</button></span>` +
-    (extra ? `<span style="color:var(--down); font-weight:700;">${extra}</span>` : '');
+    ((sigN || watN) ? `<span class="tb-item">信号K <b>${sigN}</b> · 观察 <b>${watN}</b></span>` : '') +
+    `<span class="tb-item" title="本局净值曲线(实线)">净值 ${equitySparkSvg(TR.curve, 168, 34, TR.capital0)}</span>` +
+    (TR.hadAdds ? `<span class="tb-item" title="对照口径: 仅首仓、出场时点/比例与实际一致">加仓效果: 贡献 <b class="tnum" style="color:${(TR.addGain || 0) >= 0 ? 'var(--up)' : 'var(--down)'}">${(TR.addGain || 0) >= 0 ? '+' : ''}${(TR.addGain || 0).toFixed(1)}U</b> · 回撤 实际 ${(TR.ddActual || 0).toFixed(1)}% vs 不加仓 ${(TR.ddCf || 0).toFixed(1)}%</span>` : '') +
+    (TR.research ? `<span><button class="btn btn-outline" id="trReviewBtn">本局复盘</button></span>` : '') +
+    `<span><button class="btn btn-outline" id="trJumpBtn" title="跳回本局练习的K线区间">📍 定位起点</button></span>` +
+    (extra ? `<span class="tb-item" style="color:var(--down); font-weight:700;">${extra}</span>` : '') +
+    `<button type="button" class="btn tr-banner-close" id="trBannerClose" title="收起横幅，方便看图" aria-label="收起答案横幅">✕</button>`;
   el.style.display = 'flex';
+  el.classList.remove('banner-in');
+  void el.offsetWidth;
+  el.classList.add('banner-in');
+  document.getElementById('trBannerClose')?.addEventListener('click', () => { el.style.display = 'none'; });
   const review = document.getElementById('trReviewBtn');
   if (review) review.onclick = () => {
+    if (typeof setSideTab === 'function') setSideTab('practice');
     const item = document.querySelector(`#trHistory [data-tsid="${TR.archiveId}"]`);
     const detail = item?.querySelector('.ts-detail');
-    if (detail){detail.style.display='block';detail.querySelector('.pr-review')?.setAttribute('open','');item.scrollIntoView({block:'nearest'});}
+    if (detail){detail.style.display='block';item.classList.add('is-expanded');detail.querySelector('.pr-review')?.setAttribute('open','');item.scrollIntoView({block:'nearest'});}
   };
   const jb = document.getElementById('trJumpBtn');
   if (jb) jb.onclick = () => {
     if (currentSym !== TR.sym || activeTF !== TR.tf){
-      alert(`当前为 ${DATA.meta.symbol}·${activeTF}, 请先切回本局的品种和周期再定位`);
+      window.showToast?.(`⚠ 当前为 ${DATA.meta.symbol}·${activeTF}，请先切回 ${TR.sym} 再定位`, 'warn', 2600);
       return;
     }
     const pos = locateIdx(TR.startTs);
-    if (pos == null){ alert('定位失败: 起点不在当前数据中'); return; }
+    if (pos == null){ window.showToast?.('⚠ 定位失败：起点不在当前数据中', 'warn'); return; }
     chart.timeScale().setVisibleLogicalRange({
       from: Math.max(0, pos - TR.LOOKBACK),
       to: pos + TR.step + 15,
@@ -614,11 +751,18 @@ function showAnswerBanner(extra){
 function updateTrainerUI(){
   document.getElementById('trainerCtl').style.display = TR.active ? 'flex' : 'none';
   const inRun = trLocked();
-  document.getElementById('trainerProgress').textContent =
-    `${TR.step}/${TR.maxStep} · 判断 ${TR.research?.decisions.length||0} · 平仓 ${TR.session.length} 次`;
+  const progEl = document.getElementById('trainerProgress');
+  if (progEl) {
+    progEl.textContent = `${TR.step}/${TR.maxStep} · 判断 ${TR.research?.decisions.length||0} · 平仓 ${TR.session.length} 次`;
+    progEl.style.setProperty('--prog', String(Math.min(1, TR.step / Math.max(1, TR.maxStep))));
+  }
   document.getElementById('trainerNext').disabled = !inRun;
-  prEl('trainerDecision').disabled = !inRun;
-  prEl('jOpen').title = inRun && TR.research?.mode==='research' ? '规则研究：按当前原始 K 线收盘入场、以本根极值止损' : '';
+  if (prEl('trainerDecision')) {
+    const showDec = inRun && TR.research?.mode === 'research';
+    prEl('trainerDecision').style.display = showDec ? '' : 'none';
+    prEl('trainerDecision').disabled = !showDec;
+  }
+  if (prEl('jOpen')) prEl('jOpen').title = inRun && TR.research?.mode==='research' ? '规则研究：按当前原始 K 线收盘入场、以本根极值止损' : '';
   if(!inRun)prCloseDecision();
   document.getElementById('trainerReveal').style.display = inRun ? '' : 'none';
   document.getElementById('trainerQuit').style.display = inRun ? '' : 'none';
@@ -682,14 +826,27 @@ function archiveSession(cond){
   renderTrainerStats();
 }
 
-// 工具栏"已练 N 局": 统计全部存档(含放弃), tooltip 展示完成/爆仓/放弃明细
+// 工具栏"已练 N 局": 统计全部存档(含放弃), tooltip 展示完成/爆仓/放弃明细, 点击直达战绩 Tab
 function updatePracticeCount(){
-  const el = document.getElementById('practiceCount');
-  if (!el) return;
   const arr = tsLoad();
   const n = c => arr.filter(s => s.cond === c).length;
-  el.innerHTML = `已练 <b>${arr.length}</b> 局`;
-  el.title = `已练习局数(含放弃): 完成 ${n('完成')} · 爆仓 ${n('爆仓')} · 放弃 ${n('放弃')} · 中断 ${n('中断')}`;
+  const el = document.getElementById('practiceCount');
+  if (el){
+    el.innerHTML = `已练 <b>${arr.length}</b> 局`;
+    el.classList.toggle('is-zero', arr.length === 0);
+    el.title = `已练习局数(含放弃): 完成 ${n('完成')} · 爆仓 ${n('爆仓')} · 放弃 ${n('放弃')} · 中断 ${n('中断')} · 点击查看战绩`;
+  }
+  const badge = document.getElementById('sideTabPracBadge');
+  if (badge){
+    const prev = badge.textContent;
+    badge.textContent = arr.length ? String(arr.length) : '';
+    badge.classList.toggle('on', arr.length > 0);
+    if (arr.length > 0 && String(arr.length) !== prev) window.uiMotion?.popBadge?.(badge);
+  }
+  const clrBtn = document.getElementById('trStatsClear');
+  if (clrBtn) clrBtn.disabled = arr.length === 0;
+  const expBtn = document.getElementById('prExport');
+  if (expBtn) expBtn.disabled = arr.length === 0;
 }
 let prHistoryLimit=40;
 function renderTrainerSessions(){
@@ -701,61 +858,70 @@ function renderTrainerSessions(){
   let arr = tsLoad();
   if (only) arr = arr.filter(s => s.flag);
   if (!arr.length){
-    box.innerHTML = `<div class="note" style="margin-top:6px;">${only ? '暂无错题。' : '暂无历史练习局。'}</div>`;
+    box.innerHTML = only
+      ? '<div class="ts-empty">暂无错题。在任意已完成的练习局中点「标记错题」即可归档。</div>'
+      : '<div class="ts-empty">暂无历史练习局。<div class="ts-empty-cta"><button type="button" class="btn btn-outline ts-mini" data-start-trainer>▶ 开始第一局盲测</button></div></div>';
     return;
   }
   box.innerHTML = arr.slice(0,prHistoryLimit).map(s => {
-    const condTag = s.cond === '爆仓' ? '<b style="color:var(--down)">爆仓</b>'
-      : s.cond === '放弃' || s.cond === '中断' ? '<span style="color:var(--muted)">'+s.cond+'</span>'
-      : '<span style="color:var(--up)">完成</span>';
+    const condCls = s.cond === '爆仓' ? 'ts-cond-bad' : (s.cond === '放弃' || s.cond === '中断') ? 'ts-cond-muted' : 'ts-cond-ok';
+    const condTag = `<span class="ts-cond ${condCls}">${prEscape(s.cond)}</span>`;
     const col = s.pnl >= 0 ? 'var(--up)' : 'var(--down)';
     const drillTag = s.drill ? `<span class="ts-badge">${prEscape(s.drill)}</span>` : '';
     const flagTag = s.flag ? '<span class="ts-flag" title="已标记错题"> ⭐</span>' : '';
     const addTag = s.hadAdds ? `<span class="ts-badge" title="加仓贡献 vs 不加仓对照(同出场时点)">加仓 ${(s.addGain || 0) >= 0 ? '+' : ''}${(s.addGain || 0).toFixed(0)}U</span>` : '';
     const ddTxt = (s.curve && s.curve.length > 1) ? ` · 最大回撤 ${(s.ddActual || 0).toFixed(1)}%` : '';
     const curveRow = (s.curve && s.curve.length > 1)
-      ? `<div style="display:flex; align-items:center; gap:8px; margin:2px 0;">
-           ${equitySparkSvg(s.curve, 200, 38, s.capital)}
-           <span style="font-size:10.5px; color:var(--muted);">净值曲线${s.hadAdds ? '<br>灰虚线=不加仓对照' : ''}</span>
+      ? `<div class="ts-curve-row">
+           ${equitySparkSvg(s.curve, 180, 34, s.capital)}
+           <span class="ts-curve-lbl">净值曲线${s.hadAdds ? '<br>灰虚线=不加仓对照' : ''}</span>
          </div>` : '';
     const addRow = s.hadAdds
-      ? `<div style="color:var(--ink-2);">加仓效果：贡献 <b style="color:${(s.addGain || 0) >= 0 ? 'var(--up)' : 'var(--down)'}">${(s.addGain || 0) >= 0 ? '+' : ''}${(s.addGain || 0).toFixed(2)}U</b>（实际 vs 仅首仓·同出场时点） · 最大回撤 实际 <b>${(s.ddActual || 0).toFixed(1)}%</b> vs 不加仓 <b>${(s.ddCf || 0).toFixed(1)}%</b></div>`
+      ? `<div class="ts-meta-line">加仓效果：贡献 <b class="tnum" style="color:${(s.addGain || 0) >= 0 ? 'var(--up)' : 'var(--down)'}">${(s.addGain || 0) >= 0 ? '+' : ''}${(s.addGain || 0).toFixed(2)}U</b>（实际 vs 仅首仓·同出场时点） · 最大回撤 实际 <b>${(s.ddActual || 0).toFixed(1)}%</b> vs 不加仓 <b>${(s.ddCf || 0).toFixed(1)}%</b></div>`
       : '';
     const hasR = s.trades.some(t => t.max_r != null);
     const table = s.trades.length
-      ? '<table style="width:100%; border-collapse:collapse; margin-top:2px;"><tr style="opacity:.6"><td>时间</td><td>方向</td><td>入场→出场</td><td>比例</td><td style="text-align:right">盈亏U</td>' + (s.hadAdds ? '<td style="text-align:right">加仓</td>' : '') + (hasR ? '<td style="text-align:right">R/最大收盘</td>' : '') + '</tr>' +
-        s.trades.map(t => `<tr><td>${prEscape(t.exit_time)}</td><td>${prEscape(t.side)}${t.adds > 0 ? '+'+t.adds : ''}</td><td>${t.entry}→${t.exit_price}</td><td>${t.partial ? (t.ratio*100)+'%' : '100%'}</td><td style="text-align:right; color:${t.pnl_u >= 0 ? 'var(--up)' : 'var(--down)'}">${t.pnl_u >= 0 ? '+' : ''}${(+t.pnl_u).toFixed(1)}</td>` +
-          (s.hadAdds ? `<td style="text-align:right; color:${(t.add_pnl || 0) >= 0 ? 'var(--up)' : 'var(--down)'}">${(t.add_pnl || 0) >= 0 ? '+' : ''}${(+t.add_pnl || 0).toFixed(1)}</td>` : '') +
-          (hasR ? `<td style="text-align:right; color:${(t.r_final ?? 0) >= 0 ? 'var(--up)' : 'var(--down)'}">${t.r_final != null ? (t.r_final >= 0 ? '+' : '') + t.r_final.toFixed(1) : '—'} / ${t.max_r != null ? (t.max_r >= 0 ? '+' : '') + t.max_r.toFixed(1) : '—'}</td>` : '') + '</tr>').join('') + '</table>'
-      : '<div style="opacity:.6">本局未开单。</div>';
-    const descRow = `<div style="color:var(--ink-2);">题目: <b>${prEscape(s.desc || '—')}</b>${s.transition ? ` · 趋势转换: <b>${prEscape(s.transition)}</b>` : (s.desc ? ' · 无趋势转换' : '')} · 用时 <b>${fmtDur(s.durSec)}</b></div>`;
+      ? '<table class="j-table"><thead><tr><th>时间</th><th>方向</th><th>入场→出场</th><th>比例</th><th class="num">盈亏U</th>' + (s.hadAdds ? '<th class="num">加仓</th>' : '') + (hasR ? '<th class="num">R/最大收盘</th>' : '') + '</tr></thead><tbody>' +
+        s.trades.map(t => `<tr><td>${prEscape(t.exit_time)}</td><td>${prEscape(t.side)}${t.adds > 0 ? '+'+t.adds : ''}</td><td class="tnum">${t.entry}→${t.exit_price}</td><td class="tnum">${t.partial ? (t.ratio*100)+'%' : '100%'}</td><td class="num tnum" style="color:${t.pnl_u >= 0 ? 'var(--up)' : 'var(--down)'}">${t.pnl_u >= 0 ? '+' : ''}${(+t.pnl_u).toFixed(1)}</td>` +
+          (s.hadAdds ? `<td class="num tnum" style="color:${(t.add_pnl || 0) >= 0 ? 'var(--up)' : 'var(--down)'}">${(t.add_pnl || 0) >= 0 ? '+' : ''}${(+t.add_pnl || 0).toFixed(1)}</td>` : '') +
+          (hasR ? `<td class="num tnum" style="color:${(t.r_final ?? 0) >= 0 ? 'var(--up)' : 'var(--down)'}">${t.r_final != null ? (t.r_final >= 0 ? '+' : '') + t.r_final.toFixed(1) : '—'} / ${t.max_r != null ? (t.max_r >= 0 ? '+' : '') + t.max_r.toFixed(1) : '—'}</td>` : '') + '</tr>').join('') + '</tbody></table>'
+      : '<div class="ts-muted">本局未开单。</div>';
+    const descRow = `<div class="ts-meta-line">题目: <b>${prEscape(s.desc || '—')}</b>${s.transition ? ` · 趋势转换: <b>${prEscape(s.transition)}</b>` : (s.desc ? ' · 无趋势转换' : '')} · 用时 <b>${fmtDur(s.durSec)}</b></div>`;
     const im = markImpact(s);
-    const avgTxt = (v, n) => n ? `平均 <b style="color:${v >= 0 ? 'var(--up)' : 'var(--down)'}">${v >= 0 ? '+' : ''}${v.toFixed(1)}U</b>(${n}笔)` : '—';
+    const avgTxt = (v, n) => n ? `平均 <b class="tnum" style="color:${v >= 0 ? 'var(--up)' : 'var(--down)'}">${v >= 0 ? '+' : ''}${v.toFixed(1)}U</b>(${n}笔)` : '—';
     const markRow = (im.sigCount || im.watchCount)
-      ? `<div style="color:var(--ink-2);">信号K <b>${im.sigCount}</b> 个（${im.sigFollow} 个 10 根内开仓 / ${im.sigMiss} 未开仓） · 观察 <b>${im.watchCount}</b> 个（${im.watchFollow} 开仓 / ${im.watchMiss} 未开仓）</div>
-         <div style="color:var(--ink-2);">信号后开仓 ${avgTxt(im.avgWith, im.nWith)} vs 无信号开仓 ${avgTxt(im.avgWithout, im.nWithout)}</div>
-         <div style="opacity:.75; font-size:10.5px;">${im.rows.map(r => `T+${r.m.step} ${r.m.kind === 'signal' ? '⚡' : '👁'} → ${r.tr ? `T+${prEscape(r.tr.entries?.[0]?.step ?? '?')} 开仓 ${prEscape(r.tr.side)} ${r.tr.pnl_u >= 0 ? '+' : ''}${(+r.tr.pnl_u).toFixed(1)}U` : '未开仓'}`).join(' · ')}</div>`
+      ? `<div class="ts-meta-line">信号K <b>${im.sigCount}</b> 个（${im.sigFollow} 个 10 根内开仓 / ${im.sigMiss} 未开仓） · 观察 <b>${im.watchCount}</b> 个（${im.watchFollow} 开仓 / ${im.watchMiss} 未开仓）</div>
+         <div class="ts-meta-line">信号后开仓 ${avgTxt(im.avgWith, im.nWith)} vs 无信号开仓 ${avgTxt(im.avgWithout, im.nWithout)}</div>
+         <div class="ts-muted">${im.rows.map(r => `T+${r.m.step} ${r.m.kind === 'signal' ? '⚡' : '👁'} → ${r.tr ? `T+${prEscape(r.tr.entries?.[0]?.step ?? '?')} 开仓 ${prEscape(r.tr.side)} ${r.tr.pnl_u >= 0 ? '+' : ''}${(+r.tr.pnl_u).toFixed(1)}U` : '未开仓'}`).join(' · ')}</div>`
       : '';
+    const dt = new Date(s.ts).toLocaleString('zh-CN', {hour12:false, month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+    const nPos = PracticeCore.positions(s.trades).filter(p=>p.closed).length;
     return `<div class="ts-item" data-tsid="${s.id}">
-      <div class="ts-head" data-toggle="1" style="display:flex; justify-content:space-between; gap:8px; cursor:pointer; padding:2px 0;">
-        <span style="opacity:.75">${new Date(s.ts).toLocaleString('zh-CN', {hour12:false, month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'})} · ${prEscape(s.sym || '?')} ${prEscape(s.tf)}${drillTag}${flagTag}</span>
-        <span>${PracticeCore.positions(s.trades).filter(p=>p.closed).length} 个完整持仓 / ${s.trades.length} 次平仓 · <b style="color:${col}">${s.pnl >= 0 ? '+' : ''}${s.pnl.toFixed(1)}U (${s.pnl >= 0 ? '+' : ''}${(s.pnl / Math.max(s.capital, 1) * 100).toFixed(1)}%)</b> · 回撤 ${(s.ddActual || 0).toFixed(1)}% ${condTag}${addTag}</span>
+      <div class="ts-head" data-toggle="1">
+        <div class="ts-head-top">
+          <span class="ts-sym"><span class="ts-chev" aria-hidden="true">▸</span>${dt} · <b>${prEscape(s.sym || '?')}</b> ${prEscape(s.tf)}${drillTag}${flagTag}</span>
+          <span>${addTag}${condTag}</span>
+        </div>
+        <div class="ts-head-sub">
+          <span class="ts-muted">${nPos} 个完整持仓 / ${s.trades.length} 次平仓 · 回撤 ${(s.ddActual || 0).toFixed(1)}%</span>
+          <b class="tnum ts-pnl" style="color:${col}">${s.pnl >= 0 ? '+' : ''}${s.pnl.toFixed(1)}U (${s.pnl >= 0 ? '+' : ''}${(s.pnl / Math.max(s.capital, 1) * 100).toFixed(1)}%)</b>
+        </div>
       </div>
-      <div class="ts-detail" style="display:none; font-size:11px; padding:2px 0 6px 8px; line-height:1.8;">
-        <div style="opacity:.7">本金 ${s.capital.toLocaleString()}U → 终值 <b>${s.endCapital.toLocaleString()}U</b> · ${s.pnl >= 0 ? '+' : ''}${s.pnl.toFixed(1)}U (${s.pnl >= 0 ? '+' : ''}${(s.pnl/s.capital*100).toFixed(2)}%) · 步数 ${s.steps}${ddTxt}</div>
+      <div class="ts-detail" style="display:none;">
+        <div class="ts-muted">本金 ${s.capital.toLocaleString()}U → 终值 <b>${s.endCapital.toLocaleString()}U</b> · ${s.pnl >= 0 ? '+' : ''}${s.pnl.toFixed(1)}U (${s.pnl >= 0 ? '+' : ''}${(s.pnl/s.capital*100).toFixed(2)}%) · 步数 ${s.steps}${ddTxt}</div>
         ${descRow}
         ${curveRow}
         ${addRow}
         ${markRow}
         ${prSessionReview(s)}
         ${table}
-        <div style="display:flex; gap:6px; margin-top:4px;">
+        <div class="ts-actions">
           <button class="btn ts-mini" data-act="retry" title="用同一品种/级别/起点再盲练一局">🔄 同区间重练</button>
           <button class="btn ts-mini" data-act="flag">${s.flag ? '☆ 取消错题' : '⭐ 标记错题'}</button>
         </div>
       </div>
     </div>`;
-  }).join('')+(arr.length>prHistoryLimit?'<button class="btn" data-history-more>查看更多历史</button>':'');
+  }).join('')+(arr.length>prHistoryLimit?'<button class="btn btn-outline ts-more" data-history-more>查看更多历史</button>':'');
 }
 
 function renderTrainerStats(){
@@ -765,49 +931,170 @@ function renderTrainerStats(){
   document.getElementById('trStatMode').textContent = `共 ${st.sessions} 局`;
   const perSymEl = document.getElementById('trPerSym');
   if (!st.orders){
-    g.innerHTML = '<span class="k">暂无数据</span><span class="v">开始第一次盲测吧</span>';
+    g.innerHTML = '<div class="ts-empty ts-empty-span">暂无已平仓数据，开始第一次盲测吧</div>';
     perSymEl.innerHTML = '';
     return;
   }
   const avgU = st.pnlSum / st.orders;
   const avgPct = st.pnlPctSum / st.orders;
+  const losses = st.orders - st.wins;
+  const avgWin = st.wins > 0 ? st.grossWin / st.wins : 0;
+  const avgLoss = losses > 0 ? Math.abs(st.grossLoss) / losses : 0;
+  const payoffRatio = (avgWin > 0 && avgLoss > 0) ? (avgWin / avgLoss).toFixed(2) : '—';
   const pf = st.grossLoss < 0 ? (st.grossWin / Math.abs(st.grossLoss)).toFixed(2) : '—';
-  const cell = (k,v) => `<span class="k">${k}</span><span class="v">${v}</span>`;
+  const cell = (k,v,tip) => `<div class="kpi-cell"${tip ? ` title="${tip}"` : ''}><span class="k">${k}</span><span class="v tnum">${v}</span></div>`;
   g.innerHTML =
-    cell('完整持仓', `<strong>${st.orders}</strong> · ${st.exits} 次平仓`) +
+    cell('完整持仓', `<strong>${st.orders}</strong> · ${st.exits}次`) +
     cell('胜率', `<strong>${(st.wins/st.orders*100).toFixed(1)}%</strong>`) +
     cell('平均盈亏', `<strong style="color:${avgU >= 0 ? 'var(--up)' : 'var(--down)'}">${avgU >= 0 ? '+' : ''}${avgU.toFixed(1)}U</strong>`) +
-    cell('平均收益', `${avgPct >= 0 ? '+' : ''}${avgPct.toFixed(2)}%`) +
-    cell('累计净利', `${st.pnlSum >= 0 ? '+' : ''}${st.pnlSum.toFixed(0)}U`) +
-    cell('盈亏比', st.grossLoss < 0 ? (st.grossWin/Math.abs(st.grossLoss)).toFixed(2) : '—') +
-    cell('盈利因子PF', pf) +
-    cell('总盈/总亏', `${st.grossWin.toFixed(0)} / ${st.grossLoss.toFixed(0)}`);
+    cell('平均收益', `<strong>${avgPct >= 0 ? '+' : ''}${avgPct.toFixed(2)}%</strong>`) +
+    cell('累计净利', `<strong style="color:${st.pnlSum >= 0 ? 'var(--up)' : 'var(--down)'}">${st.pnlSum >= 0 ? '+' : ''}${st.pnlSum.toFixed(0)}U</strong>`) +
+    cell('盈亏比', `<strong>${payoffRatio}</strong>`, '单笔平均盈利 ÷ 单笔平均亏损') +
+    cell('盈利因子PF', `<strong>${pf}</strong>`, '总盈利 ÷ 总亏损') +
+    cell('总盈/总亏', `<strong>${st.grossWin.toFixed(0)} / ${st.grossLoss.toFixed(0)}</strong>`);
   perSymEl.innerHTML = Object.entries(st.perSymbol)
     .sort((a,b) => b[1].orders - a[1].orders)
     .map(([s,v]) =>
-      `<span style="display:inline-block; margin-right:10px;">${prEscape(s)}: ${v.orders}笔 · 胜${v.orders ? (v.wins/v.orders*100).toFixed(0) : 0}% · ${v.pnl >= 0 ? '+' : ''}${v.pnl.toFixed(0)}U</span>`
+      `<span class="sym-pill"><b>${prEscape(s)}</b> ${v.orders}笔 · 胜${v.orders ? (v.wins/v.orders*100).toFixed(0) : 0}% · <span class="tnum" style="color:${v.pnl >= 0 ? 'var(--up)' : 'var(--down)'}">${v.pnl >= 0 ? '+' : ''}${v.pnl.toFixed(0)}U</span></span>`
     ).join('');
 }
+
+let _trCfgOpen = false;
+let _trCfgRaf = 0;
+function isTrainerConfigOpen(){ return _trCfgOpen; }
+function syncTrainerConfigUI(){
+  const symSel = document.getElementById('trSymSel');
+  const mktSel = document.getElementById('trMktSel');
+  const tfSel = document.getElementById('trTfSel');
+  const tfLbl = document.getElementById('trTfLabel');
+  const tfHint = document.getElementById('trTfHint');
+  const coreChk = document.getElementById('trCoreOnly');
+  const coreWrap = document.getElementById('trCoreOnlyWrap');
+  const stepsInp = document.getElementById('trStepsInput');
+  const drillSel = document.getElementById('trDrillSel');
+  const preview = document.getElementById('trScopePreview');
+  const sym = symSel?.value || '';
+  const mkt = mktSel?.value || '';
+  if (mktSel) mktSel.disabled = !!sym;
+  const coreApplies = !sym && !mkt;
+  if (coreChk) coreChk.disabled = !coreApplies;
+  if (coreWrap) coreWrap.classList.toggle('is-disabled', !coreApplies);
+
+  const cryptoSyms = (typeof MARKET_GROUPS !== 'undefined' && MARKET_GROUPS['加密']) || ['BTC', 'ETH', 'SOL', 'PEPE', 'HYPE'];
+  const allowIntraday = sym ? cryptoSyms.includes(sym) : (!mkt || mkt === '加密');
+  const allow15F = sym
+    ? (typeof CHUNK_SYMBOLS !== 'undefined' && CHUNK_SYMBOLS.includes(sym))
+    : (!mkt || mkt === '加密');
+  if (tfSel) {
+    for (const opt of tfSel.options) {
+      if (opt.value === '4H' || opt.value === '1H') opt.disabled = !allowIntraday;
+      else if (opt.value === '15F') opt.disabled = !allow15F;
+    }
+    const selOpt = tfSel.options[tfSel.selectedIndex];
+    if (selOpt && selOpt.disabled) tfSel.value = '1D';
+    // 仅当只剩日线可用时才隐藏级别行，避免无意义单选
+    const singleOnly = !allowIntraday && !allow15F;
+    tfSel.classList.toggle('cfg-tf-single', singleOnly);
+    if (tfLbl) tfLbl.classList.toggle('cfg-tf-single', singleOnly);
+    if (tfHint) tfHint.classList.toggle('cfg-tf-single', singleOnly);
+  }
+  if (preview){
+    const steps = Math.min(500, Math.max(20, +(stepsInp?.value) || 200));
+    const tfTxt = tfSel?.value || '1D';
+    const drillTxt = drillSel?.value ? ` · 专项「${drillSel.value}」` : '';
+    let scopeTxt = '';
+    if (sym){
+      const label = symSel.options[symSel.selectedIndex]?.textContent || sym;
+      scopeTxt = `固定练习 ${label}`;
+    } else if (mkt){
+      const cnt = (MARKET_GROUPS[mkt] || []).length;
+      scopeTxt = `从「${mkt}」${cnt} 个品种中随机抽取`;
+    } else if (coreChk?.checked){
+      const cnt = window.MarketContext?.CORE_SYMBOLS?.length || 30;
+      scopeTxt = `从 ${cnt} 个 S/A 核心主池中随机抽取`;
+    } else {
+      const cnt = Math.max(0, (symSel?.options?.length || 1) - 1);
+      scopeTxt = `从全市场 ${cnt} 个品种中随机抽取`;
+    }
+    preview.textContent = `${scopeTxt} · ${tfTxt} ${steps} 步${drillTxt}`;
+  }
+}
+function openTrainerConfig(){
+  if (TR.active) return;
+  const cfg = document.getElementById('trainerConfig');
+  const bd = document.getElementById('trainerCfgBackdrop');
+  if (!cfg) return;
+  if (_trCfgRaf){ cancelAnimationFrame(_trCfgRaf); _trCfgRaf = 0; }
+  _trCfgOpen = true;
+  syncTrainerConfigUI();
+  if (bd) window.uiMotion ? window.uiMotion.openOverlay(bd) : (bd.hidden = false);
+  cfg.style.display = 'flex';
+  cfg.classList.remove('is-closing');
+  _trCfgRaf = requestAnimationFrame(() => {
+    _trCfgRaf = 0;
+    if (!_trCfgOpen || cfg.classList.contains('is-closing')) return;
+    cfg.classList.add('is-open');
+    document.getElementById('trCfgStart')?.focus();
+  });
+  document.getElementById('trainerBtn')?.classList.add('open');
+}
+function closeTrainerConfig(immediate = false){
+  _trCfgOpen = false;
+  if (_trCfgRaf){ cancelAnimationFrame(_trCfgRaf); _trCfgRaf = 0; }
+  const cfg = document.getElementById('trainerConfig');
+  const bd = document.getElementById('trainerCfgBackdrop');
+  document.getElementById('trainerBtn')?.classList.remove('open');
+  if (bd) window.uiMotion ? window.uiMotion.closeOverlay(bd, { duration: 140, immediate, restoreFocus: false }) : (bd.hidden = true);
+  if (!cfg) return;
+  if (immediate || window.uiMotion?.prefersReduced?.()){
+    cfg.classList.remove('is-open', 'is-closing');
+    cfg.style.display = 'none';
+    if (!immediate) document.getElementById('trainerBtn')?.focus?.();
+    return;
+  }
+  cfg.classList.remove('is-open');
+  cfg.classList.add('is-closing');
+  setTimeout(() => {
+    if (_trCfgOpen) return;
+    cfg.classList.remove('is-closing');
+    cfg.style.display = 'none';
+    document.getElementById('trainerBtn')?.focus?.();
+  }, 150);
+}
+window.openTrainerConfig = openTrainerConfig;
+window.closeTrainerConfig = closeTrainerConfig;
+window.isTrainerConfigOpen = isTrainerConfigOpen;
 
 function setupTrainer(){
   document.getElementById('trainerBtn').addEventListener('click', () => {
     if (TR.active) return;
-    // 点击后先弹配置面板(品种/市场/级别/步数, 留空随机), 再开始
-    document.getElementById('trainerConfig').style.display = 'flex';
+    if (_trCfgOpen) closeTrainerConfig();
+    else openTrainerConfig();
   });
-  // 品种下拉: 从主切换下拉克隆(单一数据源); 与市场互斥
+  document.getElementById('trainerCfgBackdrop')?.addEventListener('pointerdown', () => closeTrainerConfig());
+  document.getElementById('trCfgClose')?.addEventListener('click', () => closeTrainerConfig());
+  document.getElementById('trainerConfig')?.addEventListener('keydown', e => {
+    if (e.key === 'Escape'){ e.preventDefault(); closeTrainerConfig(); }
+    else if (e.key === 'Enter' && document.activeElement?.tagName !== 'BUTTON'){
+      e.preventDefault();
+      document.getElementById('trCfgStart')?.click();
+    }
+  });
+  // 品种下拉: 从主切换下拉克隆(单一数据源); 与市场、核心主池联动
   const symSel = document.getElementById('trSymSel');
   if (symSel){
     symSel.innerHTML = '<option value="">随机</option>' +
       [...document.querySelectorAll('#symSelect option')]
         .map(o => `<option value="${o.value}">${o.textContent}</option>`).join('');
-    symSel.addEventListener('change', () => {
-      const m = document.getElementById('trMktSel');
-      if (m) m.disabled = !!symSel.value;
-    });
+    symSel.addEventListener('change', syncTrainerConfigUI);
   }
+  ['trMktSel', 'trCoreOnly', 'trStepsInput', 'trDrillSel'].forEach(id =>
+    document.getElementById(id)?.addEventListener('change', syncTrainerConfigUI));
+  document.getElementById('trStepsInput')?.addEventListener('input', syncTrainerConfigUI);
+  syncTrainerConfigUI();
   // 历史练习明细: 点击行展开/收起; 行内按钮=标记错题 / 同区间重练(委托挂在静态父容器上)
   document.getElementById('trHistory')?.addEventListener('click', e => {
+    if (e.target.closest('[data-start-trainer]')){ openTrainerConfig(); return; }
     if(e.target.closest('[data-history-more]')){prHistoryLimit+=40;renderTrainerSessions();return;}
     const act = e.target.closest('[data-act]');
     if (act){
@@ -818,8 +1105,8 @@ function setupTrainer(){
       if (act.dataset.act === 'flag'){
         PracticeStore.put({...s,flag:!s.flag}); renderTrainerSessions();
       } else if (act.dataset.act === 'retry'){
-        if (TR.active){ alert('当前有进行中的练习, 请先结束再重练'); return; }
-        if (positions.length){ alert('当前有未平仓持仓, 请先平仓再开始练习'); return; }
+        if (TR.active){ window.showToast?.('⚠ 当前有进行中的练习，请先结束再重练', 'warn'); return; }
+        if (positions.length){ window.showToast?.('⚠ 当前有未平仓持仓，请先平仓再开始练习', 'warn'); return; }
         const steps = s.maxSteps || s.steps;
         TR.maxStep = Math.min(500, Math.max(20, +steps || 200));
         enterTrainer({ repeat: { sym: s.sym, tf: s.tf, startTs: s.startTs, steps, capital0: s.capital0 || s.capital, id:s.id, mode:s.research?.mode, rule:s.research?.rule } });
@@ -828,18 +1115,23 @@ function setupTrainer(){
     }
     const head = e.target.closest('.ts-head');
     if (!head) return;
-    const d = head.parentElement.querySelector('.ts-detail');
-    if (d) d.style.display = d.style.display === 'none' ? '' : 'none';
+    const item = head.parentElement;
+    const d = item.querySelector('.ts-detail');
+    if (d){
+      const open = d.style.display === 'none';
+      d.style.display = open ? '' : 'none';
+      item.classList.toggle('is-expanded', open);
+    }
   });
   document.getElementById('trOnlyFlagged')?.addEventListener('change', renderTrainerSessions);
   document.getElementById('trCfgStart').addEventListener('click', () => {
     const steps = Math.min(500, Math.max(20, +document.getElementById('trStepsInput').value || 200));
     TR.maxStep = steps;
-    document.getElementById('trainerConfig').style.display = 'none';
+    closeTrainerConfig(true);
     enterTrainer();
   });
   document.getElementById('trCfgCancel').addEventListener('click', () => {
-    document.getElementById('trainerConfig').style.display = 'none';
+    closeTrainerConfig();
   });
   document.getElementById('trainerNext').addEventListener('click', trainerStep);
   document.getElementById('trainerSignal').addEventListener('click', () => toggleTrainerMark('signal'));
@@ -854,15 +1146,52 @@ function setupTrainer(){
     document.getElementById('trainerBanner').style.display = 'none';
     enterTrainer();
   });
-  document.getElementById('trStatsClear').addEventListener('click', () => {
-    if (confirm('确认清零全部练习战绩与历史明细? 此操作不可恢复')){
-      if(trLocked())return;
+  {
+    let clearArmTimer = null;
+    const clrBtn = document.getElementById('trStatsClear');
+    clrBtn?.addEventListener('click', async () => {
+      if (trLocked()) return;
+      const prevSessions = JSON.parse(JSON.stringify(PracticeStore.list(true) || []));
+      const prevStatsRaw = localStorage.getItem(TRKEY);
+      if (!prevSessions.length && !prevStatsRaw) return;
+      if (clrBtn.dataset.armed !== '1') {
+        clrBtn.dataset.armed = '1';
+        clrBtn.classList.add('is-armed');
+        clrBtn.textContent = `确认清零 (${prevSessions.length}局)?`;
+        clearTimeout(clearArmTimer);
+        clearArmTimer = setTimeout(() => {
+          clrBtn.dataset.armed = '';
+          clrBtn.classList.remove('is-armed');
+          clrBtn.textContent = '清零战绩';
+        }, 3500);
+        return;
+      }
+      clearTimeout(clearArmTimer);
+      clrBtn.dataset.armed = '';
+      clrBtn.classList.remove('is-armed');
+      clrBtn.textContent = '清零战绩';
       localStorage.removeItem(TRKEY);
-      PracticeStore.clear();
+      await PracticeStore.clear();
       renderTrainerStats();
       renderTrainerSessions();
-    }
-  });
+      window.showToast?.(`已清零 ${prevSessions.length} 局练习战绩`, 'info', {
+        ms: 5500,
+        action: {
+          label: '撤销',
+          onClick: async () => {
+            if (prevStatsRaw && !localStorage.getItem(TRKEY)) localStorage.setItem(TRKEY, prevStatsRaw);
+            const curIds = new Set((PracticeStore.list(true) || []).map(s => s.id));
+            for (const s of prevSessions) {
+              if (!curIds.has(s.id)) await PracticeStore.put(s);
+            }
+            renderTrainerStats();
+            renderTrainerSessions();
+            window.showToast?.(`✓ 已恢复 ${prevSessions.length} 局练习战绩`, 'ok', 1800);
+          },
+        },
+      });
+    });
+  }
   // 步进快捷键: → 或空格(输入框聚焦时不触发, 避免打断填写开单逻辑)
   window.addEventListener('keydown', e => {
     if (!trLocked()||prDraft) return;

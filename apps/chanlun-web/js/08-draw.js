@@ -7,6 +7,7 @@
 
 const DRAW_KEY_V2 = 'chan_drawings_v2';
 const DRAW_KEY_V1 = 'chan_drawings_v1';
+const drawSymKey = sym => `${DRAW_KEY_V2}:${sym || (typeof currentSym !== 'undefined' ? currentSym : 'BTC')}`;
 // 工具条 data-tool ↔ 组件 kind 双向映射
 const DRAW_TOOL_KIND = { trend: 'trend-line', sandr: 'horizontal-line', fib: 'fib-retracement', poly: 'polyline' };
 const DRAW_KIND_TOOL = { 'trend-line': 'trend', 'horizontal-line': 'sandr', 'fib-retracement': 'fib', 'polyline': 'poly' };
@@ -15,17 +16,41 @@ const DRAW_TOOL_LABEL = { none: '选择', trend: '趋势线', sandr: '水平线'
 let drawingMgr = null;
 let drawSaveTimer = null;
 
+function updateDrawCountUI(){
+  const n = drawingMgr ? (drawingMgr.drawings?.()?.length || 0) : 0;
+  const badge = document.getElementById('drawCountBadge');
+  if (badge){
+    const prev = badge.textContent;
+    badge.textContent = n ? String(n) : '';
+    badge.classList.toggle('on', n > 0);
+    if (n > 0 && String(n) !== prev) window.uiMotion?.popBadge?.(badge);
+  }
+  const clr = document.getElementById('drawClear');
+  if (clr){
+    clr.disabled = n === 0;
+    clr.textContent = n ? `清空画线 (${n})` : '清空画线';
+  }
+}
 function paintDrawButtons(tool){
   document.querySelectorAll('#drawToggle button').forEach(b =>
     b.classList.toggle('active', (b.dataset.tool || 'none') === tool));
+  if (typeof window.syncDrawPopLabel === 'function') window.syncDrawPopLabel(tool);
+  updateDrawCountUI();
 }
-function saveDrawingsNow(){
+function saveDrawingsNow(sym){
   if (!drawingMgr) return;
-  try { localStorage.setItem(DRAW_KEY_V2, drawingMgr.exportJSON()); } catch (e) { /* 隐私模式/超配额: 仅本次会话保留 */ }
+  const s = sym || (typeof currentSym !== 'undefined' ? currentSym : 'BTC');
+  try {
+    const json = drawingMgr.exportJSON();
+    localStorage.setItem(drawSymKey(s), json);
+    // BTC 同步镜像写入旧键 chan_drawings_v2，保证既有存档与 E2E 回归脚本 100% 兼容
+    if (s === 'BTC') localStorage.setItem(DRAW_KEY_V2, json);
+  } catch (e) { /* 隐私模式/超配额: 仅本次会话保留 */ }
+  updateDrawCountUI();
 }
 function scheduleSaveDrawings(){
   clearTimeout(drawSaveTimer);
-  drawSaveTimer = setTimeout(saveDrawingsNow, 250);
+  drawSaveTimer = setTimeout(() => saveDrawingsNow(), 250);
 }
 // v1 旧画线 → 组件绘画模型
 function migrateDrawingsV1(){
@@ -51,20 +76,35 @@ function migrateDrawingsV1(){
       n++;
     }
   }
-  saveDrawingsNow();   // 写入 v2 空/迁移结果, 保证只迁移一次
+  saveDrawingsNow('BTC');   // 写入 v2 空/迁移结果, 保证只迁移一次
   return n;
 }
-function restoreDrawings(){
-  const raw = localStorage.getItem(DRAW_KEY_V2);
+function restoreDrawings(sym){
+  const s = sym || (typeof currentSym !== 'undefined' ? currentSym : 'BTC');
+  const raw = localStorage.getItem(drawSymKey(s)) ?? (s === 'BTC' ? localStorage.getItem(DRAW_KEY_V2) : null);
   if (raw != null){
-    try { drawingMgr.importJSON(raw); return 0; }
-    catch (e){
+    try {
+      drawingMgr.clear();
+      drawingMgr.importJSON(raw);
+      updateDrawCountUI();
+      return 0;
+    } catch (e){
       console.warn('[画线] v2 数据损坏, 尝试旧数据迁移', e);
       try { drawingMgr.clear(); } catch {}
     }
+  } else {
+    try { drawingMgr.clear(); } catch {}
+    updateDrawCountUI();
   }
-  return migrateDrawingsV1();
+  return s === 'BTC' ? migrateDrawingsV1() : 0;
 }
+window.onDrawSymbolChange = function (prevSym, nextSym) {
+  if (!drawingMgr) return;
+  if (prevSym) saveDrawingsNow(prevSym);
+  drawingMgr.setTool(null);
+  paintDrawButtons('none');
+  restoreDrawings(nextSym);
+};
 // LW v4.2 兼容垫片: 组件用 v5 的 series.getPane().paneIndex()/getHTMLElement() 计算画布尺寸与命中区
 function shimDrawingPane(series, el){
   if (typeof series.getPane === 'function') return;   // v5+ 原生支持
@@ -83,12 +123,13 @@ function setupDrawings(){
     fontFamily: FONT,
   });
   // 数据变化即持久化(拖动过程防抖; 手势结束/页面隐藏立即落盘)
-  drawingMgr.on('change', scheduleSaveDrawings);
+  drawingMgr.on('change', () => { updateDrawCountUI(); scheduleSaveDrawings(); });
   drawingMgr.on('gestureEnd', saveDrawingsNow);
   window.addEventListener('pagehide', saveDrawingsNow);
   // 落点完成后组件自动解除工具回到选择态 → 工具条同步高亮
   drawingMgr.on('tool', kind => paintDrawButtons(kind ? (DRAW_KIND_TOOL[kind] || 'none') : 'none'));
   const nMigrated = restoreDrawings();
+  updateDrawCountUI();
   // 工具条
   document.querySelectorAll('#drawToggle button').forEach(b =>
     b.addEventListener('click', () => {
@@ -96,14 +137,56 @@ function setupDrawings(){
       drawingMgr.setTool(DRAW_TOOL_KIND[tool] || null);
       paintDrawButtons(tool);
       flashBtn('snapshotBtn', tool === 'none'
-        ? '画线: 选择/编辑模式'
-        : `画线: ${DRAW_TOOL_LABEL[tool] || tool}`);
+        ? '画线：选择/编辑模式'
+        : `画线：${DRAW_TOOL_LABEL[tool] || tool}（Esc / 右键退出）`);
     }));
   document.getElementById('drawClear').addEventListener('click', () => {
+    const clearedSym = typeof currentSym !== 'undefined' ? currentSym : 'BTC';
+    const count = drawingMgr.drawings?.()?.length || 0;
+    const backup = count ? drawingMgr.exportJSON() : null;
     drawingMgr.clear();
-    saveDrawingsNow();
+    saveDrawingsNow(clearedSym);
     paintDrawButtons('none');
-    flashBtn('snapshotBtn', '线条已清空');
+    if (count && typeof window.showToast === 'function'){
+      window.showToast(`已清空 ${count} 条画线`, 'info', {
+        ms: 5500,
+        action: {
+          label: '撤销',
+          onClick: () => {
+            if (!backup || !drawingMgr) return;
+            try {
+              const mergeDrawJson = (oldRaw, curRaw) => {
+                const oldObj = JSON.parse(oldRaw);
+                if (!curRaw) return oldRaw;
+                const curObj = JSON.parse(curRaw);
+                if (Array.isArray(oldObj) && Array.isArray(curObj)) {
+                  const seen = new Set(curObj.map(x => x?.id).filter(Boolean));
+                  return JSON.stringify([...oldObj.filter(x => !x?.id || !seen.has(x.id)), ...curObj]);
+                }
+                if (oldObj && Array.isArray(oldObj.drawings) && curObj && Array.isArray(curObj.drawings)) {
+                  const seen = new Set(curObj.drawings.map(x => x?.id).filter(Boolean));
+                  return JSON.stringify({ ...curObj, drawings: [...oldObj.drawings.filter(x => !x?.id || !seen.has(x.id)), ...curObj.drawings] });
+                }
+                return oldRaw;
+              };
+              const curLive = (typeof currentSym !== 'undefined' ? currentSym : 'BTC') === clearedSym;
+              const curRaw = curLive ? drawingMgr.exportJSON() : localStorage.getItem(drawSymKey(clearedSym));
+              const merged = mergeDrawJson(backup, curRaw);
+              localStorage.setItem(drawSymKey(clearedSym), merged);
+              if (clearedSym === 'BTC') localStorage.setItem(DRAW_KEY_V2, merged);
+              if (curLive) {
+                drawingMgr.clear();
+                drawingMgr.importJSON(merged);
+                saveDrawingsNow(clearedSym);
+              }
+              window.showToast(`✓ 已恢复 ${clearedSym} 的 ${count} 条画线`, 'ok', 1800);
+            } catch {}
+          },
+        },
+      });
+    } else {
+      flashBtn('snapshotBtn', '线条已清空');
+    }
   });
   // 右键取消画线(组件本身只处理 Esc): 与 Esc 同语义 —
   // 工具进行中 → 清掉未完成落点并退出工具回到选择态; 已有选中 → 取消选中; 空闲 → 保留原生右键菜单。

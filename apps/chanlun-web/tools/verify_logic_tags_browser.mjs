@@ -71,22 +71,25 @@ assert.equal(await ev(`document.body.classList.contains('mode-trainer')`), false
 assert.equal(await ev(`document.getElementById('modeBadge').textContent`), '复盘中', '复盘徽标文本');
 assert.equal(await ev(`document.getElementById('modeBadge').classList.contains('replay')`), true, '复盘徽标应带 replay 样式');
 
-// 点开一级 → 二级选项齐全(入场信号内含 MA突破/MA回踩/动能/裸K 四组)
+// 点开一级 → 二级选项齐全(入场信号为新的 4 项)
 await click('#jLogicTags .lt-cat[data-cat="market"]');
 assert.equal(await ev(`getComputedStyle(document.querySelector('#jLogicTags .lt-panel[data-panel="market"]')).display`), 'flex', '点一级标签应展开二级');
 assert.deepEqual(
   await ev(`[...document.querySelectorAll('#jLogicTags .lt-panel[data-panel="market"] .logic-tag')].map(b => b.dataset.val)`),
   ['MA120向上', 'MA120向下', 'MA120走平', '价格在MA120以上', '价格在MA120以下']);
 assert.deepEqual(
-  await ev(`[...document.querySelectorAll('#jLogicTags .lt-panel[data-panel="entry"] .lt-glabel')].map(b => b.textContent)`),
-  ['MA突破', 'MA回踩', '动能', '裸K']);
-assert.ok(await ev(`!!document.querySelector('#jLogicTags .lt-panel[data-panel="entry"] .logic-tag[data-val="MACD背离"]')`), '动能应在入场信号内');
-assert.ok(await ev(`!!document.querySelector('#jLogicTags .lt-panel[data-panel="entry"] .logic-tag[data-val="假突破"]')`), '裸K应在入场信号内');
+  await ev(`[...document.querySelectorAll('#jLogicTags .lt-panel[data-panel="entry"] .logic-tag')].map(b => b.dataset.val)`),
+  ['均线突破', '大阳线后的顺势短线多', '大阴线后的顺势短线空', '震荡区间的反转']);
 
-// 必填拦截: 全空 → 缺 MA120方向
+// 必填拦截: 全空 → 先要求入场信号(市场环境可自动判定)
 await ev(`document.getElementById('jOpen').click()`);
-assert.ok(String(await ev('window.__alert')).includes('MA120方向'), '缺市场环境应拦截: ' + await ev('window.__alert'));
+assert.ok(String(await ev('window.__alert')).includes('入场信号'), '缺入场信号应拦截: ' + await ev('window.__alert'));
 assert.equal(await ev('positions.length'), 0, '拦截后未开仓');
+// 第 50 根不足 120 根, 市场环境无法自动判定 → 只选信号仍要求手选环境; 失败后信号保持原样
+await ev(`(() => { window.__alert = null; document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="震荡区间的反转"]').click(); document.getElementById('jOpen').click(); })()`);
+assert.ok(String(await ev('window.__alert')).includes('MA120方向'), '数据不足时缺市场环境应拦截: ' + await ev('window.__alert'));
+assert.equal(await ev('positions.length'), 0);
+await ev(`document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="震荡区间的反转"]').click()`);
 
 // 只选市场环境 → 仍缺入场信号
 await ev(`(() => {
@@ -102,21 +105,19 @@ await click('#jLogicTags .logic-tag[data-group="ma120dir"][data-val="MA120向下
 assert.equal(await ev(`document.querySelector('#jLogicTags .logic-tag[data-group="ma120dir"][data-val="MA120向上"]').classList.contains('active')`), false, '同组单选应取消前一个');
 assert.equal(await ev(`document.querySelector('#jLogicTags .logic-tag[data-group="ma120dir"][data-val="MA120向下"]').classList.contains('active')`), true);
 
-// 入场信号"任选其一即可": 只选动能 MACD背离 即满足必填
+// 入场信号"任选其一即可"
 await ev(`(() => {
   const c = s => document.querySelector(s).click();
   c('#jLogicTags .lt-cat[data-cat="entry"]');
-  c('#jLogicTags .logic-tag[data-cat="entry"][data-group="momentum"][data-val="MACD背离"]');
+  c('#jLogicTags .logic-tag[data-cat="entry"][data-val="均线突破"]');
 })()`);
-assert.deepEqual(await ev(`ltMissing()`), [], '只选动能应满足入场信号必填');
+assert.deepEqual(await ev(`ltMissing()`), [], '选任一入场信号即满足必填');
 
 // 补齐其余信号 + 形态 → 开仓成功, 记录结构化字符串
 await ev(`(() => {
   window.__alert = null;
   const c = s => document.querySelector(s).click();
-  c('#jLogicTags .logic-tag[data-cat="entry"][data-val="突破MA60"]');
-  c('#jLogicTags .logic-tag[data-cat="entry"][data-val="回踩MA20"]');
-  c('#jLogicTags .logic-tag[data-cat="entry"][data-group="candle"][data-val="假突破"]');
+  c('#jLogicTags .logic-tag[data-cat="entry"][data-val="大阳线后的顺势短线多"]');
   c('#jLogicTags .lt-cat[data-cat="pattern"]');
   c('#jLogicTags .logic-tag[data-cat="pattern"][data-val="蓄势"]');
   document.getElementById('jCapital').value = 1000;
@@ -127,13 +128,13 @@ assert.equal(await ev('window.__alert'), null, '必填齐后应可开仓');
 assert.equal(await ev('positions.length'), 1, '标签开仓成功');
 const logic = await ev('positions[0].entries[0].logic');
 assert.ok(logic.includes('市场: MA120向下·价格在MA120以上'), '市场环境段: ' + logic);
-assert.ok(logic.includes('入场: 突破MA60、回踩MA20'), '入场信号段: ' + logic);
-assert.ok(logic.includes('动能: MACD背离') && logic.includes('裸K: 假突破') && logic.includes('形态: 蓄势'), '动能/裸K/形态段: ' + logic);
+assert.ok(logic.includes('入场: 均线突破、大阳线后的顺势短线多'), '入场信号段: ' + logic);
+assert.ok(logic.includes('形态: 蓄势'), '形态段: ' + logic);
 assert.ok(logic.endsWith('· 补充文本'), '补充文字应合并: ' + logic);
 
-// 计数徽标(动能/裸K 计入入场信号)与面板收起
+// 计数徽标与面板收起
 assert.equal(await ev(`document.querySelector('#jLogicTags [data-count="market"]').textContent`), '2');
-assert.equal(await ev(`document.querySelector('#jLogicTags [data-count="entry"]').textContent`), '4');
+assert.equal(await ev(`document.querySelector('#jLogicTags [data-count="entry"]').textContent`), '2');
 await click('#jLogicTags .lt-cat[data-cat="pattern"]');   // 再点一级(当前已展开) → 收起
 assert.equal(await ev(`getComputedStyle(document.querySelector('#jLogicTags .lt-panel[data-panel="pattern"]')).display`), 'none', '再点一级应收起');
 
@@ -165,6 +166,6 @@ await ev(`(() => {
   positions.length = 0;
 })()`);
 assert.deepEqual(errors, []);
-console.log('PASS logic tags: 两级标签(市场环境必填 + 入场信号必填: MA突破/MA回踩/动能/裸K 任选其一, 形态选填), 一级展开二级, 结构化记录, 止损预估');
+console.log('PASS logic tags: 两级标签(市场环境可自动判定/数据不足时必填 + 入场信号≥1: MA突破/MA回踩/动能/裸K 任选其一, 形态选填), 一级展开二级, 结构化记录, 止损预估');
 ws.close();
 process.exit(0);

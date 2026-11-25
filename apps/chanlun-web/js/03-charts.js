@@ -12,10 +12,10 @@ function chartOptions(){
     crosshair: {
       mode: LightweightCharts.CrosshairMode.Normal,
       vertLine: { color: T.muted, lineStyle: LightweightCharts.LineStyle.Dashed, labelBackgroundColor: T.panel, labelTextColor: T.ink },
-      horzLine: { color: T.muted, labelBackgroundColor: T.panel, labelTextColor: T.ink },
+      horzLine: { color: T.muted, lineStyle: LightweightCharts.LineStyle.Dashed, labelBackgroundColor: T.panel, labelTextColor: T.ink },
     },
-    rightPriceScale: { borderColor: T.grid },
-    timeScale: { borderColor: T.grid, timeVisible: activeTF !== '1D', secondsVisible: false, rightOffset: 5 },
+    rightPriceScale: { borderColor: T.border },
+    timeScale: { borderColor: T.border, timeVisible: activeTF !== '1D', secondsVisible: false, rightOffset: 5 },
     autoSize: true,
   };
 }
@@ -61,9 +61,35 @@ const macdSignalSeries = macdChart.addLineSeries({
   lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
 });
 
+function priceFormatFor(ref){
+  const a = Math.abs(Number(ref)) || 0;
+  if (!a || a >= 1) return { type: 'price', precision: 2, minMove: 0.01 };
+  if (a >= 0.01) return { type: 'price', precision: 4, minMove: 0.0001 };
+  const prec = Math.min(10, Math.max(6, -Math.floor(Math.log10(a)) + 2));
+  return { type: 'price', precision: prec, minMove: +Math.pow(10, -prec).toPrecision(1) };
+}
+function applyPriceFormats(cs, md){
+  const last = cs && cs.length ? cs[cs.length - 1].close : 1;
+  const pf = priceFormatFor(last);
+  candleSeries.applyOptions({ priceFormat: pf });
+  for (const m of maSeries) m.series.applyOptions({ priceFormat: pf });
+  let macdRef = 0;
+  if (md && md.diff){
+    for (let i = Math.max(0, md.diff.length - 200); i < md.diff.length; i++){
+      const v = Math.abs(md.diff[i]?.value || 0);
+      if (v > macdRef) macdRef = v;
+    }
+  }
+  const mf = priceFormatFor(macdRef || last * 1e-2);
+  macdHistSeries.applyOptions({ priceFormat: mf });
+  macdLineSeries.applyOptions({ priceFormat: mf });
+  macdSignalSeries.applyOptions({ priceFormat: mf });
+}
+
 // ---- MA 均线(主图叠加, 周期可配) ----
 // 默认 MA20/MA60/MA120; 输入框可改周期, 逗号分隔, 留空隐藏。颜色循环取 MA_COLORS。
-const MA_COLORS = ['#2962ff', '#ff9800', '#9c27b0', '#00bcd4', '#e91e63', '#787b86'];
+// 注: 前三项保持 ['#2962ff', '#ff9800', '#9c27b0'] 以兼容 MA 图例回归校验。
+const MA_COLORS = ['#2962ff', '#ff9800', '#9c27b0', '#06b6d4', '#ec4899', '#64748b'];
 const maSeries = [];   // {period, series}
 function parseMaPeriods(){
   const raw = document.getElementById('maPeriods').value.trim();
@@ -235,20 +261,20 @@ chart.timeScale().subscribeVisibleLogicalRangeChange(r => {
 
 // ---- 笔/线段/中枢 overlay primitive ----
 function getLayerData(){
-  const th = themeKey();
+  const T = t(), th = themeKey();
   return {
     strokes:  layers.strokes  ? strokesFor(activeView)  : null,
     segments: layers.segments ? segmentsFor(activeView) : null,
     pivots:   layers.pivots   ? pivotsFor(activeView, pivotMode) : null,
-    segUp:   '#26a69a',
-    segDown: '#ef5350',
-    // 老笔口径下笔线用紫色(原「老笔」对照层配色), 提示当前为对照链
+    segUp:   T.segUp,
+    segDown: T.segDown,
+    // 老笔口径下笔线用紫罗兰, 提示当前为对照链
     strokeColor: strokeStd === 'old'
-      ? (th === 'dark' ? 'rgba(126,87,194,0.85)' : 'rgba(94,53,177,0.75)')
-      : (th === 'dark' ? 'rgba(120,123,134,0.55)' : 'rgba(120,123,134,0.65)'),
+      ? (th === 'dark' ? 'rgba(139,92,246,0.85)' : 'rgba(124,58,237,0.75)')
+      : (th === 'dark' ? 'rgba(107,118,137,0.58)' : 'rgba(100,116,139,0.62)'),
     strokeDash: strokeStd === 'old' ? [5,4] : [2,3],
-    pivotFill: th === 'dark' ? 'rgba(41,98,255,0.07)' : 'rgba(41,98,255,0.05)',
-    pivotEdge: th === 'dark' ? 'rgba(120,123,134,0.45)' : 'rgba(41,98,255,0.35)',
+    pivotFill: th === 'dark' ? 'rgba(59,130,246,0.07)' : 'rgba(37,99,235,0.05)',
+    pivotEdge: th === 'dark' ? 'rgba(107,118,137,0.45)' : 'rgba(37,99,235,0.35)',
   };
 }
 class ChanOverlayRenderer {
@@ -312,7 +338,7 @@ class ChanOverlayRenderer {
         const mx1 = X(m.t1), my1 = Y(m.p1), mx2 = X(m.t2), my2 = Y(m.p2);
         if (mx1 != null && my1 != null && mx2 != null && my2 != null){
           ctx.save();
-          ctx.fillStyle = m.dir >= 0 ? 'rgba(8,153,129,.10)' : 'rgba(242,54,69,.10)';
+          ctx.fillStyle = m.dir >= 0 ? 'rgba(13,159,134,.11)' : 'rgba(239,68,82,.11)';
           ctx.fillRect(Math.min(mx1,mx2), Math.min(my1,my2), Math.abs(mx2-mx1), Math.abs(my2-my1));
           ctx.strokeStyle = m.color; ctx.lineWidth = 1.6; ctx.setLineDash([5,4]);
           ctx.beginPath(); ctx.moveTo(mx1,my1); ctx.lineTo(mx2,my2); ctx.stroke();
@@ -328,13 +354,14 @@ class ChanOverlayRenderer {
           let lx = mx2 + 12, ly = my2 - lh - 8;
           lx = Math.min(Math.max(4, lx), chartElW() - lw - 4);
           if (ly < 4) ly = my2 + 12;
-          ctx.fillStyle = th === 'dark' ? 'rgba(42,46,57,.96)' : 'rgba(255,255,255,.97)';
+          const T = t();
+          ctx.fillStyle = T.panel;
           ctx.strokeStyle = m.color; ctx.lineWidth = 1;
           ctx.fillRect(lx, ly, lw, lh); ctx.strokeRect(lx, ly, lw, lh);
-          ctx.fillStyle = th === 'dark' ? '#d1d4dc' : '#131722';
+          ctx.fillStyle = T.ink;
           ctx.textBaseline = 'top';
           lines.forEach((s,i) => {
-            ctx.fillStyle = i === 0 ? m.color : ctx.fillStyle;   // 首行价格变动用主题色
+            ctx.fillStyle = i === 0 ? m.color : T.ink;   // 首行价格变动用主题色
             ctx.fillText(s, lx + 7, ly + 5 + i * 15);
           });
           ctx.restore();
@@ -450,7 +477,7 @@ function setupMeasure(){
     if (!measuring){
       // 第1次 Shift+单击: 锚定起点; 松开左键后移动鼠标仍实时测量
       measuring = true;
-      window._measure = { t1: pt.t, p1: pt.p, t2: pt.t, p2: pt.p, dir: 1, color: '#2962ff', label: 'Δ 0.00' };
+      window._measure = { t1: pt.t, p1: pt.p, t2: pt.t, p2: pt.p, dir: 1, color: t().bottom, label: 'Δ 0.00' };
       flashBtn('snapshotBtn', '测距: 起点已定, 移动鼠标读数; 再 Shift+单击固定终点');
     } else {
       // 第2次 Shift+单击: 固定终点, 读数保留(单击/Esc清除)

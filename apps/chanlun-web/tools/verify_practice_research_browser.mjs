@@ -109,6 +109,7 @@ try{
   await ev(`prEl('trainerDecision').click();
     prEl('prParent').value=${JSON.stringify(before.opportunityId)};prEl('prParent').dispatchEvent(new Event('change'));
     prEl('prReason').value='突破关键位置';prEl('jCapital').value=1000;prEl('jLeverage').value=1;
+    document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="均线突破"]').classList.add('active');
     prEl('prSubmit').click();`);
   const entry=await ev('({p:positions[0],b:curBar(),d:TR.research.decisions[1]})');
   assert.equal(entry.p.initialStop,entry.b.low);

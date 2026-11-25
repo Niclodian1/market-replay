@@ -38,20 +38,8 @@ function buildMarkers(v){
   if (layers.panbei) panbeiFor(v, pivotMode).forEach(p => {
     out.push({ time:p.t, position:'belowBar', color:kindColor(p.k), shape:'triangle', text:p.k, size:1 });
   });
-  // 练习标记: 每笔开仓/加仓(▲多 belowBar / ▼空 aboveBar, 颜色=持仓色) + 已平仓的出场■(盈亏染色)
-  practiceEntries().forEach(e => {
-    const long = e.side === '多';
-    if (e.isExit){
-      out.push({ time: e.time, position: long ? 'aboveBar' : 'belowBar',
-        color: e.color, shape: 'square', text: `#${e.pid} ${e.price}`, size: 0.5 });
-    } else {
-      out.push({ time: e.time, position: long ? 'belowBar' : 'aboveBar',
-        color: e.color, shape: long ? 'arrowUp' : 'arrowDown',
-        text: `#${e.pid}${e.isAdd ? '+' : ''}`, size: 0.5 });
-    }
-  });
-  // 练习: 信号K(⚡ aboveBar 橙) 与 观察(观 belowBar 灰) —— 揭示后保留供复盘
-  if (typeof TR !== 'undefined' && (TR.marks || []).length){
+  // 练习: 信号K(⚡ aboveBar 橙) 与 观察(观 belowBar 灰) —— 揭示后保留供复盘(仅限本局对应品种与周期)
+  if (typeof TR !== 'undefined' && (TR.marks || []).length && (!TR.sym || (currentSym === TR.sym && activeTF === TR.tf))){
     for (const m of TR.marks){
       out.push(m.kind === 'signal'
         ? { time: m.t, position: 'aboveBar', color: T.top, shape: 'circle', text: '⚡', size: 0.5 }
@@ -64,6 +52,7 @@ function buildMarkers(v){
   if (typeof ma20StructureMarkers === 'function') out.push(...ma20StructureMarkers(v));
   if (typeof ma20AIMarkers === 'function') out.push(...ma20AIMarkers(v));
   if (typeof macd3segMarkers === 'function') out.push(...macd3segMarkers(v));
+  if (typeof window.MarketContext?.earningsMarkers === 'function') out.push(...window.MarketContext.earningsMarkers(v));
   out.sort((a,b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
   return out;
 }
@@ -108,11 +97,6 @@ function buildMaps(v, append = false){
     if (!markerMap[tr.entry_t]) markerMap[tr.entry_t] = {
       kind:`回测·${tr.type}`, price:tr.entry, color:kindColor(tr.type), trade:tr,
     };
-  });
-  // 练习标记: 开仓/加仓(悬停显示持仓信息; 出场■在 practiceEntries 中带盈亏)
-  practiceEntries().forEach(e => {
-    const kind = e.isExit ? `#${e.pid} 平仓` : `#${e.pid} ${e.isAdd ? '加仓' : '开仓'}`;
-    if (!markerMap[e.time]) markerMap[e.time] = { kind, price: e.price, color: e.color };
   });
   // ---- 悬停详情索引: bar时间 → 该bar上所有信号的完整生成依据 ----
   detailMap = {};
@@ -159,23 +143,6 @@ function buildMaps(v, append = false){
       ['收益', fmtRet(tr.ret)], ['原因', tr.reason],
     ], null);
   });
-  // 练习开仓/加仓的悬停详情(方向/价格/杠杆/逻辑; 平仓后含盈亏与原因)
-  practiceEntries().forEach(e => {
-    if (e.isExit){
-      const r = TR.session.find(x => x.pid === e.pid && x.exit_ts === e.time);
-      if (r) pushD(e.time, `${e.pid} 平仓`, e.color,
-        [['方向', r.side], ['入场→出场', `${r.entry} → ${r.exit_price}`],
-         ['盈亏', `${r.pnl_u >= 0 ? '+' : ''}${r.pnl_u.toFixed(1)}U`], ['原因', r.exit_reason || '']], null);
-    } else {
-      const pos = posById(e.pid);
-      if (pos){
-        const en = pos.entries.find(x => x.t === e.time);
-        pushD(e.time, `#${e.pid} ${e.isAdd ? '加仓' : '开仓'}`, posColor(pos),
-          [['方向', pos.side], ['价格', fmt(e.price)], ['杠杆', `${(en && en.leverage) || '?'}x`],
-           ['逻辑', (en && en.logic) || '']], (en && en.logic) || null);
-      }
-    }
-  });
 }
 
 let _applySeriesRaf = 0, _renderedCandleFrame = null;
@@ -186,6 +153,7 @@ function applySeries(opts = {}){
     const v=activeView, cs=candlesFor(v), bar=cs.at(-1), previous=_renderedCandleFrame;
     const append=!!(opts.step&&trLocked()&&previous?.view===v&&previous.theme===themeKey()&&
       cs.length===previous.length+1&&cs[0]===previous.first&&cs.at(-2)===previous.last);
+    let md = null;
     if(append){
       const T=t(), i=cs.length-1, m=macdFor(v);
       candleSeries.update(bar);
@@ -196,7 +164,7 @@ function applySeries(opts = {}){
     }else{
       candleSeries.setData(cs);
       volumeSeries.setData(buildVolData(v));
-      const md = buildMacdData(v);
+      md = buildMacdData(v);
       macdHistSeries.setData(md.hist);
       macdLineSeries.setData(md.diff);
       macdSignalSeries.setData(md.dea);
@@ -204,6 +172,7 @@ function applySeries(opts = {}){
     candleSeries.setMarkers(buildMarkers(v));
     buildMaps(v,append);
     rebuildMA(append);
+    if (!append && typeof applyPriceFormats === 'function') applyPriceFormats(cs, md);
     if (typeof aiMa20AlgoRefresh === 'function') aiMa20AlgoRefresh();
     if (typeof macd3segRefresh === 'function') macd3segRefresh();
     _renderedCandleFrame={view:v,theme:themeKey(),first:cs[0],last:bar,length:cs.length};
@@ -225,6 +194,10 @@ let _panelRaf = null;
 function refreshAll(opts = {}){
   applySeries(opts);
   updateLivePnl();   // 复盘持仓浮动盈亏随K线实时刷新(只改文本, 不重建表单)
+  if (typeof window.MarketContext?.render === 'function') window.MarketContext.render(null);
+  if (typeof window.renderLegendBar === 'function' && (typeof syncT === 'undefined' || syncT == null)) {
+    window.renderLegendBar(null);
+  }
   if (opts.light){
     if (_panelRaf == null){
       _panelRaf = requestAnimationFrame(() => { _panelRaf = null; refreshPanels(); });
@@ -269,6 +242,7 @@ async function setTF(tf){
   if (!switching && !needChunkLoad) return;
   _activeSubPane = null;
   activeTF = tf;
+  if (typeof renderTfTabs === 'function') renderTfTabs();
   document.querySelectorAll('#tfToggle button').forEach(b => b.classList.toggle('active', b.dataset.tf === tf));
   document.getElementById('symbolBadge').textContent = `${DATA.meta.symbol} · ${tf}`;
   chart.applyOptions(chartOptions());
@@ -311,13 +285,13 @@ function chunkWindowReady(){
 async function ensureChunkWindow(){
   if (chunkWindowReady()) return true;
   const man = await ChunkStore.manifest(currentSym, activeTF);
-  if (!man || !man.total){ alert(`${currentSym} 暂无 ${activeTF} 分钟级分片数据`); return false; }
+  if (!man || !man.total){ window.showToast?.(`⚠ ${currentSym} 暂无 ${activeTF} 分钟级分片数据`, 'warn', 2800); return false; }
   const sec = man.sec;
   const lastT = man.chunks[man.chunks.length - 1].t1;
   const span = (TR.LOOKBACK * 2 + 20) * sec;   // 默认展示最近 LOOKBACK*2 根
   const ok = await ChunkStore.loadWindow(currentSym, activeTF,
     Math.max(man.chunks[0].t0, lastT - span), lastT + sec);
-  if (!ok){ alert('分片加载失败, 请稍后重试'); return false; }
+  if (!ok){ window.showToast?.('✗ 分片加载失败，请稍后重试', 'err', 2800); return false; }
   return true;
 }
 
@@ -364,8 +338,20 @@ function updateModeBadge(){
   el.textContent = txt;
   el.className = 'mode-badge' + (cls ? ' ' + cls : '');
 }
+function resolveBarTime(ts){
+  const times = allTimes();
+  if (!times.length) return ts;
+  if (ts == null) return times[Math.floor(times.length * 0.8)];
+  let lo = 0, hi = times.length - 1, pos = 0;
+  while (lo <= hi){
+    const mid = (lo + hi) >> 1;
+    if (times[mid] <= ts){ pos = mid; lo = mid + 1; } else hi = mid - 1;
+  }
+  return times[pos];
+}
 function enterReplay(ts){
-  replayT = ts || allTimes()[Math.floor(allTimes().length * 0.8)];
+  stopPlay();
+  replayT = resolveBarTime(ts);
   document.getElementById('replayCtl').style.display = 'flex';
   document.getElementById('replayBtn').textContent = '复盘中…';
   document.getElementById('replayBtn').classList.add('active');
@@ -377,8 +363,12 @@ function enterReplay(ts){
       ? `${ymd}T${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`
       : ymd;
   }
+  const times = allTimes();
+  const idx = times.indexOf(replayT);
+  if (idx >= 0) document.getElementById('replayInfo').textContent = `${fmtTime(replayT)} · ${idx + 1}/${times.length}`;
   renderJournal();   // 刷新复盘模式显示与按钮可用态
   refreshAll();
+  if (typeof setSideTab === 'function') setSideTab('trade');
 }
 function exitReplay(){
   stopPlay();
@@ -390,6 +380,7 @@ function exitReplay(){
   updateModeBadge();
   renderJournal();   // 退出复盘: 刷新模式显示与按钮可用态
   refreshAll();
+  if (!TR.active && typeof setSideTab === 'function') setSideTab('logic');
   chart.timeScale().fitContent();
 }
 function stopPlay(){
@@ -427,36 +418,41 @@ function togglePlay(){
 function setupReplay(){
   const btn = document.getElementById('replayBtn');
   btn.addEventListener('click', () => inReplay() ? exitReplay() : enterReplay());
-  document.getElementById('replayGo').addEventListener('click', () => {
+  const jumpToInputDate = () => {
     const v = document.getElementById('replayDate').value;
     if (!v) return;
     const d = v.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/);
     if (!d) return;
-    enterReplay(Date.UTC(+d[1], +d[2] - 1, +d[3], +(d[4] || 0), +(d[5] || 0)) / 1000);
-  });
+    stopPlay();
+    const targetTs = Date.UTC(+d[1], +d[2] - 1, +d[3], +(d[4] || 0), +(d[5] || 0)) / 1000;
+    if (inReplay()) setReplayT(targetTs);
+    else enterReplay(targetTs);
+  };
+  document.getElementById('replayGo').addEventListener('click', jumpToInputDate);
+  document.getElementById('replayDate').addEventListener('change', jumpToInputDate);
   document.getElementById('replayPrev').addEventListener('click', () => { stopPlay(); stepReplay(-1); });
   document.getElementById('replayNext').addEventListener('click', () => { stopPlay(); stepReplay(1); });
   document.getElementById('replayPlay').addEventListener('click', togglePlay);
   document.getElementById('replayExit').addEventListener('click', exitReplay);
 }
 
-// ---- 一键快照: 三面板合成一张图 → 剪贴板(并下载) ----
+// ---- 一键快照: 仅合成当前可见面板 → 剪贴板 ----
 function setupSnapshot(){
   document.getElementById('snapshotBtn').addEventListener('click', async () => {
     // 有未读错误时优先展示完整堆栈(诊断用), 无错误才走截图
     if (globalThis.__ERRS && __ERRS.length){
       alert('最近捕获的错误:\n\n' + __ERRS.map((s, i) => `[${i + 1}] ${s}`).join('\n\n'));
       __ERRS.length = 0;
-      flashBtn('snapshotBtn', '📷 快照');
+      const sb = document.getElementById('snapshotBtn');
+      if (sb) sb.innerHTML = window.UI_ICONS?.camera || '📷';
       return;
     }
     try {
-      // lightweight-charts v4 的 chart 提供 takeScreenshot()(canvas)
-      const c1 = chart.takeScreenshot();
-      const c2 = volumeChart.takeScreenshot();
-      const c3 = macdChart.takeScreenshot();
-      const W = Math.max(c1.width, c2.width, c3.width);
-      const H = c1.height + c2.height + c3.height + 30;
+      const canvases = [chart.takeScreenshot()];
+      if (!document.getElementById('volume')?.classList.contains('pane-off')) canvases.push(volumeChart.takeScreenshot());
+      if (!document.getElementById('macd')?.classList.contains('pane-off')) canvases.push(macdChart.takeScreenshot());
+      const W = Math.max(...canvases.map(c => c.width));
+      const H = canvases.reduce((sum, c) => sum + c.height, 0) + 30;
       const out = document.createElement('canvas');
       out.width = W; out.height = H;
       const ctx = out.getContext('2d');
@@ -471,19 +467,25 @@ function setupSnapshot(){
         : `${symShow} ${activeTF} · ${fmtTime(candlesFor(activeView).at(-1)?.time)}`;
       ctx.fillText(info, 12, 20);
       let y = 30;
-      for (const c of [c1, c2, c3]){ ctx.drawImage(c, 0, y); y += c.height; }
+      for (const c of canvases){ ctx.drawImage(c, 0, y); y += c.height; }
       // 仅复制到剪贴板(不下载)
       const blob = await new Promise(r => out.toBlob(r, 'image/png'));
       try {
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        flashBtn('snapshotBtn', '✓ 已复制到剪贴板');
-      } catch { flashBtn('snapshotBtn', '✗ 剪贴板不可用'); }
-    } catch (e) { alert('快照失败: ' + e.message); }
+        flashBtn('snapshotBtn', '✓ 图表快照已复制到剪贴板');
+      } catch { flashBtn('snapshotBtn', '✗ 剪贴板不可用，请检查浏览器权限'); }
+    } catch (e) { window.showToast?.('✗ 快照失败：' + e.message, 'err', 3000); }
   });
 }
 function flashBtn(id, txt){
+  // 业务通知统一走独立浮动 Toast，不再把消息硬塞进「📷」快照按钮文字
+  if (id === 'snapshotBtn' && typeof window.showToast === 'function' && !String(txt || '').includes('点此查看') && txt !== '📷'){
+    window.showToast(txt);
+    return;
+  }
   const b = document.getElementById(id);
+  if (!b) return;
   const old = b.textContent;
   b.textContent = txt;
-  setTimeout(() => b.textContent = old, 1600);
+  setTimeout(() => { b.textContent = old; }, 1600);
 }

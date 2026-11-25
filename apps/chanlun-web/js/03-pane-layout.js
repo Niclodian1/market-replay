@@ -19,20 +19,25 @@ function fitPaneHeights(){
   const box = document.querySelector('.chart-box');
   const visible = subPanes().filter(([id]) => !document.getElementById(id).classList.contains('pane-off'));
   if (!visible.length || !box.clientHeight) return;
+  const compact = window.innerWidth <= 900;
+  const minH = compact ? 48 : PANE_MIN_HEIGHT;
+  const minMain = compact ? 220 : 160;
   const handlesHeight = visible.reduce((sum, [id]) => sum + document.querySelector(`.pane-resizer[data-pane="${id}"]`).offsetHeight, 0);
-  const budget = Math.max(visible.length * PANE_MIN_HEIGHT, box.clientHeight - 160 - handlesHeight);
-  const requested = visible.reduce((sum, [id]) => sum + paneHeights[id], 0);
-  const spare = Math.max(0, budget - visible.length * PANE_MIN_HEIGHT);
-  const extra = requested - visible.length * PANE_MIN_HEIGHT;
+  const budget = Math.max(visible.length * minH, box.clientHeight - minMain - handlesHeight);
+  const baseHeight = id => compact ? Math.min(paneHeights[id], id === 'volume' ? 60 : 72) : paneHeights[id];
+  const requested = visible.reduce((sum, [id]) => sum + baseHeight(id), 0);
+  const spare = Math.max(0, budget - visible.length * minH);
+  const extra = requested - visible.length * minH;
   for (const [id] of visible){
+    const req = baseHeight(id);
     const height = requested > budget && extra > 0
-      ? PANE_MIN_HEIGHT + Math.floor((paneHeights[id] - PANE_MIN_HEIGHT) * spare / extra)
-      : paneHeights[id];
+      ? minH + Math.floor((req - minH) * spare / extra)
+      : req;
     const el = document.getElementById(id);
     el.style.height = height + 'px';
     const handle = document.querySelector(`.pane-resizer[data-pane="${id}"]`);
     const other = visible.reduce((sum, [otherId]) => sum + (otherId === id ? 0 : document.getElementById(otherId).offsetHeight), 0);
-    handle.setAttribute('aria-valuemin', String(PANE_MIN_HEIGHT));
+    handle.setAttribute('aria-valuemin', String(minH));
     handle.setAttribute('aria-valuemax', String(Math.max(height, budget - other)));
     handle.setAttribute('aria-valuenow', String(height));
     handle.setAttribute('aria-valuetext', `${height} 像素`);
