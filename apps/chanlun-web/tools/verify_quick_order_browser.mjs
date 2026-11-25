@@ -3,8 +3,11 @@
 //       Chrome --headless=new --remote-debugging-port=9336, 再 node tools/verify_quick_order_browser.mjs
 // 环境变量: DESKTOP_TEST_URL(默认 http://127.0.0.1:8877), CDP_PORT(默认 9336)
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 const origin = process.env.DESKTOP_TEST_URL || 'http://127.0.0.1:8877';
 const cdpPort = process.env.CDP_PORT || '9336';
+const shotDir = process.env.SHOT_DIR || '';
 const tabs = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
 const page = tabs.find(t => t.type === 'page');
 if (!page) throw new Error('no CDP page');
@@ -25,10 +28,17 @@ const ev = async expression => {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const until = async (expr, timeout = 30000) => { const s = Date.now(); while (Date.now() - s < timeout){ if (await ev(expr)) return; await sleep(150); } throw new Error('Timed out: ' + expr); };
 const key = k => ev(`window.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(k)}, bubbles: true }))`);
+const saveShot = async name => {
+  if (!shotDir) return;
+  fs.mkdirSync(shotDir, { recursive: true });
+  const { data } = await call('Page.captureScreenshot', { format: 'png' });
+  fs.writeFileSync(path.join(shotDir, name), Buffer.from(data, 'base64'));
+  console.log('  📸 saved', name);
+};
 
 await call('Runtime.enable'); await call('Page.enable');
 await call('Network.enable'); await call('Network.setCacheDisabled', { cacheDisabled: true });
-await call('Emulation.setDeviceMetricsOverride', { width: 1500, height: 900, deviceScaleFactor: 1, mobile: false });
+await call('Emulation.setDeviceMetricsOverride', { width: 1500, height: 900, deviceScaleFactor: 2, mobile: false });
 await ev(`try { window.onbeforeunload = null; if (typeof TR !== 'undefined') TR.active = false; } catch {}`);
 await call('Page.navigate', { url: origin + '/index.html' });
 await until(`window.__INIT_OK === true && typeof setupQuickOrder === 'function'`);
@@ -59,7 +69,7 @@ await ev(`(() => {
 })()`);
 assert.ok(String(await ev('window.__alert')).includes('入场信号'), '无信号应拦截: ' + await ev('window.__alert'));
 assert.equal(await ev('positions.length'), 0);
-await ev(`(() => { document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="突破MA20"]').click(); document.getElementById('jOpen').click(); })()`);
+await ev(`(() => { document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="均线突破"]').click(); document.getElementById('jOpen').click(); })()`);
 assert.equal(await ev('positions.length'), 1, '有信号即可开仓(市场环境自动判定)');
 const p0 = await ev('({ tags: positions[0].tags, quick: positions[0].quick })');
 assert.equal(p0.tags.market.length, 2, '市场环境已自动补齐: ' + JSON.stringify(p0.tags));
@@ -90,22 +100,64 @@ const balEnd = await ev('acctBal()');
 assert.ok(Math.abs(balEnd - (100000 + pnlAll)) < 1e-4, `平仓后余额 ${balEnd} 应为 100000 + 盈亏 ${pnlAll}`);
 console.log('✓ A3 浮盈加仓: 净值不虚增, 平仓结算正确');
 
-// A4: 平仓原因 chip + 比例 chip
-await ev(`(() => { document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="突破MA20"]').classList.add('active'); document.getElementById('jOpen').click(); })()`);
-await ev(`(() => { const c = document.querySelector('.pos-card'); c.querySelector('[data-act="close-toggle"]').click();
-  c.querySelector('[data-act="exit-chip"][data-val="背驰"]').click(); c.querySelector('[data-act="exit-chip"][data-val="破位"]').click();
-  c.querySelector('[data-act="ratio-chip"][data-val="50"]').click(); })()`);
-assert.equal(await ev(`document.querySelector('.pos-card .inp-exit-logic').value`), '背驰、破位');
+// A4: 开仓预期(短线/中线/长线) + 精简加仓/移止损/平仓预设(保本/止盈/保护利润) + 比例 chip
+await ev(`(() => {
+  if (typeof setSideTab === 'function') setSideTab('trade');
+  document.getElementById('jExpect').value = '长线';
+  document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="均线突破"]').classList.add('active');
+  document.getElementById('jOpen').click();
+})()`);
+assert.equal(await ev('positions[0].expect'), '长线', '开仓应保存预期: 长线');
+assert.equal(await ev(`document.querySelector('.pos-card .pos-exp-tag').textContent.trim()`), '长线', '持仓卡应展示预期标签');
+// 推进到浮盈处测试加仓抽屉、移止损抽屉、平仓预设抽屉
+await ev(`setReplayT(${pair.t0}); positions[0].entries[0].price = curBar().close; setReplayT(${pair.t1}); renderJournal();`);
+await sleep(220);
+await ev(`(() => {
+  const c = document.querySelector('.pos-card');
+  c.querySelector('[data-act="add-toggle"]').click();
+  c.querySelector('[data-act="add-pct"][data-val="50"]').click();
+  c.querySelector('[data-act="add-chip"][data-val="突破"]').click();
+})()`);
+await sleep(120);
+assert.ok(+(await ev(`document.querySelector('.pos-card .inp-add-cap').value`)) > 0, '50% 加仓按钮应自动填入金额');
+assert.equal(await ev(`document.querySelector('.pos-card .inp-add-logic').value`), '突破', '加仓快捷标签应填入理由');
+await saveShot('replay_02_pos_add_dark.png');
+
+// 测试平仓抽屉：3 大常用预设（保本 / 止盈 / 保护利润）+ 比例分档 + 预计盈亏实时联动
+const exitPresets = await ev(`[...document.querySelectorAll('.pos-card [data-act="exit-chip"]')].map(b => b.dataset.val)`);
+assert.deepEqual(exitPresets, ['保本', '止盈', '保护利润'], '平仓预设应为 保本 / 止盈 / 保护利润');
+await ev(`(() => {
+  const c = document.querySelector('.pos-card');
+  c.querySelector('[data-act="close-toggle"]').click();
+  c.querySelector('[data-act="exit-chip"][data-val="止盈"]').click();
+  c.querySelector('[data-act="exit-chip"][data-val="保护利润"]').click();
+  c.querySelector('[data-act="ratio-chip"][data-val="50"]').click();
+})()`);
+await sleep(140);
+assert.equal(await ev(`document.querySelector('.pos-card .inp-exit-logic').value`), '止盈、保护利润');
 assert.equal(await ev(`document.querySelector('.pos-card .inp-exit-ratio').value`), '50');
+assert.equal(await ev(`document.querySelector('.pos-card [data-exit-btn-r]').textContent`), '50%');
+await saveShot('replay_03_pos_exit_dark.png');
+// 浅色主题截图检查
+await ev(`document.getElementById('themeBtn').click()`);
+await sleep(200);
+await saveShot('replay_04_pos_exit_light.png');
+await ev(`document.getElementById('themeBtn').click()`);
+await sleep(160);
+
 await ev(`document.querySelector('.pos-card [data-act="close-ok"]').click()`);
-assert.equal(await ev('jLoad().at(-1).exit_logic'), '背驰、破位');
+assert.equal(await ev('jLoad().at(-1).exit_logic'), '止盈、保护利润');
+assert.equal(await ev('jLoad().at(-1).expect'), '长线');
 assert.equal(await ev('jLoad().at(-1).ratio'), 0.5);
-await ev(`(() => { const c = document.querySelector('.pos-card'); c.querySelector('[data-act="close-toggle"]').click(); const r = c.querySelector('.inp-exit-ratio'); r.value = '0'; c.querySelector('.inp-exit-logic').value = 'x'; window.__alert = null; c.querySelector('[data-act="close-ok"]').click(); })()`);
+// 点击持仓卡预期标签切换 + 保本预设 + 比例 0 拦截
+await ev(`document.querySelector('.pos-card .pos-exp-tag').click()`);
+assert.equal(await ev('positions[0].expect'), '短线', '点击预期标签应循环切换: 长线 → 短线');
+await ev(`(() => { const c = document.querySelector('.pos-card'); c.querySelector('[data-act="close-toggle"]').click(); c.querySelector('[data-act="exit-chip"][data-val="保本"]').click(); const r = c.querySelector('.inp-exit-ratio'); r.value = '0'; window.__alert = null; c.querySelector('[data-act="close-ok"]').click(); })()`);
 assert.ok(String(await ev('window.__alert')).includes('1%'), '比例 0 应拦截而非全平');
 assert.equal(await ev('positions.length'), 1);
-await ev(`closePosObj(positions[0], 1, '清理')`);
+await ev(`closePosObj(positions[0], 1, '保本')`);
 await ev('exitReplay()');
-console.log('✓ A4 平仓原因/比例 chip; 比例 0 被拦截');
+console.log('✓ A4 开仓预期(短/中/长线) + 精简加仓/平仓预设(保本/止盈/保护利润) + 比例 0 拦截');
 
 // ===== B. 练习: 快速下单条 =====
 await ev(`(() => {
@@ -196,10 +248,11 @@ const blankPt = await ev(`(() => {
   const plotW = Math.min(chart.timeScale().width() - 40, b.width * 0.65);
   const paneH = chart.paneSize().height - 12;
   const entryY = candleSeries.priceToCoordinate(curBar().close);
-  for (let py = entryY + 18; py < paneH; py += 6){
+  for (let py = Math.round(entryY + 20); py < paneH; py += 6){
     const px = candleSeries.coordinateToPrice(py);
-    if (Number.isFinite(px) && px > 0 && px < curBar().close && qoHitStopLine(py) === null){
-      return { x: b.left + plotW, y: b.top + py };
+    if (Number.isFinite(px) && px > 0 && px < curBar().close
+        && qoHitStopLine(py - 4) === null && qoHitStopLine(py) === null && qoHitStopLine(py + 4) === null){
+      return { x: Math.round(b.left + plotW), y: Math.round(b.top + py) };
     }
   }
   return null;
@@ -216,22 +269,24 @@ assert.equal(customLines.find(l => l.key === 'chart')?.lineStyle, 0);
 assert.ok(customLines.filter(l => l.key !== 'chart').every(l => l.lineStyle === 2));
 await key('h');   // 展开恢复
 await key('l');
-// B4: 选信号 + 存模板 + 应用模板 + Enter 开仓
+// B4: 校验 4 个新入场信号 + 选信号 + 存模板 + 应用模板 + Enter 开仓
+const entryVals = await ev(`[...document.querySelectorAll('.qo-chip[data-qo-cat="entry"]')].map(b => b.dataset.qoVal)`);
+assert.deepEqual(entryVals, ['均线突破', '大阳线后的顺势短线多', '大阴线后的顺势短线空', '震荡区间的反转'], '入场信号应精确为 4 项');
 await ev(`QO.sel.entry.clear(); QO.sel.pattern.clear(); qoRender();`);
-await ev(`document.querySelector('.qo-chip[data-qo-cat="entry"][data-qo-val="回踩MA20"]').click()`);
+await ev(`document.querySelector('.qo-chip[data-qo-cat="entry"][data-qo-val="大阳线后的顺势短线多"]').click()`);
 await ev(`document.querySelector('[data-qo-act="save-tpl"]').click()`);
 assert.equal(await ev('qoTemplates().length'), 1);
 await ev(`QO.sel.entry.clear(); qoRender();`);
 await key('1');
-assert.ok(await ev(`QO.sel.entry.has('回踩MA20') && QO.presetId === qoTemplates()[0].id`), '数字键套用模板');
+assert.ok(await ev(`QO.sel.entry.has('大阳线后的顺势短线多') && QO.presetId === qoTemplates()[0].id`), '数字键套用模板');
 await key('Enter');
 assert.equal(await ev('positions.length'), 1, 'Enter 开仓');
 const pos = await ev(`(() => { const p = positions[0], d = TR.research.decisions.at(-1); return { price: p.entries[0].price, close: curBar().close, cap: p.entries[0].capital, lev: p.entries[0].leverage, stop: p.stop, quick: p.quick, tags: p.tags, dq: d.quick, dtags: d.tags, choice: d.choice, open: QO.open }; })()`);
 assert.equal(pos.price, pos.close); assert.equal(pos.cap, 2000); assert.equal(pos.lev, 3);
 assert.equal(pos.quick.via, 'quick'); assert.equal(pos.quick.presetId != null, true);
-assert.equal(pos.quick.tagSource['回踩MA20'] === 'manual' || pos.quick.tagSource['回踩MA20'] === 'auto-confirmed', true);
+assert.equal(pos.quick.tagSource['大阳线后的顺势短线多'] === 'manual' || pos.quick.tagSource['大阳线后的顺势短线多'] === 'auto-confirmed', true);
 assert.ok(pos.quick.decisionMs >= 0 && pos.quick.keystrokes >= 2);
-assert.equal(pos.choice, 'buy'); assert.ok(pos.dq && pos.dtags.entry.includes('回踩MA20'), '练习存档记录 quick + tags');
+assert.equal(pos.choice, 'buy'); assert.ok(pos.dq && pos.dtags.entry.includes('大阳线后的顺势短线多'), '练习存档记录 quick + tags');
 assert.equal(pos.open, false, '开仓后快速条关闭');
 assert.equal(await ev('QO.lines.length'), 0, '下单关闭后三条止损线应全部清理');
 assert.equal(await ev(`buildMarkers('raw').some(m => /^#\\d+/.test(String(m.text || '')))`), false, '开仓后主图不绘制 #编号 数字标记');
@@ -256,7 +311,7 @@ assert.equal(await ev('TR.research.decisions.at(-1).choice'), 'skip');
 console.log('✓ B5 W 等待(需条件) / X 放弃');
 
 // B6: 练习中自填更优开仓价无效(按收盘)
-await ev(`(() => { document.getElementById('jEntry').value = 1; document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="Pinbar"]').classList.add('active'); document.getElementById('jStop').value=''; document.getElementById('jOpen').click(); })()`);
+await ev(`(() => { document.getElementById('jEntry').value = 1; document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="震荡区间的反转"]').classList.add('active'); document.getElementById('jStop').value=''; document.getElementById('jOpen').click(); })()`);
 const p2 = await ev('positions.at(-1).entries[0].price === curBar().close');
 assert.equal(p2, true, '练习中开仓价强制为收盘');
 await ev(`closePosObj(positions.at(-1), 1, '测试平仓')`);
@@ -268,17 +323,17 @@ console.log('✓ B6 练习中自填开仓价被忽略, 按收盘成交; 开平�
 // ===== C. 收起(H) / Esc 保留选择 / 复盘模式可用 / 旧表单隐藏 =====
 assert.equal(await ev(`getComputedStyle(document.getElementById('journalForm')).display`), 'none', '旧版开仓表单默认隐藏');
 await key('b');
-await ev(`document.querySelector('.qo-chip[data-qo-cat="entry"][data-qo-val="假突破"]').click()`);
+await ev(`document.querySelector('.qo-chip[data-qo-cat="entry"][data-qo-val="震荡区间的反转"]').click()`);
 await key('h');
 assert.equal(await ev('QO.min'), true, 'H 收起');
 const minBox = await ev(`(() => { const r = document.getElementById('quickOrder').getBoundingClientRect(); return { h: r.height, cls: document.getElementById('quickOrder').classList.contains('qo-min'), sig: document.querySelector('.qo-sig').textContent }; })()`);
 assert.ok(minBox.cls && minBox.h < 70, '收起后只占一行: ' + minBox.h);
-assert.ok(minBox.sig.includes('假突破'), '收起条显示已选信号');
+assert.ok(minBox.sig.includes('震荡区间的反转'), '收起条显示已选信号');
 await key('Escape');
 assert.equal(await ev('QO.open'), false);
 assert.equal(await ev('QO.lines.length'), 0, 'Esc 关闭后三条止损线应清理');
 await key('b');
-assert.ok(await ev(`QO.sel.entry.has('假突破') && QO.min === true`), 'Esc 后同一根K线再打开保留选择与收起状态');
+assert.ok(await ev(`QO.sel.entry.has('震荡区间的反转') && QO.min === true`), 'Esc 后同一根K线再打开保留选择与收起状态');
 await key('h');
 assert.equal(await ev('QO.min'), false, '再按 H 展开');
 await key('Escape');
@@ -290,14 +345,19 @@ await until(`!document.getElementById('quickOpenLong').disabled`, 3000);
 await ev(`document.getElementById('quickOpenLong').click()`);
 assert.equal(await ev('QO.open'), true, '复盘模式: 右侧「做多」按钮打开快速下单条');
 assert.equal(await ev(`!!document.querySelector('.qo-entry') && !document.querySelector('[data-qo-act="wait"]')`), true, '复盘模式: 可自定开仓价, 无等待/放弃');
+await ev(`document.querySelector('[data-qo-expect="短线"]').click()`);
+assert.equal(await ev('QO.expect'), '短线', '快速下单条支持切换预期: 短线');
+await sleep(140);
+await saveShot('replay_01_quick_open.png');
 const rp = await ev(`(() => { const b = curBar(); return { close: b.close, low: b.low }; })()`);
 const limit = +(rp.close * 0.995).toPrecision(8);
 await ev(`(() => { const i = document.querySelector('.qo-entry'); i.value = '${limit}'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true }));
   const st = document.querySelector('.qo-stop'); st.value = '${+(limit * 0.97).toPrecision(8)}'; st.dispatchEvent(new Event('input', { bubbles: true })); st.dispatchEvent(new Event('change', { bubbles: true }));
-  document.querySelector('.qo-chip[data-qo-cat="entry"][data-qo-val="突破MA60"]').click(); })()`);
+  const sigChip = document.querySelector('.qo-chip[data-qo-cat="entry"][data-qo-val="均线突破"]'); if (sigChip && !sigChip.classList.contains('on')) sigChip.click(); })()`);
 const nR = await ev('positions.length');
 await key('Enter');
 assert.equal(await ev('positions.length'), nR + 1, '复盘模式快速开仓');
+assert.equal(await ev('positions.at(-1).expect'), '短线', '复盘快速开仓应保存所选预期: 短线');
 assert.ok(Math.abs(await ev('positions.at(-1).entries[0].price') - limit) < 1e-6, '复盘模式按自定开仓价');
 assert.equal(await ev('positions.at(-1).quick.stopMethod'), 'manual');
 await ev(`closePosObj(positions.at(-1), 1, '清理')`);

@@ -17,8 +17,10 @@ const QO_STOP_SPEC = {
 };
 const QO_STOP_ORDER = ['bar', 'swing', 'atr'];
 const QO_CUSTOM_STOP_COLOR = '#f23645';
+const QO_EXPECTS = ['短线', '中线', '长线'];
+const QO_EXP_CLS = { '短线': 'exp-short', '中线': 'exp-mid', '长线': 'exp-long' };
 const QO = {
-  open:false, side:'多', barTime:null, stop:null, stopMethod:'bar', stopPicked:false,
+  open:false, side:'多', expect:'中线', barTime:null, stop:null, stopMethod:'bar', stopPicked:false,
   stops:{ bar:null, swing:null, atr:null }, presetId:null,
   auto:{ market:{}, entry:new Set(), pattern:new Set() },
   sel:{ market:{}, entry:new Set(), pattern:new Set() },
@@ -88,9 +90,14 @@ function qoResetStop(cs){
 }
 // 打开 / 刷新(换K线或换方向时重算自动部分, 保留你手动加的标签)
 function qoOpen(side){
-  if (!qoAvailable()){ flashBtn('snapshotBtn', '先进入复盘或开始练习, 再按 B / S 下单'); return; }
+  if (!qoAvailable()){ flashBtn('snapshotBtn', '先进入复盘或开始练习，再按 B / S 下单'); return; }
   if (typeof prDraft !== 'undefined' && prDraft) return;   // 「记录判断」弹窗打开时不抢焦点
   const bar = curBar(); if (!bar) return;
+  // 按下去有回应，再按能收回：已在当前同方向打开时再次按 B/S 直接收起
+  if (QO.open && side && side === QO.side && QO.barTime === bar.time){
+    qoClose();
+    return;
+  }
   // 同一根K线上关掉再打开, 保留刚才的选择(Esc 不会丢掉已选信号)
   const reopen = QO.barTime === bar.time && QO._manual != null;
   if (!reopen){
@@ -105,12 +112,13 @@ function qoOpen(side){
       QO.stopPicked = false;
     }
   }
+  const wasClosed = !QO.open;
   QO.side = side || QO.side;
   QO.barTime = bar.time;
   QO.open = true;
   qoRecalc(!reopen);
   QO.keys++;
-  qoRender();
+  qoRender(wasClosed);
 }
 function qoRecalc(fresh){
   const prevAuto = { entry:new Set(QO.auto.entry), pattern:new Set(QO.auto.pattern) };
@@ -129,10 +137,13 @@ function qoRecalc(fresh){
   if (fresh){ QO._manual = { entry:new Set(), pattern:new Set() }; QO._rejected = { entry:new Set(), pattern:new Set() }; }
   qoResetStop(cs);
 }
-function qoClose(){
+function qoClose(immediate = false){
   QO.open = false;
-  if (QO.el) QO.el.hidden = true;
   qoClearLines();
+  if (QO.el){
+    if (window.uiMotion && !immediate) window.uiMotion.closeOverlay(QO.el, { duration: 140 });
+    else { QO.el.classList.remove('is-open', 'is-closing'); QO.el.hidden = true; }
+  }
 }
 function qoClearLines(){
   for (const it of QO.lines){
@@ -207,7 +218,7 @@ function qoStopBtns(compact){
     const avail = QO.stops[m] != null;
     const on = QO.stopPicked && QO.stopMethod === m;
     const title = avail ? `${spec.label} (${prNumber(QO.stops[m], 4)}) · 快捷键 ${spec.key}` : `${spec.label}在当前 K 线不可用`;
-    const lbl = compact ? `<kbd>${spec.key}</kbd>` : `${spec.short} <kbd>${spec.key}</kbd>`;
+    const lbl = compact ? `${m === 'atr' ? 'ATR' : spec.short[0]}<kbd>${spec.key}</kbd>` : `${spec.short} <kbd>${spec.key}</kbd>`;
     return `<button type="button" data-qo-stop="${m}" style="--stop-col:${spec.color}" class="${on ? 'active' : ''}" ${avail ? '' : 'disabled'} title="${title}"><i class="qo-sdot"></i>${lbl}</button>`;
   }).join('') + '</div>';
 }
@@ -216,9 +227,9 @@ function qoChip(cat, val, group){
   const on = cat === 'market' ? QO.sel.market[group] === val : QO.sel[cat].has(val);
   const auto = cat === 'market' ? QO.auto.market[group] === val : QO.auto[cat].has(val);
   return `<button type="button" class="qo-chip${on ? ' on' : ''}${auto ? ' auto' : ''}" data-qo-cat="${cat}" data-qo-group="${group}" data-qo-val="${qoEsc(val)}"
-    title="${auto ? '自动判定/建议' : ''}">${qoEsc(val)}</button>`;
+    title="${auto ? '系统自动判定/预选' : ''}">${qoEsc(val)}</button>`;
 }
-function qoRender(){
+function qoRender(animateEnter = false){
   if (!QO.el) return;
   const bar = curBar();
   if (!QO.open || !bar){ QO.el.hidden = true; return; }
@@ -229,10 +240,11 @@ function qoRender(){
   const lev = Math.min(125, Math.max(1, +document.getElementById('jLeverage').value || 1));
   const risk = QuickCore.riskAt(entry, QO.stop, QO.side, margin, lev);
   const eq = typeof acctEquity === 'function' ? acctEquity() : null;
-  const riskTxt = risk == null ? '<span class="qo-warn">无有效止损</span>'
-    : `止损亏损 <b class="qo-neg">${risk.toFixed(0)}U</b>${eq > 0 ? ` · 占净值 ${(Math.abs(risk) / eq * 100).toFixed(2)}%` : ''}`;
+  const riskTxt = risk == null ? '<span class="qo-warn">无止损</span>'
+    : `亏 <b class="qo-neg">${risk.toFixed(0)}U</b>${eq > 0 ? ` (${(Math.abs(risk) / eq * 100).toFixed(1)}%)` : ''}`;
   const stopPct = QO.stop != null ? ((QO.stop / entry - 1) * 100).toFixed(2) + '%' : '—';
-  const stopDesc = QO.stopPicked ? (QO_STOP_LABEL[QO.stopMethod] || '') : '默认本根 · 点虚线选';
+  const stopDesc = QO.stopPicked ? (QO_STOP_LABEL[QO.stopMethod] || '') : '默认本根';
+  const expBtns = `<div class="seg qo-exp">${QO_EXPECTS.map(x => `<button type="button" data-qo-expect="${x}" class="${QO.expect === x ? 'active ' + QO_EXP_CLS[x] : ''}">${x}</button>`).join('')}</div>`;
   QO.el.classList.toggle('qo-min', QO.min);
   QO.el.classList.toggle('qo-is-long', QO.side !== '空');
   QO.el.classList.toggle('qo-is-short', QO.side === '空');
@@ -241,61 +253,71 @@ function qoRender(){
     QO.el.innerHTML = `
       <div class="qo-row">
         <b class="qo-badge ${QO.side === '空' ? 'short' : 'long'}">${QO.side === '空' ? '做空' : '做多'}</b>
+        <span class="pos-exp-tag ${QO_EXP_CLS[QO.expect] || 'exp-mid'}">${QO.expect}</span>
         <span class="qo-dim">@</span><b class="qo-num">${prNumber(entry, 4)}</b>
-        <span class="qo-k">止损</span><b class="qo-num">${QO.stop != null ? prNumber(QO.stop, 4) : '—'}</b><span class="qo-dim">${stopPct}</span>
+        <span class="qo-k">损</span><b class="qo-num">${QO.stop != null ? prNumber(QO.stop, 4) : '—'}</b><span class="qo-dim">${stopPct}</span>
         ${research ? '' : qoStopBtns(true)}
         <span class="qo-risk">${riskTxt}</span>
-        <span class="qo-k">信号</span><span class="qo-sig${sig.length ? '' : ' qo-warn'}">${sig.length ? qoEsc(sig.join('、')) : '未选'}</span>
-        <button type="button" class="btn qo-btn" data-qo-act="toggle-min" title="展开 (H)">▴ 展开 <kbd>H</kbd></button>
+        <span class="qo-sig${sig.length ? '' : ' qo-warn'}">${sig.length ? qoEsc(sig.join('、')) : '未选信号'}</span>
+        <button type="button" class="btn qo-btn" data-qo-act="toggle-min" title="展开 (H)">▴ <kbd>H</kbd></button>
         <button type="button" class="btn qo-btn qo-go ${QO.side === '空' ? 'short' : 'long'}" data-qo-act="buy">${QO.side === '空' ? '开空' : '开多'} <kbd>Enter</kbd></button>
         <button type="button" class="qo-x" data-qo-act="close" title="关闭 (Esc)">✕</button>
       </div>
       <div class="qo-err" role="status"></div>`;
-    QO.el.hidden = false;
+    if (animateEnter && window.uiMotion) window.uiMotion.openOverlay(QO.el);
+    else { QO.el.hidden = false; QO.el.classList.remove('is-closing'); QO.el.classList.add('is-open'); }
     qoDrawLines();
     return;
   }
   const marketDefs = qoTagDefs('market');
   const groupRow = g => marketDefs.filter(d => d.group === g).map(d => qoChip('market', d.val, g)).join('');
   const tpls = qoTemplates();
+  const sbg = !trLocked() && typeof window.getCurrentSBg === 'function' ? window.getCurrentSBg() : null;
+  const counterSbg = sbg && ((sbg.bias === 'bear' && QO.side === '多') || (sbg.bias === 'bull' && QO.side === '空'));
+  const riskPctAuto = counterSbg ? 0.5 : 1.5;
   QO.el.innerHTML = `
+    ${counterSbg ? `<div class="qo-sbg-warn">⚠ 逆 S 级${sbg.bias === 'bear' ? '红框(看空)' : '绿框(看多)'}开${QO.side}：建议技术验证并减半至 <b>0.5%</b>（${qoEsc(sbg.headline || '大背景相反')}）</div>` : ''}
     <div class="qo-row qo-top">
       <div class="seg qo-side">
-        <button type="button" data-qo-side="多" class="${QO.side === '多' ? 'active long' : ''}">做多 <kbd>B</kbd></button>
-        <button type="button" data-qo-side="空" class="${QO.side === '空' ? 'active short' : ''}">做空 <kbd>S</kbd></button>
+        <button type="button" data-qo-side="多" class="${QO.side === '多' ? 'active long' : ''}">多 <kbd>B</kbd></button>
+        <button type="button" data-qo-side="空" class="${QO.side === '空' ? 'active short' : ''}">空 <kbd>S</kbd></button>
       </div>
-      <span class="qo-k">入场</span>${practice
-        ? `<b class="qo-num">${prNumber(bar.close, 4)}</b><span class="qo-dim">(收盘)</span>`
-        : `<input class="qo-inp qo-entry" type="number" step="any" value="${QO.entry ?? ''}" placeholder="${prNumber(bar.close, 4)} 收盘" title="留空 = 当前收盘价">`}
+      ${expBtns}
       <span class="qo-sep"></span>
-      <span class="qo-k">止损</span>
+      <span class="qo-k">价</span>${practice
+        ? `<b class="qo-num">${prNumber(bar.close, 4)}</b>`
+        : `<input class="qo-inp qo-entry" type="number" step="any" value="${QO.entry ?? ''}" placeholder="${prNumber(bar.close, 4)}" title="留空 = 当前收盘价">`}
+      <span class="qo-k">损</span>
       <input class="qo-inp qo-stop" type="number" step="any" value="${QO.stop ?? ''}" ${research ? 'disabled title="规则研究固定本根极值止损"' : ''}>
-      <span class="qo-dim">${stopPct} · ${stopDesc}</span>
+      <span class="qo-dim">${stopPct}</span>
       ${research ? '' : qoStopBtns(false)}
       <span class="qo-sep"></span>
-      <label class="qo-k">保证金<input class="qo-inp qo-margin" type="number" min="1" value="${margin}"></label>
+      <label class="qo-k">本金<input class="qo-inp qo-margin" type="number" min="1" value="${margin}"></label>
       <label class="qo-k">杠杆<input class="qo-inp qo-lev" type="number" min="1" max="125" value="${lev}"></label>
+      <button type="button" class="btn qo-risk-btn${counterSbg ? ' warn' : ''}" data-qo-act="size-by-risk" data-qo-rp="${riskPctAuto}" title="按账户净值 ${riskPctAuto}% 风险算仓">🎯 ${riskPctAuto}%</button>
+      <button type="button" class="btn qo-risk-btn" data-qo-act="to-logic-gate" title="带入 30 秒开仓卡">🧭 开仓卡</button>
       <span class="qo-risk">${riskTxt}</span>
-      <button type="button" class="qo-x qo-minbtn" data-qo-act="toggle-min" title="收起成一行, 不挡K线 (H)">▾ 收起 <kbd>H</kbd></button>
+      <button type="button" class="qo-x qo-minbtn" data-qo-act="toggle-min" title="收起 (H)">▾ <kbd>H</kbd></button>
       <button type="button" class="qo-x" data-qo-act="close" title="关闭 (Esc)">✕</button>
     </div>
     <div class="qo-row"><span class="qo-k qo-lbl">环境</span>${groupRow('ma120dir')}<span class="qo-gap"></span>${groupRow('pricepos')}
-      <span class="qo-dim qo-hint">${QO.auto.market.ma120dir ? '虚线框 = 自动判定' : '数据不足以自动判定, 请手选'}</span></div>
+      <span class="qo-dim qo-hint">${QO.auto.market.ma120dir ? '虚线框=系统预选' : '数据不足，请手选'}</span></div>
     <div class="qo-row"><span class="qo-k qo-lbl">信号<b class="qo-req">≥1</b></span>${qoTagDefs('entry').map(d => qoChip('entry', d.val, d.group)).join('')}</div>
     <div class="qo-row"><span class="qo-k qo-lbl">形态</span>${qoTagDefs('pattern').map(d => qoChip('pattern', d.val, d.group)).join('')}</div>
     <div class="qo-row"><span class="qo-k qo-lbl">模板</span>
       ${tpls.length ? tpls.map((t, i) => `<span class="qo-tpl${QO.presetId === t.id ? ' on' : ''}"><button type="button" data-qo-tpl="${i}" title="${qoEsc([...t.entry, ...t.pattern].join(' + '))}"><kbd>${i + 1}</kbd> ${qoEsc(t.name)}</button><button type="button" class="qo-tpl-del" data-qo-tpl-del="${i}" title="删除模板">×</button></span>`).join('')
-        : '<span class="qo-dim">把常用的信号组合存成模板, 之后按数字键一键套用</span>'}
-      ${tpls.length < 9 ? '<button type="button" class="qo-addtpl" data-qo-act="save-tpl">＋ 存当前为模板</button>' : ''}
+        : '<span class="qo-dim">暂无模板</span>'}
+      ${tpls.length < 9 ? '<button type="button" class="qo-addtpl" data-qo-act="save-tpl">＋ 存模板</button>' : ''}
     </div>
     <div class="qo-row qo-bottom">
-      <input class="qo-inp qo-note" maxlength="300" value="${qoEsc(QO.note || '')}" placeholder="补充理由（可选）${practice ? '；按 W 等待时在这里写等待条件' : ''}">
-      ${practice ? `<button type="button" class="btn qo-btn" data-qo-act="skip" title="记为放弃这个机会">放弃 <kbd>X</kbd></button>
-      <button type="button" class="btn qo-btn" data-qo-act="wait" title="记为等待, 需写等待条件">等待 <kbd>W</kbd></button>` : ''}
-      <button type="button" class="btn qo-btn qo-go ${QO.side === '空' ? 'short' : 'long'}" data-qo-act="buy">${QO.side === '空' ? '开空' : '开多'} <kbd>Enter</kbd></button>
+      <input class="qo-inp qo-note" maxlength="300" value="${qoEsc(QO.note || '')}" placeholder="${practice ? '备注 / 等待条件（按 W 等待时必填）' : '备注（可选）'}">
+      ${practice ? `<button type="button" class="btn qo-btn" data-qo-act="skip" title="记为放弃">放弃 <kbd>X</kbd></button>
+      <button type="button" class="btn qo-btn" data-qo-act="wait" title="记为等待">等待 <kbd>W</kbd></button>` : ''}
+      <button type="button" class="btn qo-btn qo-go ${QO.side === '空' ? 'short' : 'long'}" data-qo-act="buy">${QO.side === '空' ? '开空' : '开多'} · ${QO.expect} <kbd>Enter</kbd></button>
     </div>
     <div class="qo-err" role="status"></div>`;
-  QO.el.hidden = false;
+  if (animateEnter && window.uiMotion) window.uiMotion.openOverlay(QO.el);
+  else { QO.el.hidden = false; QO.el.classList.remove('is-closing'); QO.el.classList.add('is-open'); }
   qoDrawLines();
 }
 function qoEntry(bar){
@@ -303,11 +325,17 @@ function qoEntry(bar){
   return QO.entry;
 }
 function qoToggleMin(){
+  const prevRect = QO.el && !QO.el.hidden ? QO.el.getBoundingClientRect() : null;
   QO.min = !QO.min; QO.keys++;
   try { localStorage.setItem(QO_MIN_KEY, QO.min ? '1' : '0'); } catch {}
-  qoRender();
+  qoRender(false);
+  if (prevRect && QO.el) window.uiMotion?.flipFrom?.(QO.el, prevRect, 200);
 }
-function qoError(msg){ const e = QO.el?.querySelector('.qo-err'); if (e) e.textContent = msg || ''; }
+function qoError(msg){
+  const e = QO.el?.querySelector('.qo-err');
+  if (e) e.textContent = msg || '';
+  if (msg && QO.el) window.uiMotion?.shake?.(QO.el);
+}
 // ---- 采集元数据 ----
 function qoMeta(){
   const tagSource = {};
@@ -320,7 +348,7 @@ function qoMeta(){
     for (const v of QO.auto[cat]) if (!QO.sel[cat].has(v)) tagSource[v] = 'auto-rejected';
   }
   return {
-    version: QuickCore.VERSION, via: 'quick', presetId: QO.presetId,
+    version: QuickCore.VERSION, via: 'quick', presetId: QO.presetId, expect: QO.expect,
     tagSource, autoMarket: { ...QO.auto.market },
     stopMethod: QO.stopMethod,
     stopPicked: QO.stopPicked,
@@ -332,6 +360,8 @@ function qoMeta(){
 // 把快速条的选择同步到右侧表单: 开仓逻辑、ltSelected(练习存档 tags)都从表单读取
 function qoSyncForm(){
   document.getElementById('jSide').value = QO.side;
+  const expEl = document.getElementById('jExpect');
+  if (expEl) expEl.value = QO.expect;
   document.querySelectorAll('#jLogicTags .logic-tag').forEach(b => {
     const { cat, group, val } = b.dataset;
     const on = cat === 'market' ? QO.sel.market[group] === val : QO.sel[cat]?.has(val);
@@ -361,12 +391,12 @@ function qoSubmit(choice){
     const logic = combineEntryLogic(selectedLogicTags(), note);
     const reason = note || qoSignalSummary();
     const ok = openJournalPosition({
-      side: QO.side, entry, stop: QO.stop, logic, quick: meta, onError: qoError,
-      details: { reason, reasonTag: null, note: note || null, basis: 'quick_order', quick: meta,
-        invalid: (QO.side === '空' ? '价格触及止损 ' : '价格触及止损 ') + prNumber(QO.stop, 4) },
+      side: QO.side, expect: QO.expect, entry, stop: QO.stop, logic, quick: meta, onError: qoError,
+      details: { reason, reasonTag: null, note: note || null, basis: 'quick_order', quick: meta, expect: QO.expect,
+        invalid: '价格触及止损 ' + prNumber(QO.stop, 4) },
     });
     if (!ok) return;
-    flashBtn('snapshotBtn', `✓ ${QO.side === '空' ? '开空' : '开多'} · ${meta.decisionMs ? (meta.decisionMs / 1000).toFixed(1) + 's' : ''}`);
+    flashBtn('snapshotBtn', `✓ ${QO.side === '空' ? '开空' : '开多'} · ${QO.expect}`);
   } else {
     if (!qoPractice()) return qoError('等待/放弃只在练习中记录');
     if (choice === 'wait' && !note) return qoError('等待请在备注里写等待条件（例如: 收盘站上箱体上沿）');
@@ -384,8 +414,12 @@ function qoSubmit(choice){
 }
 function qoApplyTemplate(i){
   const t = qoTemplates()[i]; if (!t) return;
-  QO.sel.entry = new Set(t.entry); QO.sel.pattern = new Set(t.pattern || []);
-  QO._manual = { entry:new Set(t.entry.filter(v => !QO.auto.entry.has(v))), pattern:new Set((t.pattern || []).filter(v => !QO.auto.pattern.has(v))) };
+  const validEntry = new Set(qoTagDefs('entry').map(d => d.val));
+  const validPat = new Set(qoTagDefs('pattern').map(d => d.val));
+  const entry = (t.entry || []).filter(v => validEntry.has(v));
+  const pattern = (t.pattern || []).filter(v => validPat.has(v));
+  QO.sel.entry = new Set(entry); QO.sel.pattern = new Set(pattern);
+  QO._manual = { entry:new Set(entry.filter(v => !QO.auto.entry.has(v))), pattern:new Set(pattern.filter(v => !QO.auto.pattern.has(v))) };
   QO._rejected = { entry:new Set([...QO.auto.entry].filter(v => !QO.sel.entry.has(v))), pattern:new Set() };
   QO.presetId = t.id; QO.keys++;
   qoRender();
@@ -413,6 +447,16 @@ function qoOnClick(e){
     }
     QO.side = nextSide; QO.keys++; qoRecalc(false); qoRender(); return;
   }
+  const expBtn = t.closest('[data-qo-expect]');
+  if (expBtn){
+    QO.expect = expBtn.dataset.qoExpect;
+    QO.keys++;
+    try {
+      const s = JSON.parse(localStorage.getItem(QO_SIZE_KEY) || '{}');
+      localStorage.setItem(QO_SIZE_KEY, JSON.stringify({ ...s, expect: QO.expect }));
+    } catch {}
+    qoRender(); return;
+  }
   const stopB = t.closest('[data-qo-stop]');
   if (stopB){ qoSelectStopMethod(stopB.dataset.qoStop); return; }
   const chip = t.closest('[data-qo-cat]');
@@ -434,15 +478,64 @@ function qoOnClick(e){
   if (tpl){ qoApplyTemplate(+tpl.dataset.qoTpl); return; }
   const del = t.closest('[data-qo-tpl-del]');
   if (del){
-    const arr = qoTemplates(); const [gone] = arr.splice(+del.dataset.qoTplDel, 1);
-    if (gone && confirm(`删除模板「${gone.name}」?`)){ qoSaveTemplates(arr); if (QO.presetId === gone.id) QO.presetId = null; qoRender(); }
+    const idx = +del.dataset.qoTplDel;
+    const arr = qoTemplates(); const [gone] = arr.splice(idx, 1);
+    if (gone){
+      const prevPreset = QO.presetId;
+      qoSaveTemplates(arr);
+      if (QO.presetId === gone.id) QO.presetId = null;
+      qoRender();
+      window.showToast?.(`已删除模板「${gone.name}」`, 'info', {
+        ms: 5000,
+        action: {
+          label: '撤销',
+          onClick: () => {
+            const cur = qoTemplates();
+            cur.splice(Math.min(idx, cur.length), 0, gone);
+            qoSaveTemplates(cur);
+            if (prevPreset === gone.id) QO.presetId = gone.id;
+            if (QO.open) qoRender();
+            window.showToast?.(`✓ 已恢复模板「${gone.name}」`, 'ok', 1600);
+          },
+        },
+      });
+    }
     return;
   }
-  const act = t.closest('[data-qo-act]')?.dataset.qoAct;
+  const actBtn = t.closest('[data-qo-act]');
+  const act = actBtn?.dataset.qoAct;
   if (act === 'close') qoClose();
   else if (act === 'toggle-min') qoToggleMin();
   else if (act === 'save-tpl') qoSaveTemplate();
-  else if (act === 'buy' || act === 'wait' || act === 'skip') qoSubmit(act);
+  else if (act === 'size-by-risk'){
+    const bar = curBar();
+    const entry = bar ? qoEntry(bar) : null;
+    const eq = typeof acctEquity === 'function' ? acctEquity() : 100000;
+    const rp = Number(actBtn?.dataset.qoRp) || 1.5;
+    if (typeof LogicCore === 'undefined' || !bar || !(QO.stop > 0)){ qoError('请先选择有效止损位再按风险算仓'); return; }
+    const sz = LogicCore.calcRiskSizing({ equity: eq, riskPct: rp, entry, stop: QO.stop, side: QO.side, maxLeverage: 10 });
+    if (!sz.valid){ qoError(sz.error); return; }
+    const capEl = document.getElementById('jCapital');
+    const levEl = document.getElementById('jLeverage');
+    const bal = typeof acctBal === 'function' ? acctBal() : eq;
+    const useM = Math.min(bal, Math.max(1, Math.round(sz.suggestedMargin)));
+    if (capEl){ capEl.value = String(useM); capEl.dispatchEvent(new Event('change')); }
+    if (levEl){ levEl.value = String(sz.suggestedLev); levEl.dispatchEvent(new Event('change')); }
+    qoRender();
+    window.showToast?.(`✓ 以损定仓 (${rp}% ≈ ${sz.maxLossU}U): ${useM.toLocaleString()}U · ${sz.suggestedLev}x`, 'ok');
+  } else if (act === 'to-logic-gate'){
+    const bar = curBar();
+    const entry = bar ? qoEntry(bar) : null;
+    if (typeof window.openLogicStudio === 'function'){
+      window.openLogicStudio('gate', {
+        side: QO.side,
+        horizon: QO.expect,
+        entryPrice: entry,
+        stopPrice: QO.stop,
+        techEntry: qoSignalSummary(),
+      });
+    }
+  } else if (act === 'buy' || act === 'wait' || act === 'skip') qoSubmit(act);
 }
 function qoOnInput(e){
   const t = e.target;
@@ -475,8 +568,17 @@ function qoOnChange(e){
   if (e.target.classList.contains('qo-entry')){ qoResetStop(); qoRender(); return; }
   if (e.target.matches('.qo-stop, .qo-margin, .qo-lev')) qoRender();
 }
+function qoTopModalOpen(){
+  return !!(
+    window.isSymPaletteOpen?.() ||
+    window.isKbdModalOpen?.() ||
+    window.isLogicStudioOpen?.() ||
+    window.isTrainerConfigOpen?.()
+  );
+}
 function qoOnKey(e){
   if (!qoAvailable()) return;
+  if (qoTopModalOpen()) return;
   if (typeof prDraft !== 'undefined' && prDraft) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const tag = document.activeElement?.tagName;
@@ -518,13 +620,14 @@ function qoAutoFillMarket(){
   return filled;
 }
 function setupQuickOrder(){
-  // 保证金/杠杆记住上次值
+  // 保证金/杠杆/预期记住上次值
   try {
     const s = JSON.parse(localStorage.getItem(QO_SIZE_KEY) || '{}');
     if (s.capital > 0) document.getElementById('jCapital').value = s.capital;
     if (s.leverage >= 1) document.getElementById('jLeverage').value = s.leverage;
+    if (QO_EXPECTS.includes(s.expect)){ QO.expect = s.expect; const e = document.getElementById('jExpect'); if (e) e.value = s.expect; }
   } catch {}
-  const saveSize = () => { try { localStorage.setItem(QO_SIZE_KEY, JSON.stringify({ capital:+document.getElementById('jCapital').value || null, leverage:+document.getElementById('jLeverage').value || null })); } catch {} };
+  const saveSize = () => { try { localStorage.setItem(QO_SIZE_KEY, JSON.stringify({ capital:+document.getElementById('jCapital').value || null, leverage:+document.getElementById('jLeverage').value || null, expect: QO.expect })); } catch {} };
   ['jCapital', 'jLeverage'].forEach(id => document.getElementById(id)?.addEventListener('change', saveSize));
 
   const box = document.querySelector('.chart-box');

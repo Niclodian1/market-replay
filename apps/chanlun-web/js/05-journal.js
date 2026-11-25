@@ -125,8 +125,17 @@ function practiceEntries(){
   }
   return out.sort((a,b) => a.time - b.time);
 }
+const POS_EXPECTS = ['短线', '中线', '长线'];
+const POS_EXP_CLS = { '短线': 'exp-short', '中线': 'exp-mid', '长线': 'exp-long' };
+const EXIT_PRESETS = [
+  { val: '保本', cls: 'preset-be' },
+  { val: '止盈', cls: 'preset-tp' },
+  { val: '保护利润', cls: 'preset-lock' },
+];
+const ADD_PRESETS = ['突破', '回踩', '顺势'];
+
 const fmtLogic = (s, n=16) => { s = String(s||''); return s.length > n ? s.slice(0, n) + '…' : s; };
-// ---- 乖离档位行(持仓卡): 止盈/回补参考; 全品种通用, 绝对阈值按 BTC 日线校准 ----
+// ---- 乖离档位行(持仓卡): 精简单行, 详释放悬浮 tooltip ----
 const BIAS_TIP = '乖离档位: MA20乖离=收盘对MA20的偏离%。'
   + '一档 ≥+20% 或滚动分位≥P97 → 减1/3(MA60乖离≥+30%可减半); '
   + '二档 ≥+30% 或≥P99 → 再减1/3; 恐慌回补 ≤-20% 或≤P2 → 减仓现金分批买回; 尾仓 收盘破MA20离场。'
@@ -140,66 +149,84 @@ function biasRowInner(pos, b){
   const hit1 = !hit2 && (b.b20 >= c.l1 || (b.p20 != null && b.p20 >= c.p1));
   const panic = b.b20 <= c.rb || (b.p20 != null && b.p20 <= c.pr);
   const pTxt = b.p20 != null ? `P${Math.round(b.p20 * 100)}` : '—';
-  let st;
-  if (hit2) st = '<b style="color:var(--down)">⚡ 二档触发</b> → 再减 1/3, 尾仓破MA20离场';
-  else if (hit1) st = `<b style="color:var(--top)">⚡ 一档触发</b> → 减 1/3${b.b60 >= c.b60Confirm ? ' (MA60≥30%, 可减半)' : ''}`;
-  else if (panic) st = '<b style="color:var(--bottom)">❄ 恐慌回补区</b> → 减仓现金分批买回';
-  else st = `距一档 ${(c.l1 - b.b20).toFixed(1)}% · 距回补区 ${(b.b20 - c.rb).toFixed(1)}%`;
-  const trend = b.b20 < 0 ? ' · <span style="color:var(--down)">已破MA20</span>' : '';
-  const side = pos && pos.side === '空' ? ' <span style="opacity:.55">(空头反向参考)</span>' : '';
-  return `乖离 MA20 <b>${sgn(b.b20)}%</b> (${pTxt}) · MA60 ${sgn(b.b60)}% · ${st}${trend}${side}`;
+  let badge = '';
+  if (hit2) badge = '<span class="bias-pill down">⚡ 二档减1/3</span>';
+  else if (hit1) badge = `<span class="bias-pill warn">⚡ 一档${b.b60 >= c.b60Confirm ? '减半' : '减1/3'}</span>`;
+  else if (panic) badge = '<span class="bias-pill up">❄ 恐慌回补</span>';
+  else if (b.b20 < 0) badge = '<span class="bias-pill muted">破MA20</span>';
+  return `<span>MA20 <b>${sgn(b.b20)}%</b> <small>(${pTxt})</small> · MA60 ${sgn(b.b60)}%</span>${badge}`;
+}
+function budgetBarInner(b){
+  const frac = b.u > 0 ? Math.max(0, Math.min(1, b.avail / b.u)) : 0;
+  return `<div class="pos-budget-top tnum">
+      <span>可加浮盈 <b data-b-avail style="color:${b.avail > 0 ? 'var(--up)' : 'var(--muted)'}">${b.avail.toFixed(1)}U</b></span>
+      <span class="pos-budget-sub" data-b-sub>已加 ${b.used.toFixed(0)} / 浮盈 ${b.u >= 0 ? '+' : ''}${b.u.toFixed(0)}U</span>
+    </div>
+    <div class="pos-budget-bar"><i data-b-fill style="transform:scaleX(${frac.toFixed(3)})"></i></div>`;
+}
+function patchBudgetBar(bdEl, b){
+  const availEl = bdEl.querySelector('[data-b-avail]');
+  const subEl = bdEl.querySelector('[data-b-sub]');
+  const fillEl = bdEl.querySelector('[data-b-fill]');
+  if (!availEl || !subEl || !fillEl){ bdEl.innerHTML = budgetBarInner(b); return; }
+  availEl.textContent = `${b.avail.toFixed(1)}U`;
+  availEl.style.color = b.avail > 0 ? 'var(--up)' : 'var(--muted)';
+  subEl.textContent = `已加 ${b.used.toFixed(0)} / 浮盈 ${b.u >= 0 ? '+' : ''}${b.u.toFixed(0)}U`;
+  const frac = b.u > 0 ? Math.max(0, Math.min(1, b.avail / b.u)) : 0;
+  fillEl.style.transform = `scaleX(${frac.toFixed(3)})`;
 }
 function renderJournal(){
   const posBadge = document.getElementById('sideTabPosBadge');
   if (posBadge){
+    const prev = posBadge.textContent;
     posBadge.textContent = positions.length ? String(positions.length) : '';
     posBadge.classList.toggle('on', positions.length > 0);
+    if (positions.length > 0 && String(positions.length) !== prev) window.uiMotion?.popBadge?.(posBadge);
   }
   const box = document.getElementById('jPositions');
   if (!box) return;
   document.getElementById('journalMode').textContent =
-    inReplay() ? `· ${activeTF} @ ${fmtTime(replayT)}` : '(需进入复盘模式)';
+    inReplay() ? `· ${activeTF} @ ${fmtTime(replayT)}` : '';
   document.getElementById('jOpen').disabled = !inReplay();
   const bar = curBar();
-  // 练习(盲测)模式下加仓理由可留空, 自动记为「浮盈加仓」; 复盘模式仍要求填写
-  const addLogicLabel = trLocked() ? '加仓逻辑 / 依据 (留空=浮盈加仓)' : '加仓逻辑 / 依据 (必填)';
   let html = '';
   if (!inReplay()){
     html += `<div class="journal-idle-tip">
-      <span>进入<b>复盘</b>或<b>练习</b>后即可使用快速下单 <kbd>B</kbd>/<kbd>S</kbd> 与持仓管理。</span>
+      <span>进入复盘或盲测练习后，按 <kbd>B</kbd> / <kbd>S</kbd> 即可快速模拟开平仓</span>
       <div class="jit-btns">
         <button type="button" class="btn btn-outline" data-idle-act="replay">进入复盘</button>
         <button type="button" class="btn btn-outline" data-idle-act="trainer">开始练习</button>
       </div>
     </div>`;
   }
-  // 账户行: 净值 / 浮动 / 本金 / 占用 / 持仓杠杆
+  // 账户卡: 净值 / 浮盈 / 可用 / 占用 / 杠杆
   const floatSum = bar ? positions.filter(p => posLayoutOk(p)).reduce((a,p) => a + pnlOf(p, bar.close), 0) : 0;
   const used = positions.reduce((a,p) => a + posMargin(p), 0);
-  const eq = acctBal() + used + floatSum;   // 净值含全部在仓占用保证金
+  const eq = acctBal() + used + floatSum;
   const notional = bar ? positions.filter(p => posLayoutOk(p)).reduce((a,p) => a + posValue(p, bar.close), 0) : 0;
   const levTotal = eq > 0 ? notional / eq : 0;
-  const eqBase = (TR.active && TR.capital0) ? TR.capital0 : INIT_CAPITAL;   // 练习局按本局本金配色
+  const eqBase = (TR.active && TR.capital0) ? TR.capital0 : INIT_CAPITAL;
   const eqCol = eq > eqBase ? 'var(--up)' : (eq < eqBase ? 'var(--down)' : 'var(--ink)');
+  const resetDisabled = positions.length > 0 || Math.abs(acctBal() - INIT_CAPITAL) < 0.01;
+  const resetTitle = positions.length > 0 ? '请先平掉当前持仓后再重置本金' : (Math.abs(acctBal() - INIT_CAPITAL) < 0.01 ? '当前已是初始本金' : '重置账户本金为 100,000U');
   html += `<div class="acct-card" data-acct>
     <div class="acct-main">
-      <div class="acct-kpi"><span class="acct-k">账户净值</span><b class="acct-eq tnum" data-aeq style="color:${eqCol}">${eq.toFixed(2)}U</b></div>
-      <div class="acct-kpi"><span class="acct-k">浮动盈亏</span><span class="acct-flt tnum" data-fsum style="color:${floatSum >= 0 ? 'var(--up)' : 'var(--down)'}">${floatSum >= 0 ? '+' : ''}${floatSum.toFixed(2)}U</span></div>
-      <button class="btn btn-ghost acct-reset" id="jResetAcct" title="清零盈亏, 恢复初始本金(需先平掉全部持仓)">重置本金</button>
+      <div class="acct-kpi"><span class="acct-k">净值</span><b class="acct-eq tnum" data-aeq style="color:${eqCol}">${eq.toFixed(0)}U</b></div>
+      <div class="acct-kpi"><span class="acct-k">浮盈</span><span class="acct-flt tnum" data-fsum style="color:${floatSum >= 0 ? 'var(--up)' : 'var(--down)'}">${floatSum >= 0 ? '+' : ''}${floatSum.toFixed(1)}U</span></div>
+      <button type="button" class="btn btn-ghost acct-reset" id="jResetAcct" title="${resetTitle}"${resetDisabled ? ' disabled' : ''}>重置</button>
     </div>
     <div class="acct-sub tnum">
-      <span>可用本金 <b data-abal>${acctBal().toFixed(2)}U</b></span>
+      <span>可用 <b data-abal>${acctBal().toFixed(0)}U</b></span>
       <span>占用 <b data-aused>${used.toFixed(0)}</b>U</span>
-      <span>持仓杠杆 <b data-alev title="全部持仓名义价值 ÷ 账户净值">${notional > 0 ? levTotal.toFixed(2) + 'x' : '—'}</b></span>
+      <span>杠杆 <b data-alev title="总持仓名义价值 ÷ 账户净值">${notional > 0 ? levTotal.toFixed(2) + 'x' : '—'}</b></span>
     </div>
   </div>`;
-  // 一键全平: 放在单子(持仓卡)上方, 大按钮; 无持仓时隐藏
   if (positions.length){
-    html += `<button class="btn btn-close-all" id="jCloseAll" title="平掉当前品种/周期下的全部持仓(按当前收盘价, 离场依据统一记录为「一键全部平仓」)">⚡ 一键全平（${positions.length} 笔）</button>`;
+    html += `<button type="button" class="btn btn-close-all" id="jCloseAll" title="按当前收盘价一键平掉当前布局全部持仓">⚡ 一键全平 (${positions.length})</button>`;
   }
   const biasSnap = positions.length ? biasSnapshot() : null;
   for (const pos of positions){
-    const ok = posLayoutOk(pos);   // 跨品种/周期持仓: 只可查看, 结算需切回原布局
+    const ok = posLayoutOk(pos);
     const cap = posCapital(pos);
     const u = ok && bar ? pnlOf(pos, bar.close) : 0;
     const pct = cap ? u / cap * 100 : 0;
@@ -209,95 +236,154 @@ function renderJournal(){
     const bdInit = addBudget(pos);
     const rv = ok && bar ? rNow(pos, bar.close) : null;
     if (rv != null) pos.maxR = Math.max(pos.maxR ?? rv, rv);
-    const rRow = pos.stop != null
-      ? `<span data-r="${pos.id}" class="pos-r tnum">${rv != null ? `R ${fmtR(rv)} · 最大收盘 ${fmtR(pos.maxR)}` : 'R —'}</span>`
-      : '<span class="pos-r pos-r-empty">未设止损 · 无 R 基准</span>';
-    // 乖离档位: 仅匹配当前布局的持仓卡显示(异布局行情的乖离对该持仓无意义)
+    const exp = pos.expect || '中线';
+    const expCls = POS_EXP_CLS[exp] || 'exp-mid';
+    const avgPx = posAvgEntry(pos);
+    const canBe = ok && bar && (pos.side === '多' ? avgPx < bar.close : avgPx > bar.close);
+    const rBadge = pos.stop != null
+      ? `<span data-r="${pos.id}" class="pos-r tnum" style="color:${rv != null ? (rv >= 0 ? 'var(--up)' : 'var(--down)') : 'var(--muted)'}" title="${pos.maxR != null ? '最大收盘 ' + fmtR(pos.maxR) : ''}">${rv != null ? `R ${fmtR(rv)} <small>最大 ${fmtR(pos.maxR)}</small>` : '—'}</span>`
+      : '<span class="pos-r pos-r-empty">无止损</span>';
     const biasRow = ok
-      ? `<span data-bias="${pos.id}" title="${BIAS_TIP}" class="pos-bias">${biasRowInner(pos, biasSnap)}</span>`
+      ? `<div data-bias="${pos.id}" title="${BIAS_TIP}" class="pos-bias tnum">${biasRowInner(pos, biasSnap)}</div>`
       : '';
     const isShort = pos.side === '空';
+    const lCard = typeof window.logicCardForPos === 'function' ? window.logicCardForPos(pos) : null;
+    const logicPill = lCard
+      ? `<button type="button" class="pos-logic-pill linked" data-act="logic-card" data-pid="${pos.id}" title="打开关联时间胶囊 / 记节点">🧭 已锁</button>`
+      : `<button type="button" class="pos-logic-pill" data-act="logic-card" data-pid="${pos.id}" title="补建逻辑复盘卡">＋卡</button>`;
+    const legsHtml = pos.entries.length > 1
+      ? `<div class="pos-legs">${pos.entries.map((e,i) =>
+          `<div class="pos-leg tnum" title="${(e.logic || '').replace(/"/g,'&quot;')}"><i class="leg-k">${i ? '加' : '开'}</i><b>${e.price}</b><span>${e.leverage}x · ${e.capital.toFixed(0)}U</span></div>`
+        ).join('')}</div>`
+      : '';
     html += `<div class="pos-card ${isShort ? 'pos-short' : 'pos-long'}" data-pid="${pos.id}">
       <div class="pos-head">
-        <span class="pos-title"><b class="pos-id">#${pos.id}</b> <span class="pos-side-tag ${isShort ? 'short' : 'long'}">${pos.side}</span> · <span class="tnum">${pos.entries.length}笔</span></span>
-        <span class="pos-meta tnum">均价 <b>${fmt(posAvgEntry(pos))}</b> · 损 <b>${pos.stop ?? '—'}</b></span>
+        <span class="pos-title">
+          <b class="pos-id">#${pos.id}</b>
+          <span class="pos-side-tag ${isShort ? 'short' : 'long'}">${pos.side}</span>
+          <button type="button" class="pos-exp-tag ${expCls}" data-act="cycle-expect" data-pid="${pos.id}" title="点击切换预期：短线 / 中线 / 长线">${exp}</button>
+          ${pos.entries.length > 1 ? `<span class="pos-legs-cnt tnum">×${pos.entries.length}</span>` : ''}
+        </span>
+        ${logicPill}
       </div>
-      ${ok ? '' : `<div class="pos-warn">⚠ 绑定 ${pos.sym} ${pos.tf}, 请切回后结算</div>`}
+      ${ok ? '' : `<div class="pos-warn"><span>⚠ 绑定 ${pos.sym} ${pos.tf}</span><button type="button" class="btn ts-mini" data-act="switch-sym" data-sym="${pos.sym}" data-pid="${pos.id}">切回 ${pos.sym}</button></div>`}
       <div class="pos-pnl-row">
-        <span data-float="${pos.id}" class="pos-float tnum" style="color:${col}">浮动盈亏 ${u >= 0 ? '+' : ''}${u.toFixed(1)} U (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)</span>
+        <span data-float="${pos.id}" class="pos-float tnum" style="color:${col}">${u >= 0 ? '+' : ''}${u.toFixed(1)}U <em class="pos-pct ${u >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</em></span>
+        ${rBadge}
       </div>
-      <div class="pos-metrics tnum">
-        <span>持仓 <b class="tnum">${pv.toFixed(1)}U</b> · 对净值 <b data-plev="${pos.id}">${ok && eq > 0 ? (pv/eq).toFixed(2) + 'x' : '—'}</b></span>
-        ${rRow}
+      <div class="pos-kpi3 tnum">
+        <div><span>均价</span><b>${fmt(avgPx)}</b></div>
+        <div><span>止损</span><button type="button" class="pos-kpi-btn" data-act="stop-toggle" data-pid="${pos.id}" title="点击调整止损 / 一键移至保本">${pos.stop ?? '未设'}<i>✎</i></button></div>
+        <div><span>仓位</span><b>${pv.toFixed(0)}U</b><small data-plev="${pos.id}">${ok && eq > 0 ? ' ' + (pv/eq).toFixed(2) + 'x' : ''}</small></div>
       </div>
       ${biasRow}
-      <div class="pos-legs">${pos.entries.map((e,i) =>
-        `<div class="pos-leg tnum" title="${e.logic.replace(/"/g,'&quot;')}">${i+1}) ${e.price} · ${e.leverage}x · ${e.capital}U · ${fmtLogic(e.logic)}</div>`
-      ).join('')}</div>
+      ${legsHtml}
       <div class="pos-btns">
-        <button class="btn btn-outline" data-act="add-toggle" data-pid="${pos.id}">＋ 加仓</button>
-        <button class="btn btn-outline" data-act="close-toggle" data-pid="${pos.id}">平仓结算</button>
+        <button type="button" class="btn btn-outline pos-act-btn${bdInit.avail <= 0 ? ' is-muted' : ''}" data-act="add-toggle" data-pid="${pos.id}" title="${bdInit.avail > 0 ? '用浮盈加仓' : '需有可用浮盈才可加仓'}">＋ 加仓</button>
+        <button type="button" class="btn btn-outline pos-act-btn" data-act="stop-toggle" data-pid="${pos.id}">移止损</button>
+        <button type="button" class="btn btn-outline pos-act-btn pos-act-exit" data-act="close-toggle" data-pid="${pos.id}">平仓</button>
+      </div>
+      <div class="sec-stop pos-subform" style="display:none;">
+        <div class="pos-stop-row">
+          <button type="button" class="btn ts-mini pos-be-btn" data-act="stop-be" data-pid="${pos.id}" title="${canBe ? '把止损设为当前持仓均价' : '浮盈脱离成本后可用'}"${canBe ? '' : ' disabled'}>🛡 移至保本</button>
+          <input type="number" class="inp-stop-quick" step="any" value="${pos.stop ?? ''}" placeholder="止损价 (留空取消)">
+          <button type="button" class="btn btn-primary ts-mini" data-act="stop-save" data-pid="${pos.id}">保存</button>
+        </div>
       </div>
       <div class="sec-add pos-subform" style="display:none;">
-        <div data-budget="${pos.id}" class="pos-budget"></div>
-        <div class="pos-form-grid3">
-          <label class="field">本金U(≤浮盈)<input type="number" class="inp-add-cap" min="0" step="0.01" placeholder="≤还可加"></label>
-          <label class="field">杠杆<input type="number" class="inp-add-lev" value="${lastLev}" min="1" max="125"></label>
-          <label class="field">加仓价<input type="number" class="inp-add-price" placeholder="当前收盘"></label>
+        <div data-budget="${pos.id}" class="pos-budget">${budgetBarInner(bdInit)}</div>
+        <div class="pos-pct-row">
+          ${[25, 50, 75, 100].map(p => `<button type="button" class="pos-chip" data-act="add-pct" data-val="${p}">${p === 100 ? '全额' : p + '%'}</button>`).join('')}
         </div>
-        <label class="field">止损价(留空=维持 ${pos.stop ?? '无'})<input type="number" class="inp-add-stop" placeholder="留空不变"></label>
-        <label class="field">${addLogicLabel}<textarea class="inp-add-logic" rows="2" placeholder="例: 盈利加仓: 次级别二买确认, 突破前高回踩不破 (练习模式留空=浮盈加仓)"></textarea></label>
+        <div class="pos-form-grid2">
+          <label class="field">本金 U<input type="number" class="inp-add-cap" min="0" step="0.01" placeholder="≤${bdInit.avail.toFixed(0)}"></label>
+          <label class="field">杠杆<input type="number" class="inp-add-lev" value="${lastLev}" min="1" max="125"></label>
+          <label class="field">加仓价<input type="number" class="inp-add-price" placeholder="收盘"></label>
+          <label class="field">新止损<input type="number" class="inp-add-stop" placeholder="${pos.stop ?? '不变'}"></label>
+        </div>
+        <div class="pos-chips-row">
+          ${ADD_PRESETS.map(x => `<button type="button" class="pos-chip" data-act="add-chip" data-val="${x}">${x}</button>`).join('')}
+          ${trLocked() ? '<span class="pos-sub-hint">留空=浮盈加仓</span>' : ''}
+        </div>
+        <input type="text" class="pos-inline-inp inp-add-logic" maxlength="120" placeholder="${trLocked() ? '留空=浮盈加仓' : '加仓理由（点上方标签或输入）'}">
         <div class="pos-sub-actions">
-          <button class="btn btn-primary" data-act="add-ok" data-pid="${pos.id}">确认加仓</button>
-          <button class="btn btn-outline" data-act="add-full" data-pid="${pos.id}" title="把该笔订单当前全部可加浮盈一次性加为保证金(按当前收盘价, 沿用上次杠杆; 练习模式理由留空自动记为「浮盈加仓」)">⚡ 一键加满 <span data-full="${pos.id}">${bdInit.avail > 0 ? bdInit.avail.toFixed(2) + 'U' : ''}</span></button>
+          <button type="button" class="btn btn-primary" data-act="add-ok" data-pid="${pos.id}">确认加仓</button>
+          <button type="button" class="btn btn-outline pos-full-btn" data-act="add-full" data-pid="${pos.id}" title="用全部可加浮盈一键加满">⚡ 加满 <span data-full="${pos.id}">${bdInit.avail > 0 ? bdInit.avail.toFixed(1) + 'U' : ''}</span></button>
         </div>
       </div>
       <div class="sec-exit pos-subform" style="display:none;">
-        <div class="pos-exit-top">
-          <label class="field">平仓比例%<input type="number" class="inp-exit-ratio" value="100" min="1" max="100" step="1"></label>
-          <span class="pos-exit-hint">按当前收盘价成交</span>
+        <div class="pos-exit-ratio-row">
+          <div class="pos-ratio-seg">
+            ${[25, 50, 75, 100].map(x => `<button type="button" class="pos-rbtn${x === 100 ? ' active' : ''}" data-act="ratio-chip" data-val="${x}">${x}%</button>`).join('')}
+          </div>
+          <label class="pos-ratio-custom"><input type="number" class="inp-exit-ratio" value="100" min="1" max="100" step="1"><span>%</span></label>
         </div>
-        <div class="exit-chips">${['止盈目标','移动止盈','背驰','破位','时间到','看错了'].map(x =>
-          `<button type="button" class="logic-tag" data-act="exit-chip" data-val="${x}">${x}</button>`).join('')}
-          <span class="exit-ratio">${[25,50,100].map(x => `<button type="button" class="logic-tag" data-act="ratio-chip" data-val="${x}">${x}%</button>`).join('')}</span></div>
-        <label class="field">平仓逻辑 / 离场依据 (必填, 点上方原因即可)<textarea class="inp-exit-logic" rows="2" placeholder="例: 段顶+次级别顶背驰, 减半落袋 / 破位清仓"></textarea></label>
-        <button class="btn btn-primary" data-act="close-ok" data-pid="${pos.id}">确认平仓(当前收盘)</button>
+        <div class="pos-exit-presets">
+          ${EXIT_PRESETS.map(p => `<button type="button" class="pos-epreset ${p.cls}" data-act="exit-chip" data-val="${p.val}">${p.val}</button>`).join('')}
+        </div>
+        <input type="text" class="pos-inline-inp inp-exit-logic" maxlength="120" placeholder="平仓备注（点上方预设或自填）">
+        <button type="button" class="btn pos-close-go ${u >= 0 ? 'is-profit' : 'is-loss'}" data-act="close-ok" data-pid="${pos.id}">
+          <span>确认平仓 · <b data-exit-btn-r="${pos.id}">100%</b></span>
+          <span class="tnum pos-exit-est" data-exit-est="${pos.id}">${u >= 0 ? '+' : ''}${u.toFixed(1)}U</span>
+        </button>
       </div>
     </div>`;
   }
   if (!positions.length){
-    html += `<p class="note pos-empty-note">暂无持仓。可同时开多笔不同方向的仓位, 各自独立止损。</p>`;
+    html += `<p class="note pos-empty-note">暂无持仓</p>`;
   }
   const hist = jLoad().slice(-8).reverse();
   if (hist.length){
     html += `<div class="j-hist-title">最近平仓</div>
-      <table class="j-table"><thead><tr><th>时间</th><th>方向</th><th>入场→出场</th><th class="num">盈亏U</th></tr></thead><tbody>` +
+      <table class="j-table"><thead><tr><th>时间</th><th>单子</th><th>入→出</th><th class="num">盈亏U</th></tr></thead><tbody>` +
       hist.map(t => {
         const col = t.pnl_u >= 0 ? 'var(--up)' : 'var(--down)';
-        const tip = `${t.exit_reason || ''}${t.exit_logic ? ' · ' + t.exit_logic : ''}`.replace(/"/g,'&quot;');
-        // 盲测态: 仅本局练习窗口内的记录打相对标签; 旧局记录显示真实时间(与本局定位无关)
+        const tip = `${t.expect ? '[' + t.expect + '] ' : ''}${t.exit_reason || ''}${t.exit_logic ? ' · ' + t.exit_logic : ''}`.replace(/"/g,'&quot;');
         const wFirst = candlesFor('raw')[0]?.time;
         const tLbl = (trLocked() && t.exit_ts != null && wFirst != null &&
                       t.exit_ts >= wFirst && t.exit_ts <= (replayT ?? Infinity))
           ? trLabel(t.exit_ts) : t.exit_time;
-        return `<tr title="${tip}"><td>${tLbl}</td><td>${t.side}${t.adds > 0 ? '+'+t.adds : ''}</td><td class="tnum">${t.entry}→${t.exit_price}</td>
+        const expTag = t.expect ? `<span class="j-exp-dot ${POS_EXP_CLS[t.expect] || ''}">${t.expect[0]}</span>` : '';
+        return `<tr title="${tip}"><td>${tLbl}</td><td>${t.side}${t.adds > 0 ? '+'+t.adds : ''}${expTag}</td><td class="tnum">${t.entry}→${t.exit_price}</td>
           <td class="num tnum" style="color:${col}">${t.pnl_u >= 0 ? '+' : ''}${(+t.pnl_u).toFixed(1)}</td></tr>`;
       }).join('') + '</tbody></table>';
   }
   box.innerHTML = html;
   const closed = jLoad();
   const sumEl = document.getElementById('jSummary');
+  const expBtn = document.getElementById('jExport');
+  const clrBtn = document.getElementById('jClear');
+  if (expBtn) expBtn.disabled = closed.length === 0;
+  if (clrBtn) clrBtn.disabled = closed.length === 0;
   if (closed.length){
     const tot = closed.reduce((a,t) => a + t.pnl_u, 0);
     const win = closed.filter(t => t.pnl_u > 0).length;
-    sumEl.textContent = `共${closed.length}笔 · 胜率${(win/closed.length*100).toFixed(0)}% · 累计${tot >= 0 ? '+' : ''}${tot.toFixed(0)}U`;
+    sumEl.textContent = `${closed.length}笔 · 胜率${(win/closed.length*100).toFixed(0)}% · ${tot >= 0 ? '+' : ''}${tot.toFixed(0)}U`;
   } else sumEl.textContent = '';
-  refreshPositionLines();   // 持仓线随开仓/平仓/加仓/改止损同步重画
+  refreshPositionLines();
+}
+function updateExitEstimate(card, pos){
+  if (!card || !pos) return;
+  const bar = curBar();
+  const u = posLayoutOk(pos) && bar ? pnlOf(pos, bar.close) : 0;
+  const inp = card.querySelector('.inp-exit-ratio');
+  const raw = inp ? parseFloat(inp.value) : 100;
+  const pct = Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 100;
+  const est = u * (pct / 100);
+  const estEl = card.querySelector(`[data-exit-est="${pos.id}"]`);
+  if (estEl) estEl.textContent = `${est >= 0 ? '+' : ''}${est.toFixed(1)}U`;
+  const rLbl = card.querySelector(`[data-exit-btn-r="${pos.id}"]`);
+  if (rLbl) rLbl.textContent = `${Math.round(pct)}%`;
+  const goBtn = card.querySelector('.pos-close-go');
+  if (goBtn){
+    goBtn.classList.toggle('is-profit', est >= 0);
+    goBtn.classList.toggle('is-loss', est < 0);
+  }
 }
 // 浮动盈亏实时刷新: 回放每根K线/切视图时由 refreshAll 驱动, 只改文本不重建表单(避免打断输入)
 function updateLivePnl(){
   document.getElementById('journalMode').textContent =
-    inReplay() ? `· ${activeTF} @ ${fmtTime(replayT)}` : '(需进入复盘模式)';
+    inReplay() ? `· ${activeTF} @ ${fmtTime(replayT)}` : '';
   const bar = curBar();
   if (!bar) return;
   // 账户行
@@ -306,58 +392,80 @@ function updateLivePnl(){
     const mine = positions.filter(p => posLayoutOk(p));
     const floatSum = mine.reduce((a,p) => a + pnlOf(p, bar.close), 0);
     const used = positions.reduce((a,p) => a + posMargin(p), 0);
-    const eq = acctBal() + used + floatSum;   // 净值含全部在仓占用保证金
+    const eq = acctBal() + used + floatSum;
     const fsEl = document.querySelector('[data-fsum]');
     const eqEl = document.querySelector('[data-aeq]');
     const usEl = document.querySelector('[data-aused]');
-    balEl.textContent = acctBal().toFixed(2) + 'U';
+    balEl.textContent = acctBal().toFixed(0) + 'U';
     if (usEl) usEl.textContent = used.toFixed(0);
-    if (fsEl){ fsEl.textContent = (floatSum >= 0 ? '+' : '') + floatSum.toFixed(2) + 'U';
-      fsEl.style.color = floatSum >= 0 ? 'var(--up)' : 'var(--down)'; }
-    if (eqEl){ eqEl.textContent = eq.toFixed(2) + 'U';
+    if (fsEl){
+      const nextTxt = (floatSum >= 0 ? '+' : '') + floatSum.toFixed(1) + 'U';
+      const prevTxt = fsEl.textContent;
+      fsEl.textContent = nextTxt;
+      fsEl.style.color = floatSum >= 0 ? 'var(--up)' : 'var(--down)';
+      if (prevTxt && prevTxt !== nextTxt && mine.length) window.uiMotion?.pulseNum?.(fsEl, floatSum >= 0 ? 'up' : 'down');
+    }
+    if (eqEl){
+      const nextEq = eq.toFixed(0) + 'U';
+      const prevEq = eqEl.textContent;
+      eqEl.textContent = nextEq;
       const base = (TR.active && TR.capital0) ? TR.capital0 : INIT_CAPITAL;
-      eqEl.style.color = eq > base ? 'var(--up)' : (eq < base ? 'var(--down)' : ''); }
+      eqEl.style.color = eq > base ? 'var(--up)' : (eq < base ? 'var(--down)' : '');
+      if (prevEq && prevEq !== nextEq && mine.length) window.uiMotion?.pulseNum?.(eqEl, eq >= base ? 'up' : 'down');
+    }
     const notional = mine.reduce((a,p) => a + posValue(p, bar.close), 0);
     const levEl = document.querySelector('[data-alev]');
     if (levEl) levEl.textContent = notional > 0 && eq > 0 ? (notional / eq).toFixed(2) + 'x' : '—';
   }
-  // 各持仓卡: 浮盈 + R 倍数 + 对净值杠杆 + 加仓预算
+  // 各持仓卡: 浮盈 + R 倍数 + 对净值杠杆 + 加仓预算 + 预计平仓盈亏
   const mineNow = positions.filter(p => posLayoutOk(p));
   const eqNow = acctBal() + positions.reduce((a,p) => a + posMargin(p), 0) + mineNow.reduce((a,p) => a + pnlOf(p, bar.close), 0);
-  const biasSnap = positions.length ? biasSnapshot() : null;   // 每步只算一次, 多持仓复用
+  const biasSnap = positions.length ? biasSnapshot() : null;
   for (const pos of positions){
-    if (!posLayoutOk(pos)){   // 异布局持仓: 切回后才显示浮盈/乖离
+    if (!posLayoutOk(pos)){
       const bEl0 = document.querySelector(`[data-bias="${pos.id}"]`);
-      if (bEl0) bEl0.innerHTML = `<span style="opacity:.55">乖离档位 · 切回 ${pos.sym} ${pos.tf} 显示</span>`;
+      if (bEl0) bEl0.innerHTML = `<span style="opacity:.55">切回 ${pos.sym} ${pos.tf} 查看</span>`;
       continue;
     }
     const u = pnlOf(pos, bar.close);
     const cap = posCapital(pos);
+    const pct = cap ? u / cap * 100 : 0;
     const f = document.querySelector(`[data-float="${pos.id}"]`);
     if (f){
-      f.textContent = `浮动盈亏 ${u >= 0 ? '+' : ''}${u.toFixed(1)} U (${u/cap >= 0 ? '+' : ''}${(u/cap*100).toFixed(1)}%)`;
+      f.innerHTML = `${u >= 0 ? '+' : ''}${u.toFixed(1)}U <em class="pos-pct ${u >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</em>`;
       f.style.color = u >= 0 ? 'var(--up)' : 'var(--down)';
     }
     const levP = document.querySelector(`[data-plev="${pos.id}"]`);
-    if (levP) levP.textContent = eqNow > 0 ? (posValue(pos, bar.close) / eqNow).toFixed(2) + 'x' : '—';
+    if (levP) levP.textContent = eqNow > 0 ? ' ' + (posValue(pos, bar.close) / eqNow).toFixed(2) + 'x' : '';
     const rEl = document.querySelector(`[data-r="${pos.id}"]`);
     const r = rNow(pos, bar.close);
     if (r != null) pos.maxR = Math.max(pos.maxR ?? r, r);
     if (rEl){
-      rEl.textContent = r != null ? `R ${fmtR(r)} · 最大收盘 ${fmtR(pos.maxR)}` : 'R —';
-      rEl.style.color = r >= 0 ? 'var(--up)' : 'var(--down)';
+      rEl.innerHTML = r != null ? `R ${fmtR(r)} <small>最大 ${fmtR(pos.maxR)}</small>` : '—';
+      rEl.style.color = r != null ? (r >= 0 ? 'var(--up)' : 'var(--down)') : 'var(--muted)';
     }
     const bd = document.querySelector(`[data-budget="${pos.id}"]`);
+    const b = addBudget(pos);
     if (bd){
-      const b = addBudget(pos);
-      bd.innerHTML = `本笔浮盈 <b style="color:${b.u >= 0 ? 'var(--up)' : 'var(--down)'}">${b.u >= 0 ? '+' : ''}${b.u.toFixed(2)}U</b>` +
-        ` · 已加仓 ${b.used.toFixed(2)}U · 还可加 <b>${b.avail.toFixed(2)}U</b><span style="opacity:.7">（只能用该笔订单的浮盈加仓）</span>`;
+      patchBudgetBar(bd, b);
       const fullEl = document.querySelector(`[data-full="${pos.id}"]`);
-      if (fullEl) fullEl.textContent = b.avail > 0 ? b.avail.toFixed(2) + 'U' : '';
+      if (fullEl) fullEl.textContent = b.avail > 0 ? b.avail.toFixed(1) + 'U' : '';
     }
-    // 乖离档位随K线/周期实时刷新
     const biasEl = document.querySelector(`[data-bias="${pos.id}"]`);
     if (biasEl) biasEl.innerHTML = biasRowInner(pos, biasSnap);
+    const card = document.querySelector(`.pos-card[data-pid="${pos.id}"]`);
+    if (card){
+      updateExitEstimate(card, pos);
+      const addToggle = card.querySelector('[data-act="add-toggle"]');
+      if (addToggle) addToggle.classList.toggle('is-muted', b.avail <= 0);
+      const beBtn = card.querySelector('[data-act="stop-be"]');
+      if (beBtn){
+        const avgPx = posAvgEntry(pos);
+        const canBe = pos.side === '多' ? avgPx < bar.close : avgPx > bar.close;
+        beBtn.disabled = !canBe;
+        beBtn.title = canBe ? '把止损设为当前持仓均价' : '浮盈脱离成本后可用';
+      }
+    }
   }
   // 图上快捷弹层(若打开): 浮盈随K线刷新
   if (posPopup){
@@ -411,18 +519,19 @@ function addPosFromCard(pos, card, fillMax){
   if (!posLayoutOk(pos)){ alert(`该持仓绑定 ${pos.sym} ${pos.tf}, 请切回原品种与周期再加仓`); return false; }
   const q = sel => card.querySelector(sel);
   const logic = q('.inp-add-logic').value.trim() || (trLocked() ? '浮盈加仓' : '');
-  if (!logic){ alert('加仓逻辑必填——记录加仓依据才能沉淀加仓规则'); return false; }
+  if (!logic){ alert('请点选或填写加仓理由（必填）'); return false; }
   const bar = curBar(); if (!bar) return false;
   const bd = addBudget(pos);
-  const wantCap = fillMax ? bd.avail : (+q('.inp-add-cap').value || 0);
+  let wantCap = fillMax ? bd.avail : (+q('.inp-add-cap').value || 0);
   if (wantCap <= 0){
     alert(fillMax ? '本笔订单暂无可加浮盈(浮亏状态, 或浮盈已全部投用于加仓)' : '请填写加仓本金');
     return false;
   }
-  if (wantCap > bd.avail + 1e-9){
+  if (wantCap > bd.avail + 0.01){
     alert(`只能用本笔订单浮盈加仓: 浮盈 ${bd.u.toFixed(2)}U − 已加 ${bd.used.toFixed(2)}U = 还可加 ${bd.avail.toFixed(2)}U`);
     return false;
   }
+  if (wantCap > bd.avail) wantCap = +bd.avail.toFixed(6);
   pos.entries.push({
     t: bar.time,
     price: trLocked() ? bar.close : (+q('.inp-add-price').value || bar.close),
@@ -462,6 +571,7 @@ function closePosObj(pos, r, exitLogic, reason = '手动平仓', force = false){
   const pnl = pnlOf(pos, bar.close) * r;
   const rec = makeRec(pos, r, bar.close, bar.time, pnl, exitLogic, reason);
   const arr = jLoad(); arr.push(rec); jSave(arr);
+  if (r >= 1 && typeof window.onLogicTradeClosed === 'function') window.onLogicTradeClosed(rec, pos);
   if (TR.active && !TR.revealed){   // 练习局: 记入本局战绩, 揭示时统一入账; 同步累计加仓贡献
     TR.session.push(rec);
     prEvent('exit',pos,{price:rec.exit_price,fraction:r,pnl:rec.pnl_u,exitType:reason,reason:exitLogic});
@@ -485,12 +595,12 @@ function makeRec(pos, r, exitPrice, exitTs, pnl, exitLogic, reason){
     symbol: DATA.meta.symbol, tf: activeTF,
     mode: TR.active && !TR.revealed ? 'trainer' : 'replay',
     pid: pos.id,
-    side: pos.side, leverage: pos.entries[0].leverage, capital: +capClosed.toFixed(2),
+    side: pos.side, expect: pos.expect || '中线', leverage: pos.entries[0].leverage, capital: +capClosed.toFixed(2),
     entry_ts: pos.entries[0].t, exit_ts: exitTs,
     entry_ts_list: pos.entries.map(e => e.t), entry_prices: pos.entries.map(e => e.price),
     entry_time: fmtTimeReal(pos.entries[0].t), entry: +posAvgEntry(pos).toFixed(2),
     exit_time: fmtTimeReal(exitTs), exit_price: exitPrice,
-    stop: pos.stop ?? '', initial_stop: pos.initialStop ?? null, opportunity_id: pos.opportunityId ?? null, logic: pos.entries[0].logic,
+    stop: pos.stop ?? '', initial_stop: pos.initialStop ?? null, opportunity_id: pos.opportunityId ?? null, logic_card_id: pos.logicCardId ?? null, logic: pos.entries[0].logic,
     adds: pos.entries.length - 1, ratio: +r.toFixed(2), partial: r < 1,
     entries: pos.entries.map(e => ({t: fmtTimeReal(e.t), price: e.price, capital: e.capital, leverage: e.leverage, logic: e.logic, step: e.step ?? null })),
     exit_logic: exitLogic,
@@ -529,6 +639,7 @@ function checkStopAndLiquidate(){
     const pnl = Math.max(stopFirst ? pnlOf(pos, px) : -margin, -margin);
     const rec = makeRec(pos, 1, px, bar.time, pnl, '', stopFirst ? '触发止损' : '单笔爆仓');
     const arr = jLoad(); arr.push(rec); jSave(arr);
+    if (typeof window.onLogicTradeClosed === 'function') window.onLogicTradeClosed(rec, pos);
     if (TR.active && !TR.revealed){
       TR.session.push(rec);
       prEvent('exit',pos,{price:px,fraction:1,pnl:rec.pnl_u,exitType:rec.exit_reason});
@@ -553,7 +664,7 @@ function checkAccountBlowup(){
   if (TR.active && !TR.revealed){
     revealTrainer(true, '💥 账户爆仓, 练习强制结束');
   } else {
-    alert('账户净值 ≤ 0, 已全部强平。本金重置为初始 100,000U。');
+    window.showToast?.('💥 账户净值 ≤ 0，已全部强平并重置本金为 100,000U', 'err', 4200);
     acctReset();
     renderJournal();
   }
@@ -577,12 +688,8 @@ function selectedLogicTags(){
   const parts = [];
   const market = ltSelected('market');
   if (market.length) parts.push('市场: ' + market.join('·'));
-  const entry = ltSelected('entry', 'ma_break').concat(ltSelected('entry', 'ma_pullback'));
+  const entry = ltSelected('entry');
   if (entry.length) parts.push('入场: ' + entry.join('、'));
-  const mom = ltSelected('entry', 'momentum');
-  if (mom.length) parts.push('动能: ' + mom.join('、'));
-  const cd = ltSelected('entry', 'candle');
-  if (cd.length) parts.push('裸K: ' + cd.join('、'));
   const pattern = ltSelected('pattern');
   if (pattern.length) parts.push('形态: ' + pattern.join('、'));
   return parts.join(' | ');
@@ -601,7 +708,7 @@ function combineEntryLogic(tags, text){
 function closeAllPositions(){
   const mine = positions.filter(p => posLayoutOk(p));
   const others = positions.length - mine.length;
-  if (!mine.length){ alert('当前品种/周期下没有可平持仓' + (others ? `（另有 ${others} 笔绑定其他布局, 请切回后处理）` : '')); return; }
+  if (!mine.length){ window.showToast?.('⚠ 当前品种/周期下没有可平持仓' + (others ? `（另有 ${others} 笔绑定其他布局）` : ''), 'warn', 2600); return; }
   if (!confirm(`确认一键平掉全部 ${mine.length} 笔持仓?\n离场依据将统一记录为「一键全部平仓」。`)) return;
   for (const pos of [...mine]) closePosObj(pos, 1, '一键全部平仓', '一键全部平仓');
   if (others) flashBtn('snapshotBtn', `⚠ 另有 ${others} 笔异布局持仓未平`);
@@ -609,6 +716,13 @@ function closeAllPositions(){
 function openJournalPosition(opts = {}){
   let fail = message => { (opts.onError || alert)(message); return false; };
   if (!inReplay()) return fail('请先进入复盘模式');
+  if (!opts.logicCardId && typeof window.logicStrictGateCheck === 'function'){
+    const gate = window.logicStrictGateCheck(opts.side ?? document.getElementById('jSide').value);
+    if (gate && !gate.ok){
+      if (typeof window.openLogicStudio === 'function') window.openLogicStudio('gate', { side: opts.side ?? document.getElementById('jSide').value });
+      return fail(gate.message);
+    }
+  }
   // 市场环境没选时按当根数据自动判定(MA120方向/价格位置), 入场信号至少 1 个(所有开仓入口一致)
   if (!ltSelected('entry').length) return fail('请至少选 1 个入场信号');
   const autoMarket = typeof qoAutoFillMarket === 'function' ? qoAutoFillMarket() : [];
@@ -636,8 +750,11 @@ function openJournalPosition(opts = {}){
   if (stop != null && (!Number.isFinite(stop)||stop<=0||(side==='多'?stop>=price:stop<=price)))
     return fail('初始止损必须在开仓价的不利方向。');
   acctAdj(-margin);
+  const expectRaw = opts.expect || document.getElementById('jExpect')?.value || '中线';
+  const expect = POS_EXPECTS.includes(expectRaw) ? expectRaw : '中线';
   const np = {
-    id: posSeq++, sym: currentSym, tf: activeTF, side, stop, initialStop:stop, r0:null, maxR:null,
+    id: posSeq++, sym: currentSym, tf: activeTF, side, expect, stop, initialStop:stop, r0:null, maxR:null,
+    logicCardId: opts.logicCardId ?? null,
     entries:[{t:bar.time,price,capital:margin,leverage:Math.min(125,Math.max(1,+document.getElementById('jLeverage').value||10)),
       logic,step:trLocked()?TR.step:null}],
     tags:{market:ltSelected('market'),entry:ltSelected('entry'),pattern:ltSelected('pattern')},
@@ -717,32 +834,118 @@ function setupJournal(){
     const pos = card ? posById(+card.dataset.pid) : null;
     if (!pos) return;
     const q = sel => card.querySelector(sel);
-    const showOnly = secName => {
-      for (const s of card.querySelectorAll('.sec-add,.sec-exit')) s.style.display = 'none';
-      if (secName) q(secName).style.display = 'flex';
+    const showOnly = (secName, actBtnName) => {
+      for (const s of card.querySelectorAll('.sec-add,.sec-exit,.sec-stop')) s.style.display = 'none';
+      card.querySelectorAll('.pos-act-btn').forEach(btn => btn.classList.remove('is-open'));
+      if (secName){
+        const el = q(secName);
+        if (el) el.style.display = 'flex';
+        if (actBtnName) card.querySelector(`.pos-act-btn[data-act="${actBtnName}"]`)?.classList.add('is-open');
+      }
     };
     switch (b.dataset.act){
+      case 'switch-sym': {
+        const targetSym = b.dataset.sym;
+        if (targetSym && typeof switchSymbol === 'function') switchSymbol(targetSym);
+        break;
+      }
+      case 'cycle-expect': {
+        const cur = POS_EXPECTS.indexOf(pos.expect || '中线');
+        pos.expect = POS_EXPECTS[(cur + 1) % POS_EXPECTS.length];
+        prCheckpoint();
+        renderJournal();
+        window.showToast?.(`#${pos.id} 预期已切换为「${pos.expect}」`, 'info', 1400);
+        break;
+      }
+      case 'logic-card': {
+        const lCard = typeof window.logicCardForPos === 'function' ? window.logicCardForPos(pos) : null;
+        if (lCard && typeof window.openLogicStudio === 'function'){
+          window.openLogicStudio('review');
+          document.querySelector(`[data-a-sel="${lCard.id}"]`)?.click();
+        } else if (typeof window.openLogicStudio === 'function'){
+          window.openLogicStudio('gate', { side: pos.side, horizon: pos.expect || '中线', entryPrice: posAvgEntry(pos), stopPrice: pos.stop });
+        }
+        break;
+      }
+      case 'stop-toggle': {
+        if (!posLayoutOk(pos)){ window.showToast?.(`⚠ 该持仓绑定 ${pos.sym} ${pos.tf}，请先切回后再调止损`, 'warn', 2600); return; }
+        const open = q('.sec-stop')?.style.display === 'none';
+        showOnly(open ? '.sec-stop' : null, open ? 'stop-toggle' : null);
+        if (open) q('.inp-stop-quick')?.focus();
+        break;
+      }
+      case 'stop-be': {
+        if (!posLayoutOk(pos)) return;
+        const avg = +posAvgEntry(pos).toPrecision(7);
+        const nowBar = curBar();
+        if (nowBar && (pos.side === '多' ? avg >= nowBar.close : avg <= nowBar.close)){
+          window.showToast?.('⚠ 当前未脱离成本，暂无法直接移至保本', 'warn', 2200);
+          return;
+        }
+        updatePositionStop(pos, avg, '移至保本');
+        ensureRisk(pos);
+        prCheckpoint();
+        renderJournal();
+        window.showToast?.(`🛡 #${pos.id} 止损已移至保本 ${avg}`, 'ok', 1800);
+        break;
+      }
+      case 'stop-save': {
+        if (!posLayoutOk(pos)) return;
+        const v = parseFloat(q('.inp-stop-quick')?.value);
+        const nowBar = curBar();
+        if (!isNaN(v) && v > 0 && nowBar && (pos.side === '多' ? v >= nowBar.close : v <= nowBar.close)
+            && !confirm(`止损 ${v} 已在当前收盘价 ${nowBar.close} 不利侧，下根开盘将触发离场，确定保存？`)) return;
+        updatePositionStop(pos, (isNaN(v) || v <= 0) ? null : v, '卡片调损');
+        ensureRisk(pos);
+        prCheckpoint();
+        renderJournal();
+        window.showToast?.(isNaN(v) || v <= 0 ? `#${pos.id} 已取消止损` : `✓ #${pos.id} 止损更新为 ${v}`, 'ok', 1600);
+        break;
+      }
       case 'add-toggle': {
         const bd = addBudget(pos);
         if (bd.avail <= 0){
-          alert(bd.u <= 0
-            ? '本笔订单暂无浮盈, 无法加仓——只能用该笔订单的浮盈加仓'
-            : `浮盈 ${bd.u.toFixed(1)}U 已全部投用于加仓(已加 ${bd.used.toFixed(1)}U), 暂无可加余额`);
+          window.showToast?.(bd.u <= 0
+            ? '本笔订单暂无浮盈，盈利后即可用浮盈加仓'
+            : `可加浮盈已用完（已加 ${bd.used.toFixed(1)}U）`, 'info', 2200);
+          window.uiMotion?.shake?.(b);
           return;
         }
-        showOnly(q('.sec-add').style.display === 'none' ? '.sec-add' : null);
+        const open = q('.sec-add').style.display === 'none';
+        showOnly(open ? '.sec-add' : null, open ? 'add-toggle' : null);
+        if (open) q('.inp-add-cap')?.focus();
         break;
       }
-      case 'close-toggle':
-        if (!posLayoutOk(pos)){ alert(`该持仓绑定 ${pos.sym} ${pos.tf}, 请切回原品种与周期再平仓`); return; }
-        showOnly(q('.sec-exit').style.display === 'none' ? '.sec-exit' : null);
+      case 'add-pct': {
+        const bd = addBudget(pos);
+        const pct = +b.dataset.val || 100;
+        const amt = Math.floor(bd.avail * pct) / 100;
+        const capInp = q('.inp-add-cap');
+        if (capInp) capInp.value = amt > 0 ? amt.toFixed(2) : '';
+        card.querySelectorAll('[data-act="add-pct"]').forEach(x => x.classList.toggle('active', x === b));
         break;
+      }
+      case 'add-chip': {
+        const inp = q('.inp-add-logic');
+        const parts = inp.value.split(/[,，、·]\s*/).map(x => x.trim()).filter(Boolean);
+        const v = b.dataset.val, i = parts.indexOf(v);
+        if (i >= 0) parts.splice(i, 1); else parts.push(v);
+        inp.value = parts.join('、');
+        b.classList.toggle('active', i < 0);
+        break;
+      }
+      case 'close-toggle': {
+        if (!posLayoutOk(pos)){ window.showToast?.(`⚠ 该持仓绑定 ${pos.sym} ${pos.tf}，请先切回后再平仓`, 'warn', 2600); return; }
+        const open = q('.sec-exit').style.display === 'none';
+        showOnly(open ? '.sec-exit' : null, open ? 'close-toggle' : null);
+        if (open){ updateExitEstimate(card, pos); q('.inp-exit-logic')?.focus(); }
+        break;
+      }
       case 'add-ok':
-        addPosFromCard(pos, card, false);
+        if (!addPosFromCard(pos, card, false)) window.uiMotion?.shake?.(q('.sec-add') || card);
         break;
       case 'add-full':
-        // 一键加满: 用该笔订单当前全部可加浮盈加仓
-        addPosFromCard(pos, card, true);
+        if (!addPosFromCard(pos, card, true)) window.uiMotion?.shake?.(q('.sec-add') || card);
         break;
       case 'exit-chip': {
         const ta = q('.inp-exit-logic');
@@ -756,23 +959,56 @@ function setupJournal(){
       case 'ratio-chip':
         q('.inp-exit-ratio').value = b.dataset.val;
         card.querySelectorAll('[data-act="ratio-chip"]').forEach(x => x.classList.toggle('active', x === b));
+        updateExitEstimate(card, pos);
         break;
       case 'close-ok': {
         const logic = q('.inp-exit-logic').value.trim();
-        if (!logic){ alert('平仓逻辑必填——记录离场依据(止盈/背驰/破位)才能沉淀离场规则'); return; }
+        if (!logic){
+          window.uiMotion?.shake?.(q('.sec-exit') || card);
+          q('.inp-exit-logic')?.focus();
+          window.showToast?.('请选择平仓预设（保本 / 止盈 / 保护利润）或填写备注', 'warn', 2400);
+          return;
+        }
         const rawRatio = q('.inp-exit-ratio').value.trim();
         let ratio = rawRatio === '' ? 1 : +rawRatio / 100;
-        if (!Number.isFinite(ratio) || ratio <= 0){ alert('平仓比例须在 1%~100% 之间'); return; }
+        if (!Number.isFinite(ratio) || ratio <= 0){
+          window.uiMotion?.shake?.(q('.inp-exit-ratio') || card);
+          alert('平仓比例须在 1%~100% 之间');
+          return;
+        }
         ratio = Math.min(1, Math.max(0.01, ratio));
         closePosObj(pos, ratio, logic);
         break;
       }
     }
   });
+  document.getElementById('jPositions').addEventListener('input', e => {
+    if (!e.target.classList.contains('inp-exit-ratio')) return;
+    const card = e.target.closest('.pos-card');
+    const pos = card ? posById(+card.dataset.pid) : null;
+    if (!pos) return;
+    const v = e.target.value.trim();
+    card.querySelectorAll('[data-act="ratio-chip"]').forEach(x => x.classList.toggle('active', x.dataset.val === v));
+    updateExitEstimate(card, pos);
+  });
+  document.getElementById('jPositions').addEventListener('keydown', e => {
+    const card = e.target.closest('.pos-card');
+    if (!card) return;
+    if (e.key === 'Escape'){
+      e.preventDefault();
+      for (const s of card.querySelectorAll('.sec-add,.sec-exit,.sec-stop')) s.style.display = 'none';
+      card.querySelectorAll('.pos-act-btn').forEach(btn => btn.classList.remove('is-open'));
+      return;
+    }
+    if (e.key !== 'Enter') return;
+    if (e.target.classList.contains('inp-stop-quick')){ e.preventDefault(); card.querySelector('[data-act="stop-save"]')?.click(); }
+    else if (e.target.classList.contains('inp-add-logic')){ e.preventDefault(); card.querySelector('[data-act="add-ok"]')?.click(); }
+    else if (e.target.classList.contains('inp-exit-logic')){ e.preventDefault(); card.querySelector('[data-act="close-ok"]')?.click(); }
+  });
   document.getElementById('jExport').addEventListener('click', () => {
     const arr = jLoad();
-    if (!arr.length){ alert('暂无历史记录'); return; }
-    const cols = ['symbol','tf','side','leverage','capital','entry_time','entry','exit_time','exit_price','stop','initial_stop','opportunity_id','adds','exit_logic','pnl_u','pnl_pct_capital','result','exit_reason','logic','r0','r_final','max_r'];
+    if (!arr.length){ window.showToast?.('暂无交易历史记录可导出', 'info', 2000); return; }
+    const cols = ['symbol','tf','side','expect','leverage','capital','entry_time','entry','exit_time','exit_price','stop','initial_stop','opportunity_id','adds','exit_logic','pnl_u','pnl_pct_capital','result','exit_reason','logic','r0','r_final','max_r'];
     const esc = v => '"' + String(v ?? '').replace(/"/g,'""') + '"';
     const csv = '\ufeff' + cols.join(',') + '\n' +
       arr.map(r => cols.map(c => esc(r[c])).join(',')).join('\n');
@@ -781,9 +1017,29 @@ function setupJournal(){
     a.href = URL.createObjectURL(blob);
     a.download = `trade_journal_${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
+    window.showToast?.(`✓ 已导出 ${arr.length} 笔交易 CSV`, 'ok', 2000);
   });
   document.getElementById('jClear').addEventListener('click', () => {
-    if (confirm('确认清空全部交易历史?')){ jSave([]); renderJournal(); }
+    const prev = jLoad();
+    if (!prev.length) return;
+    if (confirm(`确认清空全部 ${prev.length} 笔交易历史？`)){
+      jSave([]); renderJournal();
+      const recKey = r => `${r.symbol}|${r.pid}|${r.entry_ts}|${r.exit_ts}|${r.ratio}|${r.pnl_u}`;
+      window.showToast?.(`已清空 ${prev.length} 笔交易记录`, 'info', {
+        ms: 5500,
+        action: {
+          label: '撤销',
+          onClick: () => {
+            const newer = jLoad();
+            const seen = new Set(newer.map(recKey));
+            const merged = [...prev.filter(r => !seen.has(recKey(r))), ...newer];
+            jSave(merged);
+            renderJournal();
+            window.showToast?.(`✓ 已恢复 ${prev.length} 笔交易记录`, 'ok', 1800);
+          },
+        },
+      });
+    }
   });
 }
 
@@ -833,18 +1089,18 @@ function openPosPopup(pos, point){
   const u = bar ? pnlOf(pos, bar.close) : 0;
   const cap = posCapital(pos);
   posPopupEl.innerHTML = `
-    <div class="pp-head" style="color:${posColor(pos)}">#${pos.id} ${pos.side} · ${pos.entries.length}笔</div>
-    <div class="pp-row">均价 ${fmt(posAvgEntry(pos))} · 保证金 ${posMargin(pos).toFixed(0)}U${cap > posMargin(pos) + 1e-6 ? ` (+浮盈加仓 ${(cap - posMargin(pos)).toFixed(0)}U)` : ''}</div>
-    <div class="pp-row" data-pp-float style="font-weight:700;color:${u >= 0 ? 'var(--up)' : 'var(--down)'}">浮动 ${u >= 0 ? '+' : ''}${u.toFixed(1)}U (${cap ? (u/cap*100 >= 0 ? '+' : '') + (u/cap*100).toFixed(1) : '0.0'}%)</div>
-    ${pos.entries.map((e,i) => `<div class="pp-row" style="opacity:.75">${i+1}) ${i > 0 ? '加' : '开'} @ ${e.price.toPrecision(6)} · ${e.capital}U${e.leverage>1?` · ${e.leverage}x`:''}</div>`).join('')}
+    <div class="pp-head" style="color:${posColor(pos)}">#${pos.id} ${pos.side} · ${pos.expect || '中线'}</div>
+    <div class="pp-row tnum">均价 ${fmt(posAvgEntry(pos))} · 本金 ${posMargin(pos).toFixed(0)}U</div>
+    <div class="pp-row tnum" data-pp-float style="font-weight:700;color:${u >= 0 ? 'var(--up)' : 'var(--down)'}">${u >= 0 ? '+' : ''}${u.toFixed(1)}U (${cap ? (u/cap*100 >= 0 ? '+' : '') + (u/cap*100).toFixed(1) : '0.0'}%)</div>
     <div class="pp-actions">
       <button class="btn" data-pp="add">加仓</button>
-      <button class="btn" data-pp="stop">改止损</button>
+      <button class="btn" data-pp="exit">平仓</button>
+      <button class="btn" data-pp="stop">止损</button>
       <button class="btn" data-pp="close-pop">✕</button>
     </div>
     <div class="pp-stop" style="display:none;">
-      <input type="number" class="pp-stop-inp" step="any" value="${pos.stop ?? ''}" placeholder="留空=取消止损"><input class="pp-stop-reason" type="text" maxlength="200" placeholder="调整理由（规则研究必填）">
-      <button class="btn" data-pp="stop-save">保存</button>
+      <input type="number" class="pp-stop-inp" step="any" value="${pos.stop ?? ''}" placeholder="止损价"><input class="pp-stop-reason" type="text" maxlength="200" placeholder="理由(可选)">
+      <button class="btn btn-primary" data-pp="stop-save">保存</button>
     </div>`;
   posPopupEl.style.display = 'flex';
   // 定位: 弹层放在点击点【左侧】—— 最新K线在图表右缘, 右侧展开会挡住最新走势
@@ -892,15 +1148,33 @@ posPopupEl.addEventListener('click', e => {
       closePosPopup();
       if (typeof setSideTab === 'function') setSideTab('trade');
       const card = document.querySelector(`.pos-card[data-pid="${pos.id}"]`);
-      if (!card){ alert('未找到该持仓卡片, 请在右侧面板操作'); return; }
+      if (!card){ window.showToast?.('未找到该持仓卡片，请在右侧「交易」面板操作', 'warn', 2200); return; }
       card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      for (const s of card.querySelectorAll('.sec-add,.sec-exit')) s.style.display = 'none';
+      for (const s of card.querySelectorAll('.sec-add,.sec-exit,.sec-stop')) s.style.display = 'none';
+      card.querySelectorAll('.pos-act-btn').forEach(btn => btn.classList.remove('is-open'));
       const f = card.querySelector('.sec-add');
       if (f){
         f.style.display = 'flex';
+        card.querySelector('.pos-act-btn[data-act="add-toggle"]')?.classList.add('is-open');
         const bd = addBudget(pos);
         const cap = f.querySelector('.inp-add-cap');
         if (cap){ cap.value = bd.avail > 0 ? bd.avail.toFixed(2) : ''; cap.focus(); }
+      }
+      break;
+    }
+    case 'exit': {
+      closePosPopup();
+      if (typeof setSideTab === 'function') setSideTab('trade');
+      const card = document.querySelector(`.pos-card[data-pid="${pos.id}"]`);
+      if (!card) return;
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      for (const s of card.querySelectorAll('.sec-add,.sec-exit,.sec-stop')) s.style.display = 'none';
+      card.querySelectorAll('.pos-act-btn').forEach(btn => btn.classList.remove('is-open'));
+      const f = card.querySelector('.sec-exit');
+      if (f){
+        f.style.display = 'flex';
+        card.querySelector('.pos-act-btn[data-act="close-toggle"]')?.classList.add('is-open');
+        updateExitEstimate(card, pos);
       }
       break;
     }

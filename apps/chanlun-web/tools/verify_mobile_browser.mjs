@@ -43,7 +43,9 @@ try {
   await ev("window.alert = m => { window.__alert = String(m); };");
   await ev(`(() => {
     const c = s => document.querySelector(s).click();
-    c('#jLogicPicks .chip[data-logic="均线突破"]');
+    c('#jLogicPicks .chip[data-cat="market"][data-group="ma120dir"][data-val="MA120向上"]');
+    c('#jLogicPicks .chip[data-cat="market"][data-group="pricepos"][data-val="价格在MA120以上"]');
+    c('#jLogicPicks .chip[data-cat="entry"][data-val="突破MA60"]');
     document.getElementById('jCapital').value='10000';
     document.getElementById('jLeverage').value='1';
     document.getElementById('jOpen').click();

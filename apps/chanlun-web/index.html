@@ -3,263 +3,204 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>缠论多级别联动 · BTC/USD · 1D/4H/1H · 全周期买卖点</title>
-  <link rel="stylesheet" href="css/main.css?v=20261118ui2">
+<title>行情复盘与逻辑工坊 · BTC/USD · 1D</title>
+<link rel="stylesheet" href="css/main.css?v=20261125ux4">
 </head>
 <body>
 <div id="app">
   <header class="toolbar">
-    <!-- 第一行: 品种/周期/视角/指标(行情观察) + 右侧模式入口(复盘/练习) -->
+    <!-- 极简单行主工具栏 (44px): 品种搜索 · 1D · 视角(MA/量/MACD) · 画线▾ … 逻辑台 / 复盘 / 练习 · 视图工具 -->
     <div class="tb-row tb-main">
       <div class="brand">
-        <span class="brand-logo" aria-hidden="true">缠</span>
-        <span class="brand-title">缠论多级别联动</span>
+        <span class="brand-logo" aria-hidden="true">逻</span>
+        <button type="button" id="symTrigger" class="sym-trigger" title="搜索并切换品种 (⌘K / Ctrl+K)">
+          <span class="sym-mkt">加密</span>
+          <b class="sym-code">BTC</b>
+          <span class="sym-name">比特币</span>
+          <kbd class="sym-kbd">⌘K</kbd>
+        </button>
         <span class="brand-sub" id="symbolBadge">BTC/USD · 1D</span>
         <span class="mode-badge" id="modeBadge"></span>
       </div>
-      <select id="symSelect" class="sym-select" title="切换品种">
-        <option value="BTC" selected>BTC · 比特币</option>
-        <option value="ETH">ETH · 以太坊</option>
-        <option value="SOL">SOL · Solana</option>
-        <option value="PEPE">PEPE · Pepe</option>
-        <option value="HYPE">HYPE · Hyperliquid</option>
-        <option value="XAUUSD">XAUUSD · 现货黄金</option>
-        <option value="XAGUSD">XAGUSD · 现货白银</option>
-        <option value="N225">N225 · 日经225</option>
-        <option value="SPX">SPX · 标普500</option>
-        <option value="NDX">NDX · 纳斯达克100</option>
-        <option value="399006_SZ">399006.SZ · 创业板指数</option>
-        <option value="000688_SS">000688.SS · 科创50</option>
-        <option value="AAPL">AAPL · 苹果</option>
-        <option value="MSFT">MSFT · 微软</option>
-        <option value="NVDA">NVDA · 英伟达</option>
-        <option value="GOOGL">GOOGL · 谷歌</option>
-        <option value="META">META · Meta</option>
-        <option value="TSLA">TSLA · 特斯拉</option>
-        <option value="AMZN">AMZN · 亚马逊</option>
-        <option value="BRK_B">BRK.B · 伯克希尔</option>
-        <option value="JPM">JPM · 摩根大通</option>
-        <option value="PLTR">PLTR · Palantir</option>
-        <option value="COIN">COIN · Coinbase</option>
-        <option value="AVGO">AVGO · 博通</option>
-        <option value="MU">MU · 美光</option>
-        <option value="WMT">WMT · 沃尔玛</option>
-        <option value="AMD">AMD · 超威半导体</option>
-        <option value="NFLX">NFLX · 奈飞</option>
-        <option value="INTC">INTC · 英特尔</option>
-        <option value="SNDK">SNDK · 闪迪</option>
-        <option value="0700_HK">0700.HK · 腾讯</option>
-        <option value="9988_HK">9988.HK · 阿里巴巴</option>
-        <option value="600519_SS">600519.SS · 贵州茅台</option>
-        <option value="002460_SZ">002460.SZ · 赣锋锂业</option>
-        <option value="300750_SZ">300750.SZ · 宁德时代</option>
-        <option value="600900_SS">600900.SS · 长江电力</option>
-        <option value="000333_SZ">000333.SZ · 美的集团</option>
-        <option value="603259_SS">603259.SS · 药明康德</option>
-        <option value="300033_SZ">300033.SZ · 同花顺</option>
+
+      <!-- 隐藏同步的原生下拉(供脚本/练习器/测试单一数据源) -->
+      <select id="symSelect" class="sym-select sym-select-hidden" aria-label="切换品种">
+        <optgroup label="加密">
+          <option value="BTC" selected>BTC · 比特币</option>
+          <option value="ETH">ETH · 以太坊</option>
+          <option value="SOL">SOL · Solana</option>
+          <option value="PEPE">PEPE · Pepe</option>
+          <option value="HYPE">HYPE · Hyperliquid</option>
+        </optgroup>
+        <optgroup label="贵金属">
+          <option value="XAUUSD">XAUUSD · 现货黄金</option>
+          <option value="XAGUSD">XAGUSD · 现货白银</option>
+        </optgroup>
+        <optgroup label="外汇/美债">
+          <option value="TLT">TLT · 20年美债ETF</option>
+          <option value="USDJPY">USDJPY · 美元/日元</option>
+        </optgroup>
+        <optgroup label="指数">
+          <option value="SPX">SPX · 标普500</option>
+          <option value="NDX">NDX · 纳斯达克100</option>
+          <option value="N225">N225 · 日经225</option>
+          <option value="HSI">HSI · 恒生指数</option>
+          <option value="399006_SZ">399006.SZ · 创业板指数</option>
+          <option value="000688_SS">000688.SS · 科创50</option>
+        </optgroup>
+        <optgroup label="美股">
+          <option value="NVDA">NVDA · 英伟达</option>
+          <option value="TSM">TSM · 台积电</option>
+          <option value="AAPL">AAPL · 苹果</option>
+          <option value="MSFT">MSFT · 微软</option>
+          <option value="GOOGL">GOOGL · 谷歌</option>
+          <option value="META">META · Meta</option>
+          <option value="TSLA">TSLA · 特斯拉</option>
+          <option value="AMZN">AMZN · 亚马逊</option>
+          <option value="AVGO">AVGO · 博通</option>
+          <option value="AMD">AMD · 超威半导体</option>
+          <option value="MU">MU · 美光</option>
+          <option value="INTC">INTC · 英特尔</option>
+          <option value="SNDK">SNDK · 闪迪</option>
+          <option value="PLTR">PLTR · Palantir</option>
+          <option value="COIN">COIN · Coinbase</option>
+          <option value="NFLX">NFLX · 奈飞</option>
+          <option value="LLY">LLY · 礼来</option>
+          <option value="XOM">XOM · 埃克森美孚</option>
+          <option value="FCX">FCX · 自由港铜矿</option>
+          <option value="WMT">WMT · 沃尔玛</option>
+          <option value="JPM">JPM · 摩根大通</option>
+          <option value="BRK_B">BRK.B · 伯克希尔</option>
+        </optgroup>
+        <optgroup label="港股">
+          <option value="0700_HK">0700.HK · 腾讯</option>
+          <option value="9988_HK">9988.HK · 阿里巴巴</option>
+        </optgroup>
+        <optgroup label="A股">
+          <option value="600519_SS">600519.SS · 贵州茅台</option>
+          <option value="300750_SZ">300750.SZ · 宁德时代</option>
+          <option value="002460_SZ">002460.SZ · 赣锋锂业</option>
+          <option value="600900_SS">600900.SS · 长江电力</option>
+          <option value="000333_SZ">000333.SZ · 美的集团</option>
+          <option value="603259_SS">603259.SS · 药明康德</option>
+          <option value="300033_SZ">300033.SZ · 同花顺</option>
+        </optgroup>
       </select>
-      <span class="tb-sep"></span>
+
       <span id="tfWrap" class="tb-group">
-        <span class="controls-label cl-tf">周期</span>
-        <div class="seg" id="tfToggle">
+        <div class="seg tf-single" id="tfToggle">
           <button data-tf="1D" class="active">1D</button>
-          <button data-tf="4H">4H</button>
-          <button data-tf="1H">1H</button>
         </div>
       </span>
-      <span class="tb-group">
-        <span class="controls-label cl-view">视角</span>
-        <div class="seg" id="overlayToggle">
-          <button data-ov="chan" class="active" title="缠论结构图层总开关(分型/笔/中枢/买卖点…)">缠论</button>
-          <button data-ov="ma" class="active" title="均线 MA(周期可在第二行改)">MA</button>
-          <button data-ov="macd" class="active" aria-pressed="true" title="MACD 副图">MACD</button>
-          <button data-ov="vol" class="active" aria-pressed="true" title="成交量副图">量</button>
-        </div>
-        <div class="tb-pop">
-          <button class="btn tb-icon-btn" id="chanDetailsBtn" title="缠论图层与口径设置(中枢/笔口径/回测/图层/原始·合并K线)">⚙ 缠论设置</button>
-          <div class="pop-panel chan-details" id="chanDetails" style="display:none;">
-            <div class="pop-title">缠论图层与口径</div>
-            <div class="pop-row">
-              <span class="pop-label">中枢</span>
-              <div class="seg" id="pivotToggle">
-                <button data-mode="seg" class="active">线段中枢</button>
-                <button data-mode="stroke">笔中枢</button>
-              </div>
-            </div>
-            <div class="pop-row">
-              <span class="pop-label" title="笔的成笔口径; 线段/中枢/买卖点均随该口径整链切换(双口径各自成链)">笔口径</span>
-              <div class="seg" id="stdToggle">
-                <button data-std="new" class="active">新笔</button>
-                <button data-std="old" title="老笔口径(间隔≥1根合并K、无价格条件): 其线段/中枢/买卖点为同一口径独立推导, 与新笔链互不混用">老笔</button>
-              </div>
-            </div>
-            <div class="pop-row">
-              <span class="pop-label">回测</span>
-              <div class="seg" id="tradeModeToggle">
-                <button data-tmode="stroke" class="active">笔级</button>
-                <button data-tmode="segment">线段级</button>
-              </div>
-            </div>
-            <div class="pop-row">
-              <span class="pop-label">K线</span>
-              <div class="seg" id="viewToggle">
-                <button data-view="raw" class="active">原始K线</button>
-                <button data-view="merged">合并K线</button>
-              </div>
-            </div>
-            <div class="pop-row pop-row-top">
-              <span class="pop-label">图层</span>
-              <div class="seg seg-wrap" id="layerToggle">
-                <button data-layer="fractals">分型</button>
-                <button data-layer="strokes">笔</button>
-                <button data-layer="segments">线段</button>
-                <button data-layer="pivots">中枢</button>
-                <button data-layer="buys">买点</button>
-                <button data-layer="sells">卖点</button>
-                <button data-layer="trades">交易</button>
-                <button data-layer="fast" title="抢先背驰买卖点: 跟随中枢模式 — 线段中枢模式显示线段级, 笔中枢模式显示笔级">抢先</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </span>
+
       <span class="tb-sep"></span>
-      <!-- 指标: 各算法脚本会把按钮追加进 #indicatorToggle, 统一收纳进下拉面板 -->
-      <div class="tb-pop" data-pop>
-        <button class="btn tb-pop-btn" data-pop-toggle aria-haspopup="true" aria-expanded="false" title="图表指标与买点算法">
-          指标<span class="pop-count" id="indicatorCount"></span><i class="caret">▾</i>
-        </button>
-        <div class="pop-panel indicator-pop" data-pop-panel hidden>
-          <div class="pop-title">指标</div>
-          <div class="seg seg-grid" id="indicatorToggle">
-            <button id="cover67IndicatorToggle" aria-pressed="false" title="显示当前品种全部 MA 突破算法买点">MA突破</button>
-            <button id="cover67IndicatorList" aria-expanded="false" title="按日期逐条浏览 MA 突破买点">买点列表</button>
-          </div>
-          <div class="pop-foot">左列 ● 叠加买点到主图 · 右列 ☰ 打开列表 / 面板</div>
+
+      <span class="tb-group tb-overlays">
+        <div class="seg" id="overlayToggle">
+          <button data-ov="ma" class="active" aria-pressed="true" title="均线 MA 开关">MA</button>
+          <input id="maPeriods" class="tb-input tb-ma-inline" value="20,60,120" aria-label="均线周期" placeholder="20,60,120" title="均线周期，逗号分隔（最多 6 条），回车生效">
+          <button data-ov="vol" class="active" aria-pressed="true" title="成交量副图">量</button>
+          <button data-ov="macd" class="active" aria-pressed="true" title="MACD 副图">MACD</button>
+          <button data-ov="earn" class="active" aria-pressed="true" title="美股/港股历史财报日标记 (E+/E-)">财报</button>
         </div>
-      </div>
-      <div class="tb-pop" data-pop>
-        <button class="btn tb-pop-btn" data-pop-toggle aria-haspopup="true" aria-expanded="false" title="均线研究工具">
-          研究工具<span class="pop-count" id="toolsCount"></span><i class="caret">▾</i>
+      </span>
+
+      <div class="tb-pop" id="drawPop" data-pop>
+        <button type="button" class="btn tb-pop-btn" id="drawPopBtn" data-pop-toggle aria-haspopup="true" aria-expanded="false" title="趋势线 / 水平线 / 斐波那契 / 折线">
+          <svg class="ui-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.6 2.4a1.4 1.4 0 0 1 2 2L5.5 12.5 2.5 13.5l1-3 8.1-8.1Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          <span class="tb-lbl">画线</span><span class="pop-count" id="drawCountBadge"></span><i class="caret">▾</i>
         </button>
-        <div class="pop-panel tools-pop" data-pop-panel hidden>
-          <div class="pop-title">均线研究</div>
-          <div class="pop-list" id="toolsMenu">
-            <button class="btn" id="maSlopeBtn" title="均线斜率高亮：拖动滑块，斜率落在区间内的均线段加粗">📐 斜率</button>
-            <button class="btn" id="maTrendBtn" title="日线 MA 突破 × 斜率：标记持仓区间、买卖点，统计覆盖了多少段牛市">📈 趋势</button>
-            <button class="btn" id="maDualBtn" title="MA20/60 双均线：金叉买/死叉卖，信号 K 线闪烁，统计胜率与盈亏比">📊 双均线</button>
+        <div class="pop-panel draw-pop" data-pop-panel hidden>
+          <div class="pop-title">图表画线工具</div>
+          <div class="seg seg-col" id="drawToggle">
+            <button data-tool="none" class="active" title="选择/编辑: 单击选中画线, 拖动整体或锚点, Delete 删除">↖ 选择 / 编辑</button>
+            <button data-tool="trend" title="趋势线: 依次单击两点">╱ 趋势线</button>
+            <button data-tool="sandr" title="水平支撑/阻力线: 单击价位">― 水平线</button>
+            <button data-tool="fib" title="斐波那契回撤: 单击波段高低两点">≡ 斐波那契</button>
+            <button data-tool="poly" title="折线: 逐点单击, 双击结束">⌇ 折线</button>
           </div>
-        </div>
-      </div>
-      <div class="tb-pop" data-pop>
-        <button class="btn tb-pop-btn" data-pop-toggle aria-haspopup="true" aria-expanded="false" title="报告与独立页面">
-          报告<i class="caret">▾</i>
-        </button>
-        <div class="pop-panel links-pop" data-pop-panel hidden>
-          <div class="pop-title">在新标签页打开</div>
-          <div class="pop-list">
-            <a class="btn" href="blind/index.html" target="_blank" title="多品种盲测标注：隐藏品种与日期，一次收集形态/环境/力度/止损/否决理由">🎯 盲测标注</a>
-            <a class="btn" href="analysis/mybuy.html" target="_blank" title="打开我的买点规则提炼与同波段冷却去重前后对比看板">📊 买点报告</a>
-            <a class="btn" href="analysis/macd-low-breakeven-2026-11-11.html" target="_blank" title="两低点底背离＋新低：机会频率、短期止损与1.5R移保本后的最大运行距离">📉 MACD 新低统计</a>
-            <a class="btn" href="analysis/elder-btc-1d-2026-11-12.html" target="_blank" title="《以交易为生》第2版规则量化、BTC日线留出验证、规则对照与冻结代码">📚 埃尔德 BTC 验证</a>
-            <a class="btn" href="docs/ai-ma20-v1-frozen.html" target="_blank" title="查看 AI-MA20交易算法 (v1.0 冻结版) 架构规范、置信度止损率与历史订单存档">❄️ AI-MA20 文档</a>
-          </div>
+          <button type="button" class="btn btn-ghost btn-danger draw-clear-btn" id="drawClear" title="清除全部手绘线条（支持撤销）" disabled>清空画线</button>
         </div>
       </div>
 
       <div class="tb-spacer"></div>
 
       <div class="tb-group tb-modes">
-        <span class="controls-label cl-replay">复盘</span>
+        <button type="button" class="btn btn-logic-studio" id="logicStudioBtn" title="打开开单与复盘逻辑工坊 (快捷键 G)">
+          <svg class="ui-ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="m10.8 5.2-1.6 4-4 1.6 1.6-4 4-1.6Z" fill="currentColor"/></svg>
+          <span>逻辑台</span><span class="pop-count" id="logicStudioBadge"></span>
+        </button>
         <div class="seg seg-mode" id="replayToggle">
           <button id="replayBtn" title="从任意日期开始逐根回放, 可模拟开平仓">进入复盘</button>
         </div>
-        <span class="controls-label cl-trainer">练习</span>
         <div class="seg seg-mode" id="trainerToggle">
           <button id="trainerBtn" title="随机截取一段行情, 隐藏未来逐根练习">开始练习</button>
         </div>
-        <span class="practice-count" id="practiceCount" title="已练习局数">已练 0 局</span>
+        <button type="button" class="practice-count is-zero" id="practiceCount" title="点击查看练习战绩">已练 <b>0</b> 局</button>
       </div>
+
+      <span class="tb-sep tb-view-sep"></span>
+
+      <span class="tb-group tb-view-tools">
+        <button type="button" class="btn tb-icon" id="fitBtn" title="缩放到显示全部 K 线" aria-label="适应视图"><svg class="ui-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="tb-fit-lbl">适应</span></button>
+        <button type="button" class="btn tb-icon" id="fsBtn" title="图表全屏" aria-label="切换全屏"><svg class="ui-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2.5H2.5V6m7.5-3.5h3.5V6m0 4v3.5H10M6 13.5H2.5V10M2.8 2.8 6 6m7.2-3.2L10 6m3.2 7.2L10 10m-7.2 3.2L6 10" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" class="btn tb-icon" id="snapshotBtn" title="复制当前图表快照到剪贴板" aria-label="图表快照"><svg class="ui-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 5.2A1.2 1.2 0 0 1 3.7 4h1.6l.9-1.5h3.6l.9 1.5h1.6a1.2 1.2 0 0 1 1.2 1.2v6.6a1.2 1.2 0 0 1-1.2 1.2H3.7a1.2 1.2 0 0 1-1.2-1.2V5.2Z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/><circle cx="8" cy="8.4" r="2.2" fill="none" stroke="currentColor" stroke-width="1.35"/></svg></button>
+        <button type="button" class="btn tb-icon" id="themeBtn" title="切换浅色主题" aria-label="切换深浅色主题"><svg class="ui-ico ui-ico-spin" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg></button>
+        <button type="button" class="btn tb-icon" id="kbdHelpBtn" title="键盘快捷键速查 (?)" aria-label="键盘快捷键速查"><svg class="ui-ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.35"/><path d="M6.4 6.3a1.7 1.7 0 0 1 3.2.7c0 1-1.6 1.3-1.6 2.4" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><circle cx="8" cy="11.6" r=".8" fill="currentColor"/></svg></button>
+        <button type="button" class="btn tb-icon" id="sideToggleBtn" title="收起/展开右侧面板" aria-label="切换右侧面板"><svg class="ui-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.35"/><path d="M10 2.5v11" stroke="currentColor" stroke-width="1.35"/></svg><span class="tb-side-lbl">侧栏</span></button>
+      </span>
     </div>
 
-    <!-- 第二行: 画线/均线/标注 + 当前模式控制条 + 视图工具 -->
-    <div class="tb-row tb-sub">
-      <span class="tb-group">
-        <span class="controls-label cl-draw">画线</span>
-        <div class="seg" id="drawToggle">
-          <button data-tool="none" class="active" title="选择/编辑: 单击选中画线, 拖动整体移动, 拖端点改锚点, Delete 删除, Esc/右键取消">选择</button>
-          <button data-tool="trend" title="TradingView 趋势线: 依次单击两个点; 可拖动端点/整体, 右键取消">趋势线</button>
-          <button data-tool="sandr" title="TradingView 水平线(支撑/阻力): 单击一个价位; 可上下拖动, 右键取消">水平线</button>
-          <button data-tool="fib" title="TradingView 斐波那契回撤: 依次单击波段高/低两点; 可拖动端点/整体, 右键取消">斐波那契</button>
-          <button data-tool="poly" title="连续线段/折线: 逐点单击拐点, 双击或单击最后一个点结束; 可拖动锚点, 右键取消">折线</button>
-        </div>
-        <button class="btn" id="drawClear" title="清除全部手绘线条">清线</button>
-      </span>
-      <span class="tb-sep"></span>
-      <span class="tb-group">
-        <span class="controls-label cl-ma">MA</span>
-        <input id="maPeriods" class="tb-input" value="20,60,120" title="均线周期, 逗号分隔(最多6条), 留空隐藏。例: 5,10,20,60">
-      </span>
-      <span class="tb-sep tb-sub-ann-sep"></span>
-      <span class="tb-group">
-        <button class="btn btn-outline" id="manualAddToolbar" title="在任意K线上标记你会买的位置，按当根收盘价记录">＋ 我的买点</button>
-        <button class="btn" id="annBtn" title="查看我的买点，或切换到已有算法复核">🏷 标注</button>
-      </span>
-
+    <!-- 动态上下文控制条: 仅在复盘或练习进行中展开, 平时彻底隐藏节省纵向视野 -->
+    <div class="tb-row tb-ctx" id="ctxBar">
       <div class="tb-ctl" id="replayCtl" style="display:none;">
-        <span class="tb-ctl-tag">复盘</span>
+        <span class="tb-ctl-tag">复盘模式</span>
         <input type="date" id="replayDate" class="tb-input">
         <button class="btn" id="replayGo">定位</button>
         <button class="btn" id="replayPrev" title="上一根">◀</button>
         <button class="btn" id="replayPlay">▶ 播放</button>
         <button class="btn" id="replayNext" title="下一根">▶|</button>
-        <button class="btn" id="replayExit">退出</button>
+        <button class="btn btn-outline" id="replayExit">退出复盘</button>
         <span id="replayInfo" class="tb-ctl-info"></span>
       </div>
       <div class="tb-ctl" id="trainerCtl" style="display:none;">
-        <span class="tb-ctl-tag">练习</span>
-        <span class="btn tb-stat" id="trainerProgress" title="已走根数/步数上限 · 本局已平仓笔数">0/200</span>
+        <span class="tb-ctl-tag">盲测练习</span>
+        <span class="btn tb-stat tr-prog-pill" id="trainerProgress" title="已走根数/步数上限 · 本局已平仓笔数">0/200</span>
         <span class="btn tb-stat" id="trainerElapsed" title="本局答题用时">00:00</span>
-        <span id="trCurveLive" style="display:none; align-items:center;" title="本局净值曲线: 实线=实际, 灰虚线=不加仓对照(保持原出场时点)"></span>
-        <button class="btn" id="trainerNext" title="快捷键 → 或空格">▶ 下一根</button>
-        <button class="btn" id="trainerSignal" title="把当前K线标记为信号K线(重点观察); 再点一次取消">⚡ 信号K</button>
-        <button class="btn" id="trainerWatch" title="信号出现但不符合入场条件 → 标记为观察; 再点一次取消">👁 观察</button>
-        <button class="btn" id="trainerQuick" title="快速下单: B 做多 / S 做空, Enter 开仓, W 等待, X 放弃">⚡ 快速下单 <kbd>B</kbd>/<kbd>S</kbd></button>
-        <button class="btn" id="trainerDecision">记录判断</button>
+        <span id="trCurveLive" style="display:none; align-items:center;" title="本局净值曲线"></span>
+        <button class="btn btn-primary" id="trainerNext" title="快捷键 → 或空格">▶ 下一根</button>
+        <button class="btn" id="trainerSignal" title="把当前K线标记为信号K线">⚡ 信号K</button>
+        <button class="btn" id="trainerWatch" title="标记为观察">👁 观察</button>
+        <button class="btn" id="trainerQuick" title="快速下单: B 做多 / S 做空, Enter 开仓, W 等待, X 放弃">⚡ 下单 <kbd>B</kbd>/<kbd>S</kbd></button>
+        <button class="btn" id="trainerDecision" style="display:none;" title="规则研究模式：记录结构化判断与锚点">记录判断</button>
         <button class="btn" id="trainerReveal">揭示答案</button>
         <button class="btn" id="trainerQuit">放弃</button>
         <button class="btn" id="trainerEnd" style="display:none;">✕ 结束</button>
-        <button class="btn" id="trainerAgain" style="display:none;">🔄 再来一局</button>
+        <button class="btn btn-primary" id="trainerAgain" style="display:none;">🔄 再来一局</button>
       </div>
-
-      <div class="tb-spacer"></div>
-
-      <span class="tb-group tb-view-tools">
-        <button class="btn" id="fitBtn" title="缩放到显示全部K线">适应</button>
-        <button class="btn" id="fsBtn" title="图表全屏">⛶ 全屏</button>
-        <button class="btn" id="snapshotBtn" title="导出当前图表快照">📷 快照</button>
-        <button class="btn" id="themeBtn" title="切换深色/浅色主题">☀️ 浅色</button>
-        <button class="btn" id="sideToggleBtn" title="收起/展开右侧面板">⇱ 侧栏</button>
-      </span>
     </div>
   </header>
 
   <main class="layout">
     <section class="chart-pane">
       <div class="chart-box">
-        <div id="chart" title="按住 Shift 单击锚定起点后松开, 移动鼠标实时测量两点波动距离(Δ价格/波幅%/K线数/时间跨度); 再按 Shift+单击固定终点; 单击或 Esc 清除"></div>
-        <div class="pane-resizer" data-pane="volume" role="separator" tabindex="0" aria-label="调整成交量副图高度" aria-orientation="horizontal" aria-controls="volume" title="上下拖动调整成交量高度；双击恢复默认高度；方向键微调"><span>成交量 · 拖动调节高度</span></div>
+        <div id="chart" title="按住 Shift 单击锚定起点后松开, 移动鼠标实时测量两点波动距离; 再按 Shift+单击固定终点; 单击或 Esc 清除"></div>
+        <div class="pane-resizer" data-pane="volume" role="separator" tabindex="0" aria-label="调整成交量副图高度" aria-orientation="horizontal" aria-controls="volume" title="拖动调节成交量高度 · 双击复位"><span>成交量</span></div>
         <div id="volume"></div>
-        <div class="pane-resizer" data-pane="macd" role="separator" tabindex="0" aria-label="调整 MACD 副图高度" aria-orientation="horizontal" aria-controls="macd" title="上下拖动调整 MACD 高度；双击恢复默认高度；方向键微调"><span>MACD · 拖动调节高度</span></div>
+        <div class="pane-resizer" data-pane="macd" role="separator" tabindex="0" aria-label="调整 MACD 副图高度" aria-orientation="horizontal" aria-controls="macd" title="拖动调节 MACD 高度 · 双击复位"><span>MACD</span></div>
         <div id="macd"></div>
         <div class="dist-tag" id="distTag"></div>
-        <button id="sideShowBtn" title="展开右侧面板（复盘交易）">« 复盘交易</button>
-        <div class="legend">
-          <span class="legend-symbol">BTC/USD</span>
-          <span class="legend-date" id="legendDate">—</span>
-          <span class="legend-ohlc" id="legendOhlc">—</span>
-          <span class="legend-chg" id="legendChg"></span>
-          <span class="legend-ma" id="legendMa"></span>
+        <button type="button" id="sideShowBtn" title="展开右侧面板" aria-label="展开右侧面板">« 侧栏</button>
+        <div class="chart-hud-tl">
+          <div class="legend">
+            <span class="legend-symbol">BTC/USD</span>
+            <span class="legend-date" id="legendDate">—</span>
+            <span class="legend-ohlc" id="legendOhlc">—</span>
+            <span class="legend-chg" id="legendChg"></span>
+            <span class="legend-ma" id="legendMa"></span>
+            <span class="legend-fgi" id="legendFgi" hidden></span>
+          </div>
+          <div class="ctx-strip tnum" id="ctxStrip" hidden></div>
         </div>
         <div class="marker-tip" id="markerTip"></div>
         <div id="trainerBanner"></div>
@@ -291,32 +232,38 @@
             <button class="btn" type="submit" id="prSubmit">保存并开仓</button>
           </form>
         </section>
-        <div id="trainerConfig">
-          <div class="cfg-title">练习设置</div>
-          <div class="pr-fields">
-            <label>练习任务<select id="prMode"><option value="classic">自由交易</option><option value="research">规则研究 · 收盘入场 / 本根极值止损</option></select></label>
-            <label>规则版本<input id="prRule" maxlength="80" value="MA20-v1"></label>
+
+        <!-- 练习设置弹窗 -->
+        <div id="trainerCfgBackdrop" class="tr-cfg-backdrop" hidden></div>
+        <div id="trainerConfig" role="dialog" aria-modal="true" aria-label="盲测练习设置">
+          <div class="cfg-head">
+            <div class="cfg-title">盲测练习设置</div>
+            <button type="button" class="btn cfg-close" id="trCfgClose" aria-label="关闭 (Esc)">✕</button>
           </div>
+          <div class="cfg-scope-pill" id="trScopePreview">将从 30 个 S/A 核心主池中随机抽取 · 日线 200 步</div>
           <div class="cfg-grid">
             <span class="cfg-k" title="不选=随机">品种</span>
             <select id="trSymSel"><option value="">随机</option></select>
-            <span class="cfg-hint">与市场互斥</span>
+            <label class="cfg-hint chk" id="trCoreOnlyWrap" title="全市场随机时仅抽 S+A 级 30 个核心主池（跳过短样本、Meme 及停牌特征股）">
+              <input type="checkbox" id="trCoreOnly" checked> 仅核心主池
+            </label>
 
             <span class="cfg-k">市场</span>
             <select id="trMktSel">
               <option value="">随机</option>
               <option value="加密">加密</option><option value="美股">美股</option><option value="A股">A股</option>
-              <option value="港股">港股</option><option value="贵金属">贵金属</option><option value="指数">指数</option>
+              <option value="港股">港股</option><option value="贵金属">贵金属</option><option value="外汇/美债">外汇/美债</option><option value="指数">指数</option>
             </select>
             <span class="cfg-hint">留空=全市场</span>
 
-            <span class="cfg-k">级别</span>
+            <span class="cfg-k" id="trTfLabel">级别</span>
             <select id="trTfSel">
-              <option value="">随机</option>
-              <option value="1D">1D</option><option value="4H">4H</option><option value="1H">1H</option>
-              <option value="15F">15F</option>
+              <option value="1D" selected>1D（日线）</option>
+              <option value="4H">4H（仅加密）</option>
+              <option value="1H">1H（仅加密）</option>
+              <option value="15F">15F（加密分片）</option>
             </select>
-            <span class="cfg-hint">分钟级仅加密</span>
+            <span class="cfg-hint" id="trTfHint">加密支持多周期</span>
 
             <span class="cfg-k" title="按本局窗口形态挑起点; 练习中未来仍然隐藏">专项</span>
             <select id="trDrillSel">
@@ -326,11 +273,11 @@
               <option value="趋势持有">趋势持有</option>
               <option value="加仓后回撤">加仓后回撤</option>
             </select>
-            <label class="cfg-hint chk" title="避开最近练过的相邻区间, 同一区间隔一段时间再练">
+            <label class="cfg-hint chk" title="避开最近练过的相邻区间">
               <input type="checkbox" id="trAvoidRecent" checked> 避开最近
             </label>
 
-            <span class="cfg-k" title="每局独立本金, 与复盘账户分开">本金</span>
+            <span class="cfg-k" title="每局独立本金">本金</span>
             <input type="number" id="trCapitalInput" value="100000" min="1000" max="1000000000" step="10000">
             <span class="cfg-hint">U · 默认 100,000</span>
 
@@ -338,46 +285,65 @@
             <input type="number" id="trStepsInput" value="200" min="20" max="500">
             <span class="cfg-hint">走满自动揭示</span>
           </div>
+          <details class="cfg-advanced">
+            <summary>高级研究设置</summary>
+            <div class="pr-fields">
+              <label>练习任务<select id="prMode"><option value="classic">自由交易</option><option value="research">规则研究 · 收盘入场 / 本根极值止损</option></select></label>
+              <label>规则版本<input id="prRule" maxlength="80" value="MA20-v1"></label>
+            </div>
+          </details>
           <div class="cfg-actions">
-            <button class="btn" id="trCfgCancel">取消</button>
-            <button class="btn btn-primary" id="trCfgStart">▶ 开始练习</button>
+            <button type="button" class="btn" id="trCfgCancel">取消</button>
+            <button type="button" class="btn btn-primary" id="trCfgStart">▶ 开始练习</button>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- 可拖拽调整宽度的侧栏分隔条 -->
+    <div id="sideResizer" class="side-resizer" role="separator" aria-label="调整右侧面板宽度" aria-orientation="vertical" aria-valuemin="300" aria-valuemax="540" aria-valuenow="368" title="左右拖动调整侧栏宽度 · 双击恢复默认"></div>
+
     <aside class="side">
       <div class="side-header">
         <div class="side-tabs" id="sideTabs" role="tablist" aria-label="右侧功能区">
+          <i class="tab-indicator" aria-hidden="true"></i>
+          <button type="button" class="side-tab active" role="tab" aria-selected="true" data-side-tab="logic">逻辑<span class="side-tab-badge" id="sideTabLogicBadge"></span></button>
           <button type="button" class="side-tab" role="tab" aria-selected="false" data-side-tab="trade">交易<span class="side-tab-badge" id="sideTabPosBadge"></span></button>
           <button type="button" class="side-tab" role="tab" aria-selected="false" data-side-tab="practice">战绩<span class="side-tab-badge" id="sideTabPracBadge"></span></button>
-          <button type="button" class="side-tab" role="tab" aria-selected="false" data-side-tab="signals">信号<span class="side-tab-badge" id="sideTabSigBadge"></span></button>
-          <button type="button" class="side-tab active" role="tab" aria-selected="true" data-side-tab="overview">概览</button>
         </div>
-        <button class="card-collapse" id="sideHideBtn" title="收起右侧面板，只保留主图与副图（图表占满全宽）">⇥</button>
+        <button type="button" class="card-collapse" id="sideHideBtn" title="收起右侧面板，图表占满全宽" aria-label="收起右侧面板">⇥</button>
       </div>
 
+      <!-- Tab 1: 逻辑 (开单准入 · 三层共振 · 主线便利贴 · 复盘归因入口) -->
+      <section class="card card-logic" data-tab-pane="logic">
+        <h3>开单与复盘逻辑 <span class="h3-sub">先立逻辑 · 再看 K 线</span></h3>
+        <div id="logicSideHost"></div>
+      </section>
+
+      <!-- Tab 2: 交易 (快速下单入口 · 账户净值 · 持仓卡 · 最近平仓) -->
       <section class="card card-journal side-pane-hidden" data-tab-pane="trade">
         <h3>复盘交易 <span class="h3-sub" id="journalMode"></span></h3>
         <div class="jquick">
-          <button class="btn qo-open long" id="quickOpenLong" title="弹出快速下单条（做多）">做多 <kbd>B</kbd></button>
-          <button class="btn qo-open short" id="quickOpenShort" title="弹出快速下单条（做空）">做空 <kbd>S</kbd></button>
-          <span class="jquick-hint">弹出快速下单条 · <kbd>H</kbd> 收起 · <kbd>Esc</kbd> 关闭</span>
+          <button class="btn qo-open long" id="quickOpenLong" title="做多 (B)">做多 <kbd>B</kbd></button>
+          <button class="btn qo-open short" id="quickOpenShort" title="做空 (S)">做空 <kbd>S</kbd></button>
         </div>
+
+        <!-- 隐藏同步表单与标签定义(与 05-journal / 06-quick-order 共享单一数据源) -->
         <div id="journalForm" class="jform">
           <div class="jf-row jf-3">
-            <label class="field">保证金 U<input type="number" id="jCapital" value="100000" min="1" title="从账户本金中划扣, 平仓时释放并结算盈亏; 账户初始 100,000U"></label>
+            <label class="field">保证金 U<input type="number" id="jCapital" value="100000" min="1"></label>
             <label class="field">杠杆倍数<input type="number" id="jLeverage" value="10" min="1" max="125"></label>
             <label class="field">方向<select id="jSide"><option value="多">做多</option><option value="空">做空</option></select></label>
           </div>
-          <div class="jf-row jf-2">
-            <label class="field">开仓价<input type="number" id="jEntry" placeholder="留空 = 当前收盘"></label>
-            <label class="field">止损价<input type="number" id="jStop" placeholder="留空 = 不止损"></label>
+          <div class="jf-row jf-3">
+            <label class="field">预期<select id="jExpect"><option value="短线">短线</option><option value="中线" selected>中线</option><option value="长线">长线</option></select></label>
+            <label class="field">开仓价<input type="number" id="jEntry" placeholder="当前收盘"></label>
+            <label class="field">止损价<input type="number" id="jStop" placeholder="留空不变"></label>
           </div>
-          <div id="jStopLoss" class="jf-hint">输入止损价可预估亏损金额</div>
+          <div id="jStopLoss" class="jf-hint"></div>
           <div class="logic-tags2" id="jLogicTags">
             <div class="lt-cats">
-              <button type="button" class="lt-cat" data-cat="market" title="不选则按当根数据自动判定">市场环境<b class="lt-req lt-auto">自动</b><span class="lt-count" data-count="market">0</span></button>
+              <button type="button" class="lt-cat" data-cat="market">市场环境<b class="lt-req lt-auto">自动</b><span class="lt-count" data-count="market">0</span></button>
               <button type="button" class="lt-cat" data-cat="entry">入场信号<b class="lt-req">≥1</b><span class="lt-count" data-count="entry">0</span></button>
               <button type="button" class="lt-cat" data-cat="pattern">形态<span class="lt-count" data-count="pattern">0</span></button>
             </div>
@@ -393,26 +359,11 @@
               </div>
             </div>
             <div class="lt-panel" data-panel="entry" style="display:none;">
-              <div class="lt-group"><span class="lt-glabel">MA突破</span>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_break" data-val="突破MA20">突破MA20</button>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_break" data-val="突破MA60">突破MA60</button>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_break" data-val="突破MA120">突破MA120</button>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_break" data-val="MA20与MA60双均线突破">MA20与MA60双均线突破</button>
-              </div>
-              <div class="lt-group"><span class="lt-glabel">MA回踩</span>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_pullback" data-val="回踩MA20">回踩MA20</button>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_pullback" data-val="回踩MA60">回踩MA60</button>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="ma_pullback" data-val="回踩MA120">回踩MA120</button>
-              </div>
-              <div class="lt-group"><span class="lt-glabel">动能</span>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="momentum" data-val="MACD背离">MACD背离</button>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="momentum" data-val="中枢背离">中枢背离</button>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="momentum" data-val="盘整背离">盘整背离</button>
-              </div>
-              <div class="lt-group"><span class="lt-glabel">裸K</span>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="candle" data-val="Pinbar">Pinbar</button>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="candle" data-val="吞没">吞没</button>
-                <button type="button" class="logic-tag" data-cat="entry" data-group="candle" data-val="假突破">假突破</button>
+              <div class="lt-group">
+                <button type="button" class="logic-tag" data-cat="entry" data-group="signal" data-val="均线突破">均线突破</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="signal" data-val="大阳线后的顺势短线多">大阳线后的顺势短线多</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="signal" data-val="大阴线后的顺势短线空">大阴线后的顺势短线空</button>
+                <button type="button" class="logic-tag" data-cat="entry" data-group="signal" data-val="震荡区间的反转">震荡区间的反转</button>
               </div>
             </div>
             <div class="lt-panel" data-panel="pattern" style="display:none;">
@@ -423,27 +374,19 @@
               </div>
             </div>
           </div>
-          <label class="field">开单逻辑补充<span class="field-hint">（入场信号至少 1 个；市场环境不选会自动判定；文字可选）</span><textarea id="jLogic" rows="2" placeholder="例：回抽不破前低, 次级别共振"></textarea></label>
+          <label class="field">开单逻辑补充<textarea id="jLogic" rows="2"></textarea></label>
           <button class="btn" id="jOpen">开单（按当前K线）</button>
         </div>
+
         <div id="jPositions"></div>
         <div class="card-actions">
-          <button class="btn btn-ghost" id="jExport">导出 CSV</button>
-          <button class="btn btn-ghost" id="jClear">清空</button>
-          <button class="btn btn-ghost" id="jLegacyToggle" title="旧版开仓表单与快速下单条功能重复, 默认隐藏">旧版开仓表单</button>
+          <button type="button" class="btn btn-ghost" id="jExport">导出 CSV</button>
           <span id="jSummary" class="card-summary"></span>
+          <button type="button" class="btn btn-ghost btn-danger card-act-end" id="jClear">清空记录</button>
         </div>
-        <details class="help-details">
-          <summary>账户与开单规则说明</summary>
-          <p class="note">开仓：复盘或练习中按 <b>B / S</b>（或点上方按钮）弹出快速下单条，<b>Enter</b> 开仓，<b>H</b> 收起成一行，<b>Esc</b> 关闭；入场信号至少 1 个，市场环境自动判定。仅在<b>复盘模式</b>下可用。账户制：每模式独立本金 <b>100,000U</b>（localStorage 持久化），开仓占用保证金、平仓结算盈亏；<b>可同时持有多笔</b>不同方向的仓位，各自独立止损/加仓/平仓。<b>平仓支持比例%</b>（部分落袋）。单笔亏损≥其保证金自动离场；<b>账户净值≤0 即爆仓</b>——练习强制结束、复盘重置本金。盈利加仓只能用本笔浮盈；练习模式加仓理由可留空（自动记为「浮盈加仓」），并可用 <b>⚡ 一键加满</b> 把该笔全部浮盈一次加为保证金。逻辑必填——沉淀你自己的开仓/加仓/离场规则→结果数据集。开单前先点开「市场环境」（MA120方向 + 价格位置）与「入场信号」二级标签（MA突破/MA回踩/动能/裸K 任选其一即可），形态可选，并可补充文字说明。</p>
-        </details>
       </section>
 
-      <section class="card side-pane-hidden" id="statsCard" data-tab-pane="overview">
-        <h3>统计</h3>
-        <div class="stat-grid" id="statsGrid"></div>
-      </section>
-
+      <!-- Tab 3: 战绩 (练习统计 · 历史局明细 · 批次分析) -->
       <section class="card side-pane-hidden" data-tab-pane="practice">
         <h3>练习战绩 <span class="h3-sub" id="trStatMode"></span></h3>
         <div class="trade-stats" id="trStatsGrid"></div>
@@ -469,104 +412,43 @@
         </details>
         <div id="practiceStorageStatus" class="note" role="status"></div>
         <div class="card-actions">
-          <button class="btn btn-ghost" id="prExport">导出练习 JSON</button>
-          <label class="btn btn-ghost pr-import">导入练习 JSON<input id="prImport" type="file" accept=".json,application/json"></label>
-          <button class="btn btn-ghost btn-danger" id="trStatsClear">清零战绩</button>
+          <button type="button" class="btn btn-ghost" id="prExport">导出练习 JSON</button>
+          <label class="btn btn-ghost pr-import">导入 JSON<input id="prImport" type="file" accept=".json,application/json"></label>
+          <button type="button" class="btn btn-ghost btn-danger card-act-end" id="trStatsClear">清零战绩</button>
         </div>
-      </section>
-
-      <section class="card side-pane-hidden" data-tab-pane="signals">
-        <h3>买卖点 <span class="h3-sub" id="tradeListMode"></span></h3>
-        <div class="buy-list" id="tradeList"></div>
-        <div class="buy-detail" id="tradeDetail" style="display:none"></div>
-      </section>
-
-      <section class="card side-pane-hidden" data-tab-pane="signals">
-        <h3>回测交易 <span class="h3-sub" id="tradePanelMode"></span></h3>
-        <div class="trade-stats" id="tradeStats"></div>
-        <div class="trade-list" id="backtestTradeList"></div>
-        <div class="trade-detail" id="tradeDetailBox" style="display:none"></div>
-        <details class="help-details">
-          <summary>回测口径</summary>
-          <p class="note">入场=买点确认根收盘价, 止损=买点最低价, 出场=卖点收盘/止损/期末强平。图上 ● 入场→■ 出场连线: 绿=盈利 红=亏损, 虚线=止损离场。点击行定位该笔交易的入场与出场位置。</p>
-        </details>
-      </section>
-
-      <div class="blind-overview-mask" data-tab-pane="overview">
-        <b>盲测练习进行中</b>
-        <p>为防止剧透品种与时间周期，市场统计与数据口径在练习期间已隐藏，揭示答案后自动展开。</p>
-      </div>
-
-      <section class="card algo-card" data-tab-pane="overview">
-        <details class="card-details">
-          <summary><h3>缠论实现要点</h3></summary>
-        <ol>
-          <li><b>分型</b> — 包含关系处理 + 原文双向极值 + 收盘确认（右侧取<b>第一根原始K线</b>收盘，2025-04 崩溃低点由此被确认）+ 交替约束。</li>
-          <li><b>笔（新笔标准）</b> — 相邻顶底分型间连线；顶底中间须 ≥5 根无包含K线；同性质更极端分型可替换端点（笔延伸）。</li>
-          <li><b>线段（特征序列法）</b> — 至少3笔、笔数取奇数；反向笔构成特征序列，检测分型，按缺口第一/第二情况定终点。</li>
-          <li><b>中枢</b> — 至少三个连续次级别走势重叠：<code>[ZD,ZG]=[max(低),min(高)]</code>；重叠延伸、离开结束。两套：<b>线段中枢</b>/<b>笔中枢</b>。</li>
-          <li><b>背驰</b> — MACD(12,26,9)；比较同向 A（趋势最强段）与 C（离开段）柱面积，C 显著小于 A 且创新低/新高即背驰。</li>
-          <li><b>三类买点/卖点</b> — <b style="color:var(--buy1)">一买</b>：下跌趋势末中枢向下离开段趋势背驰；<b style="color:var(--buy2)">二买</b>：一买后回调不破低；<b style="color:var(--buy3)">三买</b>：向上离开后回抽不回中枢（低点≥ZG）。<b style="color:var(--sell1)">一卖</b>等三卖与之对称。</li>
-          <li><b>抢先背驰（实盘抢先层）</b> — 每个买卖点带 <b>最早可确认时间</b>（MACD 面积在极值收盘即定型，前 1~3 根可判定）。<span style="color:var(--fast-alert)">⚠ 告警</span>：创新低/新高的当前段，运行面积已达参考A的一定比例但仍&lt;0.9A（潜在背驰）；<span style="color:var(--fast-buy)">⚡ 背驰买/卖点</span>：告警之后首个触发——MACD柱首次不再扩大 或 端点分型确认（若面积在触发前重上0.9A则背驰消失不入场）。</li>
-          <li><b>多级别联动</b> — 1D/4H/1H 各自独立跑完整链路；按原文"大级别背驰必由次级别背驰引发"，对每个买卖点给出 <b>次级别确认</b>（次级别同向一买/一卖时间窗内命中）与 <b>上级别语境</b>（是否落在上级别中枢区间）。点击列表行查看每个买卖点的<b>产生说明</b>。</li>
-          <li><b>回测交易层</b> — backtest.py 规则落地为逐笔交易：买点确认根收盘入场、买点最低价止损、卖点确认根收盘离场（数据末端强平）。工具条切换 <b>笔级/线段级</b>，面板显示胜率/PF/复利统计与逐笔清单，点击行定位入场→出场区间。口径已定稿：A段=进入段（原文口径，回测验证优于 strongest），中枢延伸=重叠口径（回拉延伸经回测证伪已移除）。</li>
-        </ol>
-        <p class="note">MACD 面板展示 DIF/DEA 与红绿柱，直观印证背驰。三周期、两套中枢、原始/合并均可切换。</p>
-        </details>
-      </section>
-
-      <section class="card" data-tab-pane="overview">
-        <details class="card-details" open>
-          <summary><h3>数据口径</h3></summary>
-          <p class="note" id="dataNote" style="margin-top:0"></p>
-        </details>
       </section>
     </aside>
   </main>
 </div>
 
+<!-- 宽屏逻辑工坊挂载点 -->
+<div class="toast-host" id="toastHost" aria-live="polite"></div>
+<div id="logicStudioRoot" hidden></div>
+
+<!-- 精简核心脚本 (16 个文件, 较旧版 43 个脚本减重 >80%) -->
 <script src="lightweight-charts.standalone.production.js"></script>
 <script src="lightweight-charts-drawing.standalone.production.js"></script>
 <script src="data-view/data.js"></script>
-<script src="data-view/trades_data.js"></script>
 <script src="data-view/fng_data.js?v=20261109fng"></script>
-<script src="data-view/macd3seg_data.js?v=20261105ndx"></script>
-<script src="js/00-app-core.js?v=20261118ui2"></script>
-<script src="js/01-config.js?v=20261118ui2"></script>
+<script src="data-view/context_data.js?v=20261124ctx1"></script>
+<script src="js/00-app-core.js?v=20261125ux4"></script>
+<script src="js/01-config.js?v=20261125ux1"></script>
 <script src="js/02-data.js?v=practice-perf1"></script>
-<script src="js/03-charts.js?v=20261118ui2"></script>
-<script src="js/03-pane-layout.js?v=20261111ui2"></script>
-<script src="js/04-panels.js?v=20261118ui2"></script>
+<script src="js/03-charts.js?v=20261125ux1"></script>
+<script src="js/03-pane-layout.js?v=20261125ux1"></script>
+<script src="js/04-panels.js?v=20261125ux4"></script>
 <script src="js/06-practice-core.js?v=2"></script>
 <script src="js/06-practice-store.js?v=2"></script>
-<script src="js/06-practice.js?v=20261117qo2"></script>
+<script src="js/06-practice.js?v=20261125ux1"></script>
 <script src="js/06-quick-core.js?v=20261117qo3"></script>
-<script src="js/06-quick-order.js?v=20261118ui2"></script>
-<script src="js/05-journal.js?v=20261118ui2"></script>
-<script src="js/06-trainer.js?v=20261118ui2"></script>
-<script src="js/07-main.js?v=20261118ui2"></script>
-<script src="js/08-draw.js"></script>
-<script src="js/09-lab-engine.js"></script>
-<script src="js/09-params-lab.js"></script>
-<script src="js/10-ma-slope.js?v=20261026b"></script>
-<script src="js/11-ma-trend.js?v=20261026b"></script>
-<script src="js/12-ma-dual.js?v=20261026b"></script>
-<script src="js/13-cover67.js?v=20261030simple2"></script>
-<script src="js/13-annotation-signals.js?v=20261104both"></script>
-<script src="js/13-annotation-form.js?v=20261104ai2"></script>
-<script src="js/13-manual-evidence.js?v=20261101manual"></script>
-<script src="js/13-manual.js?v=20261101manual"></script>
-<script src="js/13-ma20-structure.js?v=20261103v3"></script>
-<script src="js/13-ma20-reference.js?v=20261103v3"></script>
-<script src="js/13-ma20-ai-engine.js?v=20261104ai2"></script>
-<script src="js/13-ma20-ai-structure.js?v=20261104ai2"></script>
-<script src="js/13-ma20-ai-model-v2.js?v=20261104ai2"></script>
-<script src="js/13-annotate.js?v=20261111v21"></script>
-<script src="js/14-cover67-indicator.js?v=20261030pick2"></script>
-<script src="js/15-ma20-structure.js?v=practice-perf2"></script>
-<script src="js/16-ma20-ai.js?v=20261104ai2"></script>
-<script src="js/17-ai-ma20-algo.js?v=20261118ui"></script>
-<script src="js/18-macd-3seg.js?v=20261118ui"></script>
-<script src="js/19-toolbar-ui.js?v=20261111ui2"></script>
+<script src="js/06-quick-order.js?v=20261125ux4"></script>
+<script src="js/05-journal.js?v=20261125ux4"></script>
+<script src="js/06-trainer.js?v=20261125ux4"></script>
+<script src="js/07-main.js?v=20261125ux3"></script>
+<script src="js/08-draw.js?v=20261125ux4"></script>
+<script src="js/23-market-context.js?v=20261125ux4"></script>
+<script src="js/20-ui-polish.js?v=20261125ux4"></script>
+<script src="js/21-logic-core.js?v=20261123ls1"></script>
+<script src="js/22-logic-studio.js?v=20261125ux4"></script>
 </body>
 </html>

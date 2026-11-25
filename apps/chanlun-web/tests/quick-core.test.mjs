@@ -24,30 +24,49 @@ test('市场环境: 横盘 → MA120走平; 下跌 → MA120向下 + 价格在�
   assert.equal(m.pricepos, '价格在MA120以下');
 });
 
-test('信号: 上根收在 MA20 下、本根收在上 → 突破MA20', () => {
+test('信号: 均线突破（多上穿 / 空下破）', () => {
   const cs = Array.from({ length: 30 }, (_, k) => [k, 100, 101, 99, 100, 1]);
   cs[28] = [28, 100, 100.5, 97, 97.5, 1];   // 收在 MA20 下
-  cs[29] = [29, 97.5, 104, 97.4, 103.8, 1];  // 收回 MA20 上
-  const s = Q.signals(cs, '多');
-  assert.ok(s.includes('突破MA20'), s.join(','));
-  assert.ok(!s.includes('回踩MA20'));
+  cs[29] = [29, 97.5, 102, 97.4, 101.8, 1];  // 收回 MA20 上
+  assert.ok(Q.signals(cs, '多').includes('均线突破'));
+  assert.ok(!Q.signals(cs, '空').includes('均线突破'));
+
+  const dn = Array.from({ length: 30 }, (_, k) => [k, 100, 101, 99, 100, 1]);
+  dn[28] = [28, 100, 103, 99.5, 102.5, 1];   // 收在 MA20 上
+  dn[29] = [29, 102.5, 102.6, 98, 98.2, 1];  // 跌破 MA20 下
+  assert.ok(Q.signals(dn, '空').includes('均线突破'));
+  assert.ok(!Q.signals(dn, '多').includes('均线突破'));
 });
 
-test('信号: 长下影 Pinbar 与看涨吞没; 做空镜像只看上影/看跌吞没, 不给均线类', () => {
+test('信号: 大阳线后的顺势短线多 与 大阴线后的顺势短线空 方向镜像隔离', () => {
   const base = Array.from({ length: 30 }, (_, k) => [k, 100, 101, 99, 100, 1]);
-  const pin = base.slice(); pin[29] = [29, 100, 100.6, 94, 100.4, 1];
-  assert.ok(Q.signals(pin, '多').includes('Pinbar'));
-  assert.ok(!Q.signals(pin, '空').includes('Pinbar'));
-  const eng = base.slice(); eng[28] = [28, 101, 101.2, 99.4, 99.6, 1]; eng[29] = [29, 99.5, 102, 99.3, 101.5, 1];
-  assert.ok(Q.signals(eng, '多').includes('吞没'));
-  const bear = base.slice(); bear[28] = [28, 99.6, 101.2, 99.4, 101, 1]; bear[29] = [29, 101.1, 101.3, 99, 99.4, 1];
-  const ss = Q.signals(bear, '空');
-  assert.ok(ss.includes('吞没'));
-  assert.ok(!ss.some(x => x.startsWith('突破') || x.startsWith('回踩')));
+  const bull = base.slice();
+  bull[28] = [28, 100, 106.5, 99.8, 106, 1];   // 大阳线(+6%, 实体占比>90%)
+  bull[29] = [29, 106, 107.2, 105, 106.8, 1];  // 次根维持大阳中位上方
+  assert.ok(Q.signals(bull, '多').includes('大阳线后的顺势短线多'));
+  assert.ok(!Q.signals(bull, '空').includes('大阴线后的顺势短线空'));
+
+  const bear = base.slice();
+  bear[28] = [28, 100, 100.2, 93.5, 94, 1];    // 大阴线(-6%, 实体占比>90%)
+  bear[29] = [29, 94, 95, 92.8, 93.2, 1];      // 次根维持大阴中位下方
+  assert.ok(Q.signals(bear, '空').includes('大阴线后的顺势短线空'));
+  assert.ok(!Q.signals(bear, '多').includes('大阳线后的顺势短线多'));
 });
 
-test('信号: 额外传入 MACD 背离时加入建议', () => {
-  assert.ok(Q.signals(ramp(40), '多', { macdDivergence: true }).includes('MACD背离'));
+test('信号: 震荡区间的反转（箱体下沿拒绝 / 上沿拒绝 / 外部背离）', () => {
+  const box = Array.from({ length: 24 }, (_, k) => {
+    const c = k % 2 ? 102 : 98;
+    return [k, c, 104, 96, c, 1];
+  });
+  const revUp = box.slice();
+  revUp[23] = [23, 97.5, 99.8, 95.8, 99.5, 1]; // 箱体下沿长下影反抽收阳
+  assert.ok(Q.signals(revUp, '多').includes('震荡区间的反转'));
+
+  const revDn = box.slice();
+  revDn[23] = [23, 102.5, 104.3, 100.2, 100.5, 1]; // 箱体上沿长上影反打收阴
+  assert.ok(Q.signals(revDn, '空').includes('震荡区间的反转'));
+
+  assert.ok(Q.signals(ramp(40), '多', { macdDivergence: true }).includes('震荡区间的反转'));
 });
 
 test('止损: 本根极值 / ATR / 波段, 且必须在不利方向', () => {

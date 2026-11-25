@@ -95,21 +95,31 @@ PANELS: list[tuple[str, str, dict[str, str]]] = [
     ("000333_SZ", "000333.SZ 美的集团", {"1D": "cn_equity/000333_SZ_1day.parquet"}),
     ("603259_SS", "603259.SS 药明康德", {"1D": "cn_equity/603259_SS_1day.parquet"}),
     ("300033_SZ", "300033.SZ 同花顺", {"1D": "cn_equity/300033_SZ_1day.parquet"}),
+    # ---- 2026-11 最小化均衡扩容（宏观利率/外汇/港指 + 跨行业个股龙头） ----
+    ("TLT", "TLT 20年美债ETF", {"1D": "stocks/TLT_1day.parquet"}),
+    ("USDJPY", "USDJPY 美元/日元", {"1D": "fx/USDJPY_1day.parquet"}),
+    ("HSI", "HSI 恒生指数", {"1D": "indices/HSI_1day.parquet"}),
+    ("TSM", "TSM 台积电", {"1D": "stocks/TSM_1day.parquet"}),
+    ("LLY", "LLY 礼来", {"1D": "stocks/LLY_1day.parquet"}),
+    ("XOM", "XOM 埃克森美孚", {"1D": "stocks/XOM_1day.parquet"}),
+    ("FCX", "FCX 自由港铜矿", {"1D": "stocks/FCX_1day.parquet"}),
 ]
 
 
 def _bars_from_parquet(path: Path):
     df = pd.read_parquet(path).sort_values("time").reset_index(drop=True)
     epochs = [int(x) for x in df["time"].tolist()]
-    bars = [
-        {
+    bars = []
+    for idx, row in df.iterrows():
+        o, h, l, c = float(row["open"]), float(row["high"]), float(row["low"]), float(row["close"])
+        bars.append({
             "idx": idx,
-            "open": float(row["open"]), "high": float(row["high"]),
-            "low": float(row["low"]), "close": float(row["close"]),
+            "open": o,
+            "high": max(o, h, l, c),
+            "low": min(o, h, l, c),
+            "close": c,
             "volume": float(row["volume"]),
-        }
-        for idx, row in df.iterrows()
-    ]
+        })
     return bars, epochs
 
 

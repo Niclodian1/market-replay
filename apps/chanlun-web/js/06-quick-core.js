@@ -8,10 +8,12 @@ const VERSION = 'quick-order/1';
 const CFG = {
   ma120FlatPct: 0.3,      // MA120 近5根变化率绝对值 ≤ 此值视为走平(%)
   ma120Lookback: 5,
-  pullbackNearATR: 0.3,   // 回踩: 最低价不高于均线 + 0.3×ATR
-  pullbackDeepATR: 0.5,   // 回踩: 最低价不低于均线 − 0.5×ATR(太深算跌破)
-  pinWick: 0.6,           // Pinbar: 影线 ≥ 全长 60%
-  pinBody: 0.3,           // Pinbar: 实体 ≤ 全长 30%
+  bigBarAtrMult: 1.2,     // 大阳/大阴线: 实体 ≥ 1.2×ATR14 (或涨跌幅 ≥ 3%)
+  bigBarPct: 0.03,
+  bigBarBodyRatio: 0.55,  // 大阳/大阴线: 实体占比 ≥ 55%
+  rangeLookback: 20,      // 震荡区间统计窗口(根)
+  rangeMaxEff: 0.45,      // 区间效率上限(低效率=震荡箱体)
+  rangeEdgeRatio: 0.25,   // 触及区间上下 25% 边界视为反转测试位
   swingLookback: 20,      // 前一个波段低/高点: 向前最多找 20 根
   atrStopMult: 1.5,
 };
@@ -44,7 +46,18 @@ function market(cs){
   }
   return out;
 }
-// 入场信号建议: 返回 data-val 数组(与右侧标签同名)。均线类只对做多给建议; K线形态多空镜像。
+// 入场信号建议: 与右侧 4 项入场信号严格对齐
+//   1) 均线突破  2) 大阳线后的顺势短线多  3) 大阴线后的顺势短线空  4) 震荡区间的反转
+function isStrongBar(bar, dir, atr){
+  const [, o, h, l, c] = bar;
+  const rng = h - l;
+  const body = (c - o) * dir;
+  if (!(rng > 0) || !(body > 0)) return false;
+  if (body / rng < CFG.bigBarBodyRatio) return false;
+  const byAtr = atr != null && atr > 0 && body >= CFG.bigBarAtrMult * atr;
+  const byPct = o > 0 && body / o >= CFG.bigBarPct;
+  return byAtr || byPct;
+}
 function signals(cs, side = '多', extra = {}){
   const out = [];
   if (!Array.isArray(cs) || cs.length < 2) return out;
@@ -53,29 +66,63 @@ function signals(cs, side = '多', extra = {}){
   const range = h - l, body = Math.abs(c - o);
   const atr = atr14(cs);
   const long = side !== '空';
+
+  // 1. 均线突破(多: 下穿转上穿 MA20/60/120; 空: 上穿转下破 MA20/60/120)
+  for (const p of [20, 60, 120]){
+    const m = sma(cs, p), mp = sma(cs, p, n - 1);
+    if (m == null || mp == null) continue;
+    const hit = long ? (pb[4] < mp && c > m) : (pb[4] > mp && c < m);
+    if (hit){ out.push('均线突破'); break; }
+  }
+
+  // 2 & 3. 大阳线后的顺势短线多 / 大阴线后的顺势短线空
   if (long){
-    const crossed = {};
-    for (const p of [20, 60, 120]){
-      const m = sma(cs, p), mp = sma(cs, p, n - 1);
-      if (m == null || mp == null) continue;
-      crossed[p] = pb[4] < mp && c > m;
-      if (crossed[p]) out.push('突破MA' + p);
-      else if (atr && pb[4] >= mp && c > m && l <= m + CFG.pullbackNearATR * atr && l >= m - CFG.pullbackDeepATR * atr)
-        out.push('回踩MA' + p);
+    const curBig = isStrongBar(b, 1, atr);
+    const prevBig = isStrongBar(pb, 1, atr) && c >= (pb[1] + pb[4]) / 2 && c >= pb[1];
+    if (curBig || prevBig) out.push('大阳线后的顺势短线多');
+  } else {
+    const curBig = isStrongBar(b, -1, atr);
+    const prevBig = isStrongBar(pb, -1, atr) && c <= (pb[1] + pb[4]) / 2 && c <= pb[1];
+    if (curBig || prevBig) out.push('大阴线后的顺势短线空');
+  }
+
+  // 4. 震荡区间的反转(前窗箱体震荡 + 触及边界反向拒绝/吞没, 或外部传入背离信号)
+  let rangeRev = !!extra.macdDivergence;
+  if (!rangeRev && n >= 12){
+    const winStart = Math.max(0, n - 1 - CFG.rangeLookback);
+    const pre = cs.slice(winStart, n - 1);
+    if (pre.length >= 8){
+      let hi = -Infinity, lo = Infinity, path = 0;
+      for (let k = 0; k < pre.length; k++){
+        const x = pre[k];
+        if (x[2] > hi) hi = x[2];
+        if (x[3] < lo) lo = x[3];
+        if (k > 0) path += Math.abs(x[4] - pre[k - 1][4]);
+      }
+      const span = hi - lo;
+      const net = Math.abs(pre[pre.length - 1][4] - pre[0][4]);
+      const isBox = span > 0 && (path > 0 ? net / path <= CFG.rangeMaxEff : true);
+      if (isBox && range > 0){
+        const lowerWick = Math.min(o, c) - l;
+        const upperWick = h - Math.max(o, c);
+        const pBody = Math.abs(pb[4] - pb[1]);
+        if (long){
+          const nearBottom = l <= lo + span * CFG.rangeEdgeRatio;
+          const pin = lowerWick / range >= 0.45 && c >= o;
+          const bounce = c > o && (c - l) / range >= 0.65 && body / range >= 0.35;
+          const engulf = c > o && pb[4] < pb[1] && c >= pb[1] && body > pBody;
+          if (nearBottom && (pin || bounce || engulf)) rangeRev = true;
+        } else {
+          const nearTop = h >= hi - span * CFG.rangeEdgeRatio;
+          const pin = upperWick / range >= 0.45 && c <= o;
+          const drop = c < o && (h - c) / range >= 0.65 && body / range >= 0.35;
+          const engulf = c < o && pb[4] > pb[1] && c <= pb[1] && body > pBody;
+          if (nearTop && (pin || drop || engulf)) rangeRev = true;
+        }
+      }
     }
-    if (crossed[20] && crossed[60]) out.push('MA20与MA60双均线突破');
   }
-  if (range > 0){
-    const upper = h - Math.max(o, c), lower = Math.min(o, c) - l;
-    const wick = long ? lower : upper;
-    if (wick / range >= CFG.pinWick && body / range <= CFG.pinBody) out.push('Pinbar');
-  }
-  const pBody = Math.abs(pb[4] - pb[1]);
-  const engulf = long
-    ? (pb[4] < pb[1] && c > o && o <= pb[4] && c >= pb[1] && body > pBody)
-    : (pb[4] > pb[1] && c < o && o >= pb[4] && c <= pb[1] && body > pBody);
-  if (engulf) out.push('吞没');
-  if (extra.macdDivergence) out.push('MACD背离');
+  if (rangeRev) out.push('震荡区间的反转');
   return out;
 }
 // 默认止损: 'bar' 本根极值 / 'swing' 前一个波段极值 / 'atr' 入场 ∓ 1.5ATR。无效(不在不利方向)返回 null。

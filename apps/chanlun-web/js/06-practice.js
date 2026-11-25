@@ -352,11 +352,11 @@ function prReadImport(doc){
   });
 }
 function setupPracticeResearch(){
-  prEl('trainerDecision').addEventListener('click',prOpenDecision);
-  prEl('prCancel').addEventListener('click',prCloseDecision);
-  prEl('prChoice').addEventListener('change',prDecisionFields);
-  prEl('prSide').addEventListener('change',prDecisionFields);
-  prEl('prParent').addEventListener('change',()=>{
+  prEl('trainerDecision')?.addEventListener('click',prOpenDecision);
+  prEl('prCancel')?.addEventListener('click',prCloseDecision);
+  prEl('prChoice')?.addEventListener('change',prDecisionFields);
+  prEl('prSide')?.addEventListener('change',prDecisionFields);
+  prEl('prParent')?.addEventListener('change',()=>{
     if(!prDraft||!TR.research)return;
     const parent=PracticeCore.opportunityRows({research:TR.research})
       .find(d=>d.opportunityId===prEl('prParent').value&&d.choice==='wait');
@@ -366,7 +366,7 @@ function setupPracticeResearch(){
     if(!Object.keys(prDraft.anchors).length)prDraft.anchors={...parent.anchors};
     prRenderAnchors();prDecisionFields();
   });
-  prEl('practiceDecisionForm').addEventListener('submit',prSubmitDecision);
+  prEl('practiceDecisionForm')?.addEventListener('submit',prSubmitDecision);
   prEl('prSignals')?.addEventListener('click',e=>{
     const c=e.target.closest('[data-pr-sig]'); if(!c)return;
     const b=document.querySelector(`#jLogicTags .logic-tag[data-cat="${c.dataset.cat}"][data-val="${c.dataset.prSig}"]`);
@@ -374,8 +374,8 @@ function setupPracticeResearch(){
     prRenderSignals();
   });
   document.querySelectorAll('[data-pr-pick]').forEach(el=>el.addEventListener('click',()=>prStartPick(el.dataset.prPick)));
-  prEl('prClearAnchors').addEventListener('click',()=>{
-    if(!prDraft)return;prDraft.anchors={};prPick=null;prEl('prDecisionError').textContent='';prRenderAnchors();
+  prEl('prClearAnchors')?.addEventListener('click',()=>{
+    if(!prDraft)return;prDraft.anchors={};prPick=null;if(prEl('prDecisionError'))prEl('prDecisionError').textContent='';prRenderAnchors();
   });
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'&&prPick)prEndPick();

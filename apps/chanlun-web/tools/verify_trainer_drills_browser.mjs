@@ -217,7 +217,7 @@ await ev(`(() => {
   const c = s => document.querySelector(s).click();
   c('#jLogicTags .logic-tag[data-group="ma120dir"][data-val="MA120向上"]');
   c('#jLogicTags .logic-tag[data-group="pricepos"][data-val="价格在MA120以上"]');
-  c('#jLogicTags .logic-tag[data-cat="entry"][data-val="突破MA60"]');
+  c('#jLogicTags .logic-tag[data-cat="entry"][data-val="均线突破"]');
   document.getElementById('jCapital').value = 1000;
   document.getElementById('jLeverage').value = 10;
   document.getElementById('jSide').value = ${JSON.stringify(plan.dir)};
@@ -262,6 +262,7 @@ assert.equal(await ev(`TR.marks.length`), 1, '恢复信号K');
 await ev('trainerStep()');
 await sleep(60);
 await ev(`(() => {
+  document.querySelector('#jLogicTags .logic-tag[data-cat="entry"][data-val="均线突破"]')?.classList.add('active');
   document.getElementById('jCapital').value = 1000;
   document.getElementById('jLogic').value = '信号后开仓';
   document.getElementById('jOpen').click();

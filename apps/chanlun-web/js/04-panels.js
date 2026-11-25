@@ -52,6 +52,7 @@ function buildMarkers(v){
   if (typeof ma20StructureMarkers === 'function') out.push(...ma20StructureMarkers(v));
   if (typeof ma20AIMarkers === 'function') out.push(...ma20AIMarkers(v));
   if (typeof macd3segMarkers === 'function') out.push(...macd3segMarkers(v));
+  if (typeof window.MarketContext?.earningsMarkers === 'function') out.push(...window.MarketContext.earningsMarkers(v));
   out.sort((a,b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
   return out;
 }
@@ -193,6 +194,10 @@ let _panelRaf = null;
 function refreshAll(opts = {}){
   applySeries(opts);
   updateLivePnl();   // 复盘持仓浮动盈亏随K线实时刷新(只改文本, 不重建表单)
+  if (typeof window.MarketContext?.render === 'function') window.MarketContext.render(null);
+  if (typeof window.renderLegendBar === 'function' && (typeof syncT === 'undefined' || syncT == null)) {
+    window.renderLegendBar(null);
+  }
   if (opts.light){
     if (_panelRaf == null){
       _panelRaf = requestAnimationFrame(() => { _panelRaf = null; refreshPanels(); });
@@ -237,6 +242,7 @@ async function setTF(tf){
   if (!switching && !needChunkLoad) return;
   _activeSubPane = null;
   activeTF = tf;
+  if (typeof renderTfTabs === 'function') renderTfTabs();
   document.querySelectorAll('#tfToggle button').forEach(b => b.classList.toggle('active', b.dataset.tf === tf));
   document.getElementById('symbolBadge').textContent = `${DATA.meta.symbol} · ${tf}`;
   chart.applyOptions(chartOptions());
@@ -279,13 +285,13 @@ function chunkWindowReady(){
 async function ensureChunkWindow(){
   if (chunkWindowReady()) return true;
   const man = await ChunkStore.manifest(currentSym, activeTF);
-  if (!man || !man.total){ alert(`${currentSym} 暂无 ${activeTF} 分钟级分片数据`); return false; }
+  if (!man || !man.total){ window.showToast?.(`⚠ ${currentSym} 暂无 ${activeTF} 分钟级分片数据`, 'warn', 2800); return false; }
   const sec = man.sec;
   const lastT = man.chunks[man.chunks.length - 1].t1;
   const span = (TR.LOOKBACK * 2 + 20) * sec;   // 默认展示最近 LOOKBACK*2 根
   const ok = await ChunkStore.loadWindow(currentSym, activeTF,
     Math.max(man.chunks[0].t0, lastT - span), lastT + sec);
-  if (!ok){ alert('分片加载失败, 请稍后重试'); return false; }
+  if (!ok){ window.showToast?.('✗ 分片加载失败，请稍后重试', 'err', 2800); return false; }
   return true;
 }
 
@@ -332,8 +338,20 @@ function updateModeBadge(){
   el.textContent = txt;
   el.className = 'mode-badge' + (cls ? ' ' + cls : '');
 }
+function resolveBarTime(ts){
+  const times = allTimes();
+  if (!times.length) return ts;
+  if (ts == null) return times[Math.floor(times.length * 0.8)];
+  let lo = 0, hi = times.length - 1, pos = 0;
+  while (lo <= hi){
+    const mid = (lo + hi) >> 1;
+    if (times[mid] <= ts){ pos = mid; lo = mid + 1; } else hi = mid - 1;
+  }
+  return times[pos];
+}
 function enterReplay(ts){
-  replayT = ts || allTimes()[Math.floor(allTimes().length * 0.8)];
+  stopPlay();
+  replayT = resolveBarTime(ts);
   document.getElementById('replayCtl').style.display = 'flex';
   document.getElementById('replayBtn').textContent = '复盘中…';
   document.getElementById('replayBtn').classList.add('active');
@@ -345,6 +363,9 @@ function enterReplay(ts){
       ? `${ymd}T${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`
       : ymd;
   }
+  const times = allTimes();
+  const idx = times.indexOf(replayT);
+  if (idx >= 0) document.getElementById('replayInfo').textContent = `${fmtTime(replayT)} · ${idx + 1}/${times.length}`;
   renderJournal();   // 刷新复盘模式显示与按钮可用态
   refreshAll();
   if (typeof setSideTab === 'function') setSideTab('trade');
@@ -359,7 +380,7 @@ function exitReplay(){
   updateModeBadge();
   renderJournal();   // 退出复盘: 刷新模式显示与按钮可用态
   refreshAll();
-  if (!TR.active && typeof setSideTab === 'function') setSideTab('overview');
+  if (!TR.active && typeof setSideTab === 'function') setSideTab('logic');
   chart.timeScale().fitContent();
 }
 function stopPlay(){
@@ -397,36 +418,41 @@ function togglePlay(){
 function setupReplay(){
   const btn = document.getElementById('replayBtn');
   btn.addEventListener('click', () => inReplay() ? exitReplay() : enterReplay());
-  document.getElementById('replayGo').addEventListener('click', () => {
+  const jumpToInputDate = () => {
     const v = document.getElementById('replayDate').value;
     if (!v) return;
     const d = v.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/);
     if (!d) return;
-    enterReplay(Date.UTC(+d[1], +d[2] - 1, +d[3], +(d[4] || 0), +(d[5] || 0)) / 1000);
-  });
+    stopPlay();
+    const targetTs = Date.UTC(+d[1], +d[2] - 1, +d[3], +(d[4] || 0), +(d[5] || 0)) / 1000;
+    if (inReplay()) setReplayT(targetTs);
+    else enterReplay(targetTs);
+  };
+  document.getElementById('replayGo').addEventListener('click', jumpToInputDate);
+  document.getElementById('replayDate').addEventListener('change', jumpToInputDate);
   document.getElementById('replayPrev').addEventListener('click', () => { stopPlay(); stepReplay(-1); });
   document.getElementById('replayNext').addEventListener('click', () => { stopPlay(); stepReplay(1); });
   document.getElementById('replayPlay').addEventListener('click', togglePlay);
   document.getElementById('replayExit').addEventListener('click', exitReplay);
 }
 
-// ---- 一键快照: 三面板合成一张图 → 剪贴板(并下载) ----
+// ---- 一键快照: 仅合成当前可见面板 → 剪贴板 ----
 function setupSnapshot(){
   document.getElementById('snapshotBtn').addEventListener('click', async () => {
     // 有未读错误时优先展示完整堆栈(诊断用), 无错误才走截图
     if (globalThis.__ERRS && __ERRS.length){
       alert('最近捕获的错误:\n\n' + __ERRS.map((s, i) => `[${i + 1}] ${s}`).join('\n\n'));
       __ERRS.length = 0;
-      flashBtn('snapshotBtn', '📷 快照');
+      const sb = document.getElementById('snapshotBtn');
+      if (sb) sb.innerHTML = window.UI_ICONS?.camera || '📷';
       return;
     }
     try {
-      // lightweight-charts v4 的 chart 提供 takeScreenshot()(canvas)
-      const c1 = chart.takeScreenshot();
-      const c2 = volumeChart.takeScreenshot();
-      const c3 = macdChart.takeScreenshot();
-      const W = Math.max(c1.width, c2.width, c3.width);
-      const H = c1.height + c2.height + c3.height + 30;
+      const canvases = [chart.takeScreenshot()];
+      if (!document.getElementById('volume')?.classList.contains('pane-off')) canvases.push(volumeChart.takeScreenshot());
+      if (!document.getElementById('macd')?.classList.contains('pane-off')) canvases.push(macdChart.takeScreenshot());
+      const W = Math.max(...canvases.map(c => c.width));
+      const H = canvases.reduce((sum, c) => sum + c.height, 0) + 30;
       const out = document.createElement('canvas');
       out.width = W; out.height = H;
       const ctx = out.getContext('2d');
@@ -441,19 +467,25 @@ function setupSnapshot(){
         : `${symShow} ${activeTF} · ${fmtTime(candlesFor(activeView).at(-1)?.time)}`;
       ctx.fillText(info, 12, 20);
       let y = 30;
-      for (const c of [c1, c2, c3]){ ctx.drawImage(c, 0, y); y += c.height; }
+      for (const c of canvases){ ctx.drawImage(c, 0, y); y += c.height; }
       // 仅复制到剪贴板(不下载)
       const blob = await new Promise(r => out.toBlob(r, 'image/png'));
       try {
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        flashBtn('snapshotBtn', '✓ 已复制到剪贴板');
-      } catch { flashBtn('snapshotBtn', '✗ 剪贴板不可用'); }
-    } catch (e) { alert('快照失败: ' + e.message); }
+        flashBtn('snapshotBtn', '✓ 图表快照已复制到剪贴板');
+      } catch { flashBtn('snapshotBtn', '✗ 剪贴板不可用，请检查浏览器权限'); }
+    } catch (e) { window.showToast?.('✗ 快照失败：' + e.message, 'err', 3000); }
   });
 }
 function flashBtn(id, txt){
+  // 业务通知统一走独立浮动 Toast，不再把消息硬塞进「📷」快照按钮文字
+  if (id === 'snapshotBtn' && typeof window.showToast === 'function' && !String(txt || '').includes('点此查看') && txt !== '📷'){
+    window.showToast(txt);
+    return;
+  }
   const b = document.getElementById(id);
+  if (!b) return;
   const old = b.textContent;
   b.textContent = txt;
-  setTimeout(() => b.textContent = old, 1600);
+  setTimeout(() => { b.textContent = old; }, 1600);
 }
